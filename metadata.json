@@ -1,0 +1,8 @@
+{
+  "name": "Sistem Absensi Guru",
+  "description": "A web application for teacher attendance using QR codes, with separate roles for Admins and Teachers. Features include user management, QR code generation, geolocation-restricted scanning, and attendance reporting.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
