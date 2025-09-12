@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
@@ -89,6 +90,13 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
     const [isLessonHourModalOpen, setIsLessonHourModalOpen] = useState(false);
     const [selectedLessonHour, setSelectedLessonHour] = useState<number | null>(null);
 
+    useEffect(() => {
+        if (view === 'schedule') {
+            setClasses(db.getItem('classes') || []);
+            setSchedules(db.getItem('schedules') || []);
+        }
+    }, [view]);
+
     const userSchedules = useMemo(() => schedules.filter(s => s.teacherId === user.id), [schedules, user.id]);
 
     const recordAttendance = (classId: string, lessonHour: number) => {
@@ -107,6 +115,8 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
       if (hasScannedToday) {
           alert('Anda sudah absen untuk jam pelajaran ini.');
+          setView('home');
+          setSelectedLessonHour(null);
           return;
       }
 
@@ -120,6 +130,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
       db.setItem('attendance', [...allAttendance, newRecord]);
       alert('Absensi berhasil!');
       setView('home');
+      setSelectedLessonHour(null);
     };
 
     const handleProceedToScan = () => {
@@ -129,6 +140,11 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
         }
         setIsLessonHourModalOpen(false);
         setView('scan');
+    };
+    
+    const handleScanCancel = () => {
+        setView('home');
+        setSelectedLessonHour(null);
     };
     
     return (
@@ -175,7 +191,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                         </div>
                     </div>
                 )}
-                {view === 'scan' && selectedLessonHour && <QRScanner onScanSuccess={(classId) => recordAttendance(classId, selectedLessonHour)} onCancel={() => setView('home')} />}
+                {view === 'scan' && selectedLessonHour && <QRScanner onScanSuccess={(classId) => recordAttendance(classId, selectedLessonHour)} onCancel={handleScanCancel} />}
                 {view === 'history' && <TeacherAttendanceHistory user={user} classes={classes}/>}
                 {view === 'schedule' && <TeacherScheduleManager user={user} schedules={userSchedules} setSchedules={setSchedules} classes={classes}/>}
             </main>
