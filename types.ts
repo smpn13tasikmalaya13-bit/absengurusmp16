@@ -10,7 +10,6 @@ export interface User {
   password?: string; // Not stored in frontend state after login
   name: string;
   role: UserRole;
-  deviceId?: string; // For device binding
 }
 
 export interface Class {

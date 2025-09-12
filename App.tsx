@@ -56,7 +56,7 @@ initializeMockData();
 // --- UI Components ---
 
 const Spinner = () => (
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
 );
 
 interface ModalProps {
@@ -72,7 +72,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
                 <div className="p-4 border-b flex justify-between items-center">
                     <h3 className="text-xl font-semibold">{title}</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800">&times;</button>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
                 </div>
                 <div className="p-4">{children}</div>
             </div>
@@ -131,28 +131,39 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             </header>
             <main className="flex-grow p-4 md:p-6">
                 {view === 'home' && (
-                    <div className="text-center">
-                        <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto">
-                            <h2 className="text-xl font-semibold mb-4">Absensi QR Code</h2>
+                    <div className="max-w-md mx-auto">
+                        <div className="bg-white p-4 rounded-lg shadow-md mb-6 text-center">
+                            <h2 className="text-lg font-semibold mb-2 text-gray-700">Status Lokasi</h2>
                             {geoLoading ? <Spinner /> : 
                                 geoError ? <p className="text-red-500">Error: {geoError}</p> :
                                 <>
-                                    <p className="mb-2 text-gray-600">Jarak Anda dari sekolah: {distance?.toFixed(0) ?? '...'} meter</p>
-                                    <p className={`font-bold mb-4 ${isWithinRadius ? 'text-green-600' : 'text-red-600'}`}>
-                                        {isWithinRadius ? 'Anda berada dalam radius absen' : 'Anda berada di luar radius absen'}
+                                    <p className="text-gray-600">Jarak dari sekolah: <strong>{distance?.toFixed(0) ?? '...'} meter</strong></p>
+                                    <p className={`font-semibold mt-1 ${isWithinRadius ? 'text-green-600' : 'text-red-600'}`}>
+                                        {isWithinRadius ? 'Anda berada dalam radius absen.' : 'Anda di luar radius absen.'}
                                     </p>
-                                    <button
-                                        onClick={() => setView('scan')}
-                                        disabled={!isWithinRadius}
-                                        className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                    >
-                                        Scan QR Absen
-                                    </button>
-                                     <button onClick={refreshLocation} className="mt-2 text-sm text-blue-500 hover:underline">
+                                    <button onClick={refreshLocation} className="mt-2 text-sm text-blue-500 hover:underline">
                                         Refresh Lokasi
-                                     </button>
+                                    </button>
                                 </>
                             }
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                            <button
+                                onClick={() => setView('scan')}
+                                disabled={!isWithinRadius}
+                                className="bg-blue-600 text-white p-6 rounded-lg shadow-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex flex-col items-center justify-center text-center"
+                            >
+                                <span className="text-4xl mb-2">📷</span>
+                                <span className="font-semibold text-lg">Scan QR Absen</span>
+                            </button>
+                            <button
+                                onClick={() => setView('schedule')}
+                                className="bg-green-500 text-white p-6 rounded-lg shadow-lg hover:bg-green-600 transition flex flex-col items-center justify-center text-center"
+                            >
+                                <span className="text-4xl mb-2">📅</span>
+                                <span className="font-semibold text-lg">Kelola Jadwal Pelajaran</span>
+                            </button>
                         </div>
                     </div>
                 )}
@@ -160,11 +171,11 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                 {view === 'history' && <TeacherAttendanceHistory user={user} classes={classes}/>}
                 {view === 'schedule' && <TeacherScheduleManager user={user} schedules={userSchedules} setSchedules={setSchedules} classes={classes}/>}
             </main>
-            <footer className="bg-white shadow-t-md p-2">
+            <footer className="bg-white shadow-t-md p-2 sticky bottom-0">
                 <nav className="flex justify-around">
-                    <button onClick={() => setView('home')} className={`p-2 rounded-lg ${view === 'home' && 'bg-blue-100 text-blue-700'}`}>Home</button>
-                    <button onClick={() => setView('schedule')} className={`p-2 rounded-lg ${view === 'schedule' && 'bg-blue-100 text-blue-700'}`}>Jadwal</button>
-                    <button onClick={() => setView('history')} className={`p-2 rounded-lg ${view === 'history' && 'bg-blue-100 text-blue-700'}`}>Riwayat</button>
+                    <button onClick={() => setView('home')} className={`p-2 rounded-lg text-gray-600 hover:bg-gray-100 ${view === 'home' && 'bg-blue-100 text-blue-700'}`}>Home</button>
+                    <button onClick={() => setView('schedule')} className={`p-2 rounded-lg text-gray-600 hover:bg-gray-100 ${view === 'schedule' && 'bg-blue-100 text-blue-700'}`}>Jadwal</button>
+                    <button onClick={() => setView('history')} className={`p-2 rounded-lg text-gray-600 hover:bg-gray-100 ${view === 'history' && 'bg-blue-100 text-blue-700'}`}>Riwayat</button>
                 </nav>
             </footer>
         </div>
@@ -523,31 +534,19 @@ const TeacherManagement: React.FC = () => {
             setTeachers(teachers.filter(t => t.id !== id));
         }
     };
-    
-    const handleReset = (id: string) => {
-        if (window.confirm("Yakin ingin mereset akun guru ini? Device yang terhubung akan dihapus.")) {
-             let allUsers = db.getItem<User[]>('users') || [];
-             const updatedUsers = allUsers.map(u => u.id === id ? {...u, deviceId: undefined} : u);
-             db.setItem('users', updatedUsers);
-             setTeachers(updatedUsers.filter(u => u.role === UserRoleEnum.TEACHER));
-             alert("Akun berhasil direset.");
-        }
-    }
 
     return (
         <>
             <CrudTable
                 title="Manajemen Guru"
-                columns={['Nama', 'User ID', 'Device Terhubung', 'Aksi']}
+                columns={['Nama', 'User ID', 'Aksi']}
                 data={teachers}
                 onAdd={() => { setEditingTeacher({}); setIsModalOpen(true); }}
                 renderRow={(teacher: User) => (
                     <tr key={teacher.id} className="border-b hover:bg-gray-50">
                         <td className="p-3">{teacher.name}</td>
                         <td className="p-3">{teacher.userId}</td>
-                        <td className="p-3">{teacher.deviceId ? 'Ya' : 'Tidak'}</td>
                         <td className="p-3 space-x-2">
-                             <button onClick={() => handleReset(teacher.id)} className="text-yellow-600 hover:underline">Reset</button>
                             <button onClick={() => handleDelete(teacher.id)} className="text-red-600 hover:underline">Hapus</button>
                         </td>
                     </tr>
@@ -818,20 +817,6 @@ const AuthScreen: React.FC<{ onLoginSuccess: (user: User) => void }> = ({ onLogi
         const users: User[] = db.getItem('users') || [];
         const user = users.find(u => u.userId === userId && u.password === password);
         if (user) {
-            // Device binding for teachers
-            if(user.role === UserRoleEnum.TEACHER) {
-                // FIX: Specified generic type for `db.getItem` to ensure `deviceId` is a string.
-                const deviceId = db.getItem<string>('deviceId') || `dev-${crypto.randomUUID()}`;
-                db.setItem('deviceId', deviceId);
-
-                if(!user.deviceId) { // First login, bind device
-                    user.deviceId = deviceId;
-                    db.setItem('users', users);
-                } else if(user.deviceId !== deviceId) {
-                    setError('Akun ini hanya bisa diakses dari perangkat pertama yang digunakan.');
-                    return;
-                }
-            }
             onLoginSuccess(user);
         } else {
             setError('User ID atau Password salah.');
