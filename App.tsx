@@ -86,23 +86,22 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
     const [schedules, setSchedules] = useState<Schedule[]>(db.getItem('schedules') || []);
     const [classes, setClasses] = useState<Class[]>(db.getItem('classes') || []);
     const { distance, isWithinRadius, error: geoError, loading: geoLoading, refreshLocation } = useGeolocation();
+    const [isLessonHourModalOpen, setIsLessonHourModalOpen] = useState(false);
+    const [selectedLessonHour, setSelectedLessonHour] = useState<number | null>(null);
 
     const userSchedules = useMemo(() => schedules.filter(s => s.teacherId === user.id), [schedules, user.id]);
 
-    const recordAttendance = (classId: string) => {
+    const recordAttendance = (classId: string, lessonHour: number) => {
       const now = new Date();
-      // This is a simplified way to get lesson hour. A real app might have defined time slots.
-      const currentHour = now.getHours();
-      let lessonHour = 0;
-      if (currentHour >= 7 && currentHour < 8) lessonHour = 1;
-      else if (currentHour >= 8 && currentHour < 9) lessonHour = 2;
-      // ... and so on
-      else lessonHour = Math.max(1, currentHour - 6);
+      
+      if (!lessonHour) {
+          alert("Jam pelajaran tidak valid.");
+          return;
+      }
 
       const allAttendance: AttendanceRecord[] = db.getItem('attendance') || [];
       const today = now.toISOString().split('T')[0];
       const hasScannedToday = allAttendance.some(
-          // FIX: Changed `className` to `classId` to match the function parameter.
           rec => rec.teacherId === user.id && rec.classId === classId && rec.lessonHour === lessonHour && rec.scanTime.startsWith(today)
       );
 
@@ -121,6 +120,15 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
       db.setItem('attendance', [...allAttendance, newRecord]);
       alert('Absensi berhasil!');
       setView('home');
+    };
+
+    const handleProceedToScan = () => {
+        if (!selectedLessonHour) {
+            alert('Silakan pilih jam pelajaran terlebih dahulu.');
+            return;
+        }
+        setIsLessonHourModalOpen(false);
+        setView('scan');
     };
     
     return (
@@ -150,7 +158,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
                         <div className="grid grid-cols-1 gap-4">
                             <button
-                                onClick={() => setView('scan')}
+                                onClick={() => setIsLessonHourModalOpen(true)}
                                 disabled={!isWithinRadius}
                                 className="bg-blue-600 text-white p-6 rounded-lg shadow-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex flex-col items-center justify-center text-center"
                             >
@@ -167,7 +175,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                         </div>
                     </div>
                 )}
-                {view === 'scan' && <QRScanner onScanSuccess={recordAttendance} onCancel={() => setView('home')} />}
+                {view === 'scan' && selectedLessonHour && <QRScanner onScanSuccess={(classId) => recordAttendance(classId, selectedLessonHour)} onCancel={() => setView('home')} />}
                 {view === 'history' && <TeacherAttendanceHistory user={user} classes={classes}/>}
                 {view === 'schedule' && <TeacherScheduleManager user={user} schedules={userSchedules} setSchedules={setSchedules} classes={classes}/>}
             </main>
@@ -178,6 +186,26 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                     <button onClick={() => setView('history')} className={`p-2 rounded-lg text-gray-600 hover:bg-gray-100 ${view === 'history' && 'bg-blue-100 text-blue-700'}`}>Riwayat</button>
                 </nav>
             </footer>
+             <Modal isOpen={isLessonHourModalOpen} onClose={() => setIsLessonHourModalOpen(false)} title="Pilih Jam Pelajaran">
+                <div>
+                    <div className="mb-4">
+                        <label htmlFor="lessonHourSelect" className="block mb-2 text-sm font-medium text-gray-900">Pilih jam ke berapa Anda mengajar:</label>
+                        <select
+                            id="lessonHourSelect"
+                            value={selectedLessonHour || ''}
+                            onChange={(e) => setSelectedLessonHour(parseInt(e.target.value))}
+                            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+                        >
+                            <option value="">-- Pilih Jam --</option>
+                            {LESSON_HOURS.map(hour => <option key={hour} value={hour}>{hour}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                         <button onClick={() => setIsLessonHourModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Batal</button>
+                        <button onClick={handleProceedToScan} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Lanjutkan ke Scan</button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };
