@@ -197,42 +197,46 @@ const performConflictCheck = async (scheduleData: Omit<Schedule, 'id'>, schedule
     }
 
     // --- 1. Check for class conflict ---
+    // Fetch all schedules for the class, then filter by day in the application logic for robustness.
     const classSchedulesSnapshot = await db.collection('schedules')
-        .where('day', '==', day)
         .where('classId', '==', classId)
         .get();
     
-    // Filter out the schedule being edited from the check
     const existingClassSchedules: Schedule[] = collectionToData<Schedule>(classSchedulesSnapshot)
         .filter((s: Schedule) => s.id !== scheduleIdToExclude); 
 
     for (const existing of existingClassSchedules) {
-        // Overlap condition: (StartA < EndB) and (StartB < EndA)
-        if (startTime < existing.endTime && existing.startTime < endTime) {
-            return { 
-                success: false, 
-                message: `Jadwal bentrok! Kelas ini sudah memiliki jadwal pada pukul ${existing.startTime}-${existing.endTime}.` 
-            };
+        // Check if the schedule is on the same day before checking for time overlap
+        if (existing.day === day) {
+            // Overlap condition: (StartA < EndB) and (StartB < EndA)
+            if (startTime < existing.endTime && existing.startTime < endTime) {
+                return { 
+                    success: false, 
+                    message: `Jadwal bentrok! Kelas ini sudah memiliki jadwal pada pukul ${existing.startTime}-${existing.endTime}.` 
+                };
+            }
         }
     }
 
     // --- 2. Check for teacher conflict ---
+    // Fetch all schedules for the teacher, then filter by day in the application logic.
     const teacherSchedulesSnapshot = await db.collection('schedules')
-        .where('day', '==', day)
         .where('teacherId', '==', teacherId)
         .get();
         
-    // Filter out the schedule being edited from the check
     const existingTeacherSchedules: Schedule[] = collectionToData<Schedule>(teacherSchedulesSnapshot)
         .filter((s: Schedule) => s.id !== scheduleIdToExclude);
     
     for (const existing of existingTeacherSchedules) {
-        // Overlap condition: (StartA < EndB) and (StartB < EndA)
-        if (startTime < existing.endTime && existing.startTime < endTime) {
-            return { 
-                success: false, 
-                message: `Jadwal bentrok! Anda sudah memiliki jadwal lain pada pukul ${existing.startTime}-${existing.endTime}.` 
-            };
+        // Check if the schedule is on the same day before checking for time overlap
+        if (existing.day === day) {
+             // Overlap condition: (StartA < EndB) and (StartB < EndA)
+            if (startTime < existing.endTime && existing.startTime < endTime) {
+                return { 
+                    success: false, 
+                    message: `Jadwal bentrok! Anda sudah memiliki jadwal lain pada pukul ${existing.startTime}-${existing.endTime}.` 
+                };
+            }
         }
     }
 
