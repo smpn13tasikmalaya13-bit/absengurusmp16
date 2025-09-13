@@ -1,5 +1,5 @@
 import type { User, Class, Schedule, AttendanceRecord, UserRole } from '../types';
-import { HARI_TRANSLATION } from '../constants';
+import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
 declare var firebase: any;
 
@@ -189,8 +189,24 @@ export const deleteClass = async (id: string): Promise<void> => {
 // --- Schedule Functions ---
 
 export const getSchedules = async (): Promise<Schedule[]> => {
-    const snapshot = await db.collection('schedules').orderBy('day').orderBy('startTime').get();
-    return collectionToData<Schedule>(snapshot);
+    // The query with multiple orderBy clauses requires a composite index,
+    // which can fail if not created in Firebase.
+    // To avoid this, we fetch unsorted and sort on the client.
+    const snapshot = await db.collection('schedules').get();
+    const schedules = collectionToData<Schedule>(snapshot);
+
+    // Sort schedules by day of the week, then by start time
+    schedules.sort((a, b) => {
+        const dayAIndex = DAYS_OF_WEEK.indexOf(a.day);
+        const dayBIndex = DAYS_OF_WEEK.indexOf(b.day);
+
+        if (dayAIndex !== dayBIndex) {
+            return dayAIndex - dayBIndex;
+        }
+        return a.startTime.localeCompare(b.startTime);
+    });
+
+    return schedules;
 };
 
 export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
