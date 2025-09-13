@@ -51,6 +51,10 @@ export const signOut = async (): Promise<void> => {
     await auth.signOut();
 };
 
+export const sendPasswordResetEmail = async (email: string): Promise<void> => {
+    await auth.sendPasswordResetEmail(email);
+};
+
 export const signUp = async (email: string, password: string, name: string, role: UserRole): Promise<{success: boolean; message?: string}> => {
      // Check for admin limit before creating the user in Auth
     if (role === 'ADMIN') {

@@ -878,29 +878,35 @@ const AttendanceReport: React.FC = () => {
 // --- Login/Register Component ---
 
 const AuthScreen: React.FC = () => {
-    const [isLogin, setIsLogin] = useState(true);
+    const [authView, setAuthView] = useState<'login' | 'register' | 'reset'>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
     const [role, setRole] = useState<UserRole>(UserRoleEnum.TEACHER);
     const [error, setError] = useState('');
+    const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
+    
+    const clearMessages = () => {
+        setError('');
+        setMessage('');
+    };
 
     const handleAuthAction = async () => {
         setLoading(true);
-        setError('');
+        clearMessages();
         try {
-            if (isLogin) {
+            if (authView === 'login') {
                 await api.signIn(email, password);
                 // The onAuthStateChanged listener in App.tsx will handle the redirect.
-            } else {
+            } else { // 'register'
                 if (!name) {
                     throw new Error('Nama Lengkap wajib diisi.');
                 }
                 const result = await api.signUp(email, password, name, role);
                  if (result.success) {
-                    alert('Registrasi berhasil! Silakan login.');
-                    setIsLogin(true);
+                    setMessage('Registrasi berhasil! Silakan login.');
+                    setAuthView('login');
                 } else {
                     throw new Error(result.message || 'Gagal mendaftar.');
                 }
@@ -912,48 +918,110 @@ const AuthScreen: React.FC = () => {
         }
     };
     
+    const handlePasswordReset = async () => {
+        setLoading(true);
+        clearMessages();
+        try {
+            await api.sendPasswordResetEmail(email);
+            setMessage('Link reset password telah dikirim ke email Anda. Silakan periksa inbox.');
+        } catch (authError: any) {
+            if (authError.code === 'auth/user-not-found') {
+                setError('Email tidak terdaftar.');
+            } else {
+                setError(authError.message || 'Gagal mengirim email reset.');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+    
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        handleAuthAction();
+        if (authView === 'reset') {
+            handlePasswordReset();
+        } else {
+            handleAuthAction();
+        }
+    };
+    
+    const getTitle = () => {
+        if (authView === 'login') return 'Login';
+        if (authView === 'register') return 'Daftar';
+        return 'Reset Password';
     };
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
             <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-                <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">{isLogin ? 'Login' : 'Daftar'}</h2>
+                <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">{getTitle()}</h2>
                 {error && <p className="bg-red-100 text-red-700 p-3 rounded-md mb-4">{error}</p>}
+                {message && <p className="bg-green-100 text-green-700 p-3 rounded-md mb-4">{message}</p>}
+                
                 <form onSubmit={handleSubmit}>
-                    {!isLogin && (
-                         <div className="mb-4">
-                            <label className="block text-gray-700 mb-2">Nama Lengkap</label>
-                            <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                        </div>
+                    {authView !== 'reset' && !message && ( // Hide form on successful registration
+                        <>
+                            {authView === 'register' && (
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 mb-2">Nama Lengkap</label>
+                                    <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                                </div>
+                            )}
+                            <div className="mb-4">
+                                <label className="block text-gray-700 mb-2">Email</label>
+                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                            </div>
+                            <div className="mb-6">
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="block text-gray-700">Password</label>
+                                    {authView === 'login' && (
+                                        <button type="button" onClick={() => { setAuthView('reset'); clearMessages(); }} className="text-sm text-blue-600 hover:underline">
+                                            Lupa Password?
+                                        </button>
+                                    )}
+                                </div>
+                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                            </div>
+                             {authView === 'register' && (
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 mb-2">Daftar Sebagai</label>
+                                    <select value={role} onChange={e => setRole(e.target.value as UserRole)} className="w-full px-3 py-2 border rounded-lg">
+                                        <option value={UserRoleEnum.TEACHER}>Guru</option>
+                                        <option value={UserRoleEnum.ADMIN}>Admin</option>
+                                    </select>
+                                </div>
+                            )}
+                            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition duration-300 disabled:bg-blue-300" disabled={loading}>
+                                {loading ? <Spinner/> : (authView === 'login' ? 'Login' : 'Daftar')}
+                            </button>
+                        </>
                     )}
-                     <div className="mb-4">
-                        <label className="block text-gray-700 mb-2">Email</label>
-                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                    </div>
-                     <div className="mb-6">
-                        <label className="block text-gray-700 mb-2">Password</label>
-                        <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                    </div>
-                    {!isLogin && (
-                         <div className="mb-4">
-                            <label className="block text-gray-700 mb-2">Daftar Sebagai</label>
-                            <select value={role} onChange={e => setRole(e.target.value as UserRole)} className="w-full px-3 py-2 border rounded-lg">
-                                <option value={UserRoleEnum.TEACHER}>Guru</option>
-                                <option value={UserRoleEnum.ADMIN}>Admin</option>
-                            </select>
-                        </div>
+                    
+                    {authView === 'reset' && (
+                         <>
+                            <div className="mb-4">
+                                <label className="block text-gray-700 mb-2">Email</label>
+                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                            </div>
+                            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition duration-300 disabled:bg-blue-300" disabled={loading}>
+                                {loading ? <Spinner/> : 'Kirim Link Reset'}
+                            </button>
+                        </>
                     )}
-                    <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition duration-300 disabled:bg-blue-300" disabled={loading}>
-                        {loading ? <Spinner/> : (isLogin ? 'Login' : 'Daftar')}
-                    </button>
                 </form>
+
                 <p className="text-center text-gray-600 mt-4">
-                    {isLogin ? "Belum punya akun?" : "Sudah punya akun?"}
-                    <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-blue-600 hover:underline ml-1">
-                        {isLogin ? 'Daftar di sini' : 'Login di sini'}
+                    {authView === 'login' && "Belum punya akun? "}
+                    {authView === 'register' && "Sudah punya akun? "}
+                    {authView === 'reset' && "Ingat password Anda? "}
+                    
+                    <button 
+                        onClick={() => { 
+                            setAuthView(authView === 'register' || authView === 'reset' ? 'login' : 'register'); 
+                            clearMessages(); 
+                        }} 
+                        className="text-blue-600 hover:underline ml-1"
+                    >
+                        {authView === 'register' || authView === 'reset' ? 'Login di sini' : 'Daftar di sini'}
                     </button>
                 </p>
             </div>
@@ -970,45 +1038,38 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const unsubscribe = api.onAuthStateChanged(async (authUser) => {
-            let shouldStopLoading = true;
-            try {
-                if (authUser) {
-                    // User is signed in, get their role from Firestore.
+            if (authUser) {
+                try {
                     const userDoc = await api.getUser(authUser.uid);
                     if (userDoc) {
+                        // Success: user is authenticated and we have their profile data.
                         setCurrentUser(userDoc);
                     } else {
-                        // This case can happen if the Firestore doc wasn't created properly
-                        // or if security rules prevent reading it.
-                        console.error("User is authenticated, but no user document found in Firestore. Logging out.");
-                        api.signOut();
+                        // This is an inconsistent state: authenticated but no profile document.
+                        // This can happen if the user is deleted from Firestore but not from Auth.
+                        // To be safe, we sign the user out.
+                        console.error(`No user profile found in Firestore for UID: ${authUser.uid}. Signing out.`);
+                        await api.signOut();
                         setCurrentUser(null);
                     }
-                } else {
-                    // User is signed out.
+                } catch (error) {
+                    // This can happen if there's a network error when fetching the user profile.
+                    // To prevent the user from being stuck in a logged-in but unusable state,
+                    // we sign them out.
+                    console.error("Failed to fetch user profile, signing out:", error);
+                    await api.signOut();
                     setCurrentUser(null);
                 }
-            } catch (error) {
-                console.error("Error during authentication state change:", error);
-                const errorMessage = String((error as Error).message || '').toLowerCase();
-                // If the error is due to being offline, don't log the user out and keep showing the loading spinner.
-                // The app will resolve itself once the connection is back.
-                if (errorMessage.includes('offline') || errorMessage.includes('network')) {
-                     console.warn('Offline mode: Could not fetch latest user data.');
-                     shouldStopLoading = false;
-                } else {
-                    // For other errors (e.g., Firestore rules), log the user out.
-                    api.signOut();
-                    setCurrentUser(null);
-                }
-            } finally {
-                // Stop loading only if there wasn't a temporary offline error.
-                if (shouldStopLoading) {
-                    setLoading(false);
-                }
+            } else {
+                // User is not authenticated.
+                setCurrentUser(null);
             }
+            
+            // In all cases, once we have a definitive state (logged in or logged out),
+            // we should stop showing the main loading spinner.
+            setLoading(false);
         });
-        
+
         // Cleanup subscription on unmount
         return () => unsubscribe();
     }, []);
@@ -1026,8 +1087,6 @@ const App: React.FC = () => {
     if (!currentUser) {
         return <AuthScreen />;
     }
-
-
 
     if (currentUser.role === UserRoleEnum.ADMIN) {
         return <AdminDashboard user={currentUser} onLogout={handleLogout} />;
