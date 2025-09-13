@@ -56,14 +56,12 @@ export const sendPasswordResetEmail = async (email: string): Promise<void> => {
 };
 
 export const signUp = async (email: string, password: string, name: string, role: UserRole): Promise<{success: boolean; message?: string}> => {
-     // Check for admin limit before creating the user in Auth
-    if (role === 'ADMIN') {
-        const adminSnapshot = await db.collection('users').where('role', '==', 'ADMIN').get();
-        if (adminSnapshot.docs.length >= 3) {
-            return { success: false, message: 'Batas maksimal admin (3) telah tercapai.' };
-        }
-    }
-    
+    // Note: The client-side admin limit check was removed.
+    // This check is insecure and often blocked by Firestore security rules,
+    // which was preventing admin profiles from being created and causing login failures.
+    // Admin limits should be managed via a secure backend (e.g., Cloud Functions)
+    // or manually in the Firebase console.
+
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
 
