@@ -188,87 +188,15 @@ export const deleteClass = async (id: string): Promise<void> => {
 
 // --- Schedule Functions ---
 
-// Helper function for conflict checking
-const performConflictCheck = async (scheduleData: Omit<Schedule, 'id'>, scheduleIdToExclude: string | null = null): Promise<{success: boolean, message: string}> => {
-    const { day, startTime, endTime, classId, teacherId, lessonHour } = scheduleData;
-    
-    // Basic time validation
-    if (startTime >= endTime) {
-        return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
-    }
-
-    // --- 1. Check for class conflict ---
-    // Fetch all schedules for the class, then filter by day in the application logic for robustness.
-    const classSchedulesSnapshot = await db.collection('schedules')
-        .where('classId', '==', classId)
-        .get();
-    
-    const existingClassSchedules: Schedule[] = collectionToData<Schedule>(classSchedulesSnapshot)
-        .filter((s: Schedule) => s.id !== scheduleIdToExclude); 
-
-    for (const existing of existingClassSchedules) {
-        // Check if the schedule is on the same day before checking for conflicts
-        if (existing.day === day) {
-            // Conflict A: Same lesson hour on the same day
-            if (existing.lessonHour === lessonHour) {
-                return { 
-                    success: false, 
-                    message: `Jadwal bentrok! Jam ke-${lessonHour} untuk kelas ini sudah ada pada hari ${HARI_TRANSLATION[day]}.` 
-                };
-            }
-            // Conflict B: Overlapping times on the same day
-            // Overlap condition: (StartA < EndB) and (StartB < EndA)
-            if (startTime < existing.endTime && existing.startTime < endTime) {
-                return { 
-                    success: false, 
-                    message: `Jadwal bentrok! Waktu bertabrakan dengan jadwal lain (${existing.startTime}-${existing.endTime}) untuk kelas ini pada hari ${HARI_TRANSLATION[day]}.` 
-                };
-            }
-        }
-    }
-
-    // --- 2. Check for teacher conflict ---
-    // Fetch all schedules for the teacher, then filter by day in the application logic.
-    const teacherSchedulesSnapshot = await db.collection('schedules')
-        .where('teacherId', '==', teacherId)
-        .get();
-        
-    const existingTeacherSchedules: Schedule[] = collectionToData<Schedule>(teacherSchedulesSnapshot)
-        .filter((s: Schedule) => s.id !== scheduleIdToExclude);
-    
-    for (const existing of existingTeacherSchedules) {
-        // Check if the schedule is on the same day before checking for conflicts
-        if (existing.day === day) {
-            // Conflict A: Same lesson hour on the same day
-            if (existing.lessonHour === lessonHour) {
-                return { 
-                    success: false, 
-                    message: `Jadwal bentrok! Anda sudah memiliki jadwal untuk jam ke-${lessonHour} pada hari ${HARI_TRANSLATION[day]}.` 
-                };
-            }
-             // Conflict B: Overlapping times on the same day
-             // Overlap condition: (StartA < EndB) and (StartB < EndA)
-            if (startTime < existing.endTime && existing.startTime < endTime) {
-                return { 
-                    success: false, 
-                    message: `Jadwal bentrok! Waktu Anda bertabrakan dengan jadwal lain (${existing.startTime}-${existing.endTime}) pada hari ${HARI_TRANSLATION[day]}.` 
-                };
-            }
-        }
-    }
-
-    return { success: true, message: "" };
-}
-
 export const getSchedules = async (): Promise<Schedule[]> => {
     const snapshot = await db.collection('schedules').orderBy('day').orderBy('startTime').get();
     return collectionToData<Schedule>(snapshot);
 };
 
 export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
-    const checkResult = await performConflictCheck(scheduleData);
-    if (!checkResult.success) {
-        return checkResult;
+    // Basic time validation
+    if (scheduleData.startTime >= scheduleData.endTime) {
+        return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
     }
 
     await db.collection('schedules').add(scheduleData);
@@ -276,11 +204,11 @@ export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{
 };
 
 export const updateSchedule = async (id: string, scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
-    const checkResult = await performConflictCheck(scheduleData, id);
-    if (!checkResult.success) {
-        return checkResult;
+     // Basic time validation
+    if (scheduleData.startTime >= scheduleData.endTime) {
+        return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
     }
-    
+
     await db.collection('schedules').doc(id).update(scheduleData);
     return { success: true, message: "Jadwal berhasil diperbarui." };
 };
