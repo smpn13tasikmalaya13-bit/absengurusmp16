@@ -6,6 +6,7 @@ import type { User, Class, Schedule, AttendanceRecord, UserRole } from './types'
 import { UserRole as UserRoleEnum } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CENTRAL_COORDINATES, MAX_RADIUS_METERS, DAYS_OF_WEEK, LESSON_HOURS } from './constants';
+import * as api from './services/firebaseService';
 
 // FIX: Add declarations for globally available libraries
 declare var Html5Qrcode: any;
@@ -16,43 +17,6 @@ declare global {
     }
 }
 
-// --- MOCK API (using localStorage) ---
-const db = {
-  getItem: <T,>(key: string): T | null => {
-    try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : null;
-    } catch (error) {
-      console.error(`Error reading from localStorage key “${key}”:`, error);
-      return null;
-    }
-  },
-  setItem: <T,>(key: string, value: T): void => {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (error) {
-      console.error(`Error writing to localStorage key “${key}”:`, error);
-    }
-  },
-};
-
-const initializeMockData = () => {
-    if (!db.getItem('users')) {
-        const adminUser: User = { id: 'admin1', userId: 'admin', password: 'password', name: 'Admin Utama', role: UserRoleEnum.ADMIN };
-        db.setItem('users', [adminUser]);
-    }
-    if (!db.getItem('classes')) {
-        db.setItem('classes', []);
-    }
-    if (!db.getItem('schedules')) {
-        db.setItem('schedules', []);
-    }
-    if (!db.getItem('attendance')) {
-        db.setItem('attendance', []);
-    }
-};
-
-initializeMockData();
 
 // --- UI Components ---
 
@@ -84,22 +48,24 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 // --- Teacher Dashboard Components ---
 const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, onLogout }) => {
     const [view, setView] = useState<'home' | 'scan' | 'history' | 'schedule'>('home');
-    const [schedules, setSchedules] = useState<Schedule[]>(db.getItem('schedules') || []);
-    const [classes, setClasses] = useState<Class[]>(db.getItem('classes') || []);
+    const [schedules, setSchedules] = useState<Schedule[]>([]);
+    const [classes, setClasses] = useState<Class[]>([]);
     const { distance, isWithinRadius, error: geoError, loading: geoLoading, refreshLocation } = useGeolocation();
     const [isLessonHourModalOpen, setIsLessonHourModalOpen] = useState(false);
     const [selectedLessonHour, setSelectedLessonHour] = useState<number | null>(null);
 
+    const fetchData = useCallback(async () => {
+        setClasses(await api.getClasses());
+        setSchedules(await api.getSchedules());
+    }, []);
+
     useEffect(() => {
-        if (view === 'schedule') {
-            setClasses(db.getItem('classes') || []);
-            setSchedules(db.getItem('schedules') || []);
-        }
-    }, [view]);
+        fetchData();
+    }, [fetchData]);
 
     const userSchedules = useMemo(() => schedules.filter(s => s.teacherId === user.id), [schedules, user.id]);
 
-    const recordAttendance = (classId: string, lessonHour: number) => {
+    const recordAttendance = async (classId: string, lessonHour: number) => {
       const now = new Date();
       
       if (!lessonHour) {
@@ -107,27 +73,23 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
           return;
       }
 
-      const allAttendance: AttendanceRecord[] = db.getItem('attendance') || [];
-      const today = now.toISOString().split('T')[0];
-      const hasScannedToday = allAttendance.some(
-          rec => rec.teacherId === user.id && rec.classId === classId && rec.lessonHour === lessonHour && rec.scanTime.startsWith(today)
-      );
+      const hasScanned = await api.checkIfAlreadyScanned(user.id, classId, lessonHour);
 
-      if (hasScannedToday) {
+      if (hasScanned) {
           alert('Anda sudah absen untuk jam pelajaran ini.');
           setView('home');
           setSelectedLessonHour(null);
           return;
       }
 
-      const newRecord: AttendanceRecord = {
-          id: `att-${Date.now()}`,
+      const newRecord: Omit<AttendanceRecord, 'id'> = {
           teacherId: user.id,
           classId: classId,
           lessonHour,
           scanTime: now.toISOString(),
       };
-      db.setItem('attendance', [...allAttendance, newRecord]);
+      
+      await api.addAttendanceRecord(newRecord);
       alert('Absensi berhasil!');
       setView('home');
       setSelectedLessonHour(null);
@@ -287,38 +249,31 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<Partial<Schedule> | null>(null);
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingSchedule || !editingSchedule.classId || !editingSchedule.day || !editingSchedule.lessonHour) {
             alert("Harap isi semua kolom");
             return;
         }
 
-        const allSchedules: Schedule[] = db.getItem('schedules') || [];
-        if (editingSchedule.id) {
-            const updatedSchedules = allSchedules.map(s => s.id === editingSchedule.id ? { ...s, ...editingSchedule } as Schedule : s);
-            db.setItem('schedules', updatedSchedules);
-            setSchedules(updatedSchedules);
-        } else {
-            const newSchedule: Schedule = {
-                id: `sch-${Date.now()}`,
-                teacherId: user.id,
-                ...editingSchedule
-            } as Schedule;
-            const updatedSchedules = [...allSchedules, newSchedule];
-            db.setItem('schedules', updatedSchedules);
-            setSchedules(updatedSchedules);
+        const scheduleData = {
+          teacherId: user.id,
+          classId: editingSchedule.classId,
+          day: editingSchedule.day,
+          lessonHour: editingSchedule.lessonHour,
         }
+
+        await api.addSchedule(scheduleData);
+        setSchedules(await api.getSchedules());
+        
         setIsModalOpen(false);
         setEditingSchedule(null);
     };
     
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if(window.confirm("Yakin ingin menghapus jadwal ini?")){
-            const allSchedules: Schedule[] = db.getItem('schedules') || [];
-            const updatedSchedules = allSchedules.filter(s => s.id !== id);
-            db.setItem('schedules', updatedSchedules);
-            setSchedules(updatedSchedules);
+            await api.deleteSchedule(id);
+            setSchedules(schedules.filter(s => s.id !== id));
         }
     }
     
@@ -343,7 +298,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
                     </div>
                 ))}
             </div>
-             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingSchedule?.id ? 'Edit Jadwal' : 'Tambah Jadwal'}>
+             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={'Tambah Jadwal'}>
                 <form onSubmit={handleSave}>
                     <div className="mb-4">
                         <label className="block mb-1">Hari</label>
@@ -374,9 +329,17 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
 };
 
 const TeacherAttendanceHistory: React.FC<{user: User, classes: Class[]}> = ({user, classes}) => {
-    const attendance: AttendanceRecord[] = useMemo(() => {
-        const allAttendance = db.getItem<AttendanceRecord[]>('attendance') || [];
-        return allAttendance.filter(rec => rec.teacherId === user.id).sort((a,b) => new Date(b.scanTime).getTime() - new Date(a.scanTime).getTime());
+    const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+
+    useEffect(() => {
+        const fetchHistory = async () => {
+            const allAttendance = await api.getAttendanceRecords();
+            const userHistory = allAttendance
+                .filter(rec => rec.teacherId === user.id)
+                .sort((a,b) => new Date(b.scanTime).getTime() - new Date(a.scanTime).getTime());
+            setAttendance(userHistory);
+        };
+        fetchHistory();
     }, [user.id]);
     
     const getClassName = (classId: string) => classes.find(c => c.id === classId)?.name || 'N/A';
@@ -468,9 +431,26 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
 
 
 const DashboardHome: React.FC = () => {
-    const attendance = db.getItem<AttendanceRecord[]>('attendance') || [];
-    const teachers = db.getItem<User[]>('users')?.filter(u => u.role === UserRoleEnum.TEACHER) || [];
-    const classes = db.getItem<Class[]>('classes') || [];
+    const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+    const [teachers, setTeachers] = useState<User[]>([]);
+    const [classes, setClasses] = useState<Class[]>([]);
+    const [loading, setLoading] = useState(true);
+    
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            const [att, tch, cls] = await Promise.all([
+                api.getAttendanceRecords(),
+                api.getUsersByRole(UserRoleEnum.TEACHER),
+                api.getClasses(),
+            ]);
+            setAttendance(att);
+            setTeachers(tch);
+            setClasses(cls);
+            setLoading(false);
+        };
+        fetchData();
+    }, [])
 
     const attendanceSummary = useMemo(() => {
         const today = new Date().toISOString().slice(0, 10);
@@ -489,6 +469,8 @@ const DashboardHome: React.FC = () => {
 
     const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
     const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
+
+    if (loading) return <Spinner />;
 
     return (
         <div>
@@ -577,41 +559,42 @@ const CrudTable: React.FC<{
 );
 
 const TeacherManagement: React.FC = () => {
-    const [teachers, setTeachers] = useState<User[]>(db.getItem<User[]>('users')?.filter(u => u.role === UserRoleEnum.TEACHER) || []);
+    const [teachers, setTeachers] = useState<User[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTeacher, setEditingTeacher] = useState<Partial<User> | null>(null);
 
-    const handleSave = (e: React.FormEvent) => {
+    const fetchTeachers = async () => {
+        setTeachers(await api.getUsersByRole(UserRoleEnum.TEACHER));
+    };
+
+    useEffect(() => {
+        fetchTeachers();
+    }, []);
+
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingTeacher || !editingTeacher.name || !editingTeacher.userId || (!editingTeacher.id && !editingTeacher.password)) {
             alert("Harap isi semua kolom.");
             return;
         }
 
-        const allUsers: User[] = db.getItem('users') || [];
+        const teacherData: Omit<User, 'id'> = {
+            name: editingTeacher.name,
+            userId: editingTeacher.userId,
+            password: editingTeacher.password,
+            role: UserRoleEnum.TEACHER,
+        };
 
-        if (editingTeacher.id) { // Editing
-            const updatedUsers = allUsers.map(u => u.id === editingTeacher.id ? { ...u, ...editingTeacher } : u);
-            db.setItem('users', updatedUsers);
-        } else { // Adding
-            const newUser: User = {
-                id: `user-${Date.now()}`,
-                role: UserRoleEnum.TEACHER,
-                ...editingTeacher
-            } as User;
-            db.setItem('users', [...allUsers, newUser]);
-        }
-        setTeachers(db.getItem<User[]>('users')?.filter(u => u.role === UserRoleEnum.TEACHER) || []);
+        await api.addUser(teacherData);
+        await fetchTeachers();
+        
         setIsModalOpen(false);
         setEditingTeacher(null);
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (window.confirm("Yakin ingin menghapus guru ini? Ini juga akan menghapus jadwal terkait.")) {
-            let allUsers = db.getItem<User[]>('users') || [];
-            let allSchedules = db.getItem<Schedule[]>('schedules') || [];
-            db.setItem('users', allUsers.filter(u => u.id !== id));
-            db.setItem('schedules', allSchedules.filter(s => s.teacherId !== id));
+            await api.deleteUser(id);
             setTeachers(teachers.filter(t => t.id !== id));
         }
     };
@@ -655,40 +638,42 @@ const TeacherManagement: React.FC = () => {
 };
 
 const ClassManagement: React.FC = () => {
-    const [classes, setClasses] = useState<Class[]>(db.getItem('classes') || []);
+    const [classes, setClasses] = useState<Class[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isQrModalOpen, setIsQrModalOpen] = useState(false);
     const [selectedClass, setSelectedClass] = useState<Class | null>(null);
     const [editingClass, setEditingClass] = useState<Partial<Class> | null>(null);
 
-    const handleSave = (e: React.FormEvent) => {
+    const fetchClasses = async () => {
+        setClasses(await api.getClasses());
+    };
+
+    useEffect(() => {
+        fetchClasses();
+    }, []);
+
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingClass || !editingClass.name || !editingClass.grade) {
             alert("Harap isi semua kolom.");
             return;
         }
         
-        const allClasses: Class[] = db.getItem('classes') || [];
+        const classData: Omit<Class, 'id'> = {
+            name: editingClass.name,
+            grade: editingClass.grade
+        };
 
-        if (editingClass.id) { // Editing
-            const updatedClasses = allClasses.map(c => c.id === editingClass.id ? { ...c, ...editingClass } as Class : c);
-            db.setItem('classes', updatedClasses);
-        } else { // Adding
-            const newClass: Class = {
-                id: `cls-${Date.now()}`,
-                ...editingClass
-            } as Class;
-            db.setItem('classes', [...allClasses, newClass]);
-        }
-        setClasses(db.getItem('classes') || []);
+        await api.addClass(classData);
+        await fetchClasses();
+
         setIsModalOpen(false);
         setEditingClass(null);
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (window.confirm("Yakin ingin menghapus kelas ini?")) {
-            const allClasses = db.getItem<Class[]>('classes') || [];
-            db.setItem('classes', allClasses.filter(c => c.id !== id));
+            await api.deleteClass(id);
             setClasses(classes.filter(c => c.id !== id));
         }
     };
@@ -737,6 +722,7 @@ const ClassManagement: React.FC = () => {
                     </div>
                      <div className="mb-4">
                         <label className="block mb-1">Tingkat</label>
+                        {/* FIX: Ensure the value passed to 'grade' is a number. parseInt('') is NaN (which is a number), but (NaN || '') is '', which is a string. */}
                         <input type="number" value={editingClass?.grade || ''} onChange={e => setEditingClass({...editingClass, grade: parseInt(e.target.value)})} className="w-full p-2 border rounded" />
                     </div>
                     <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
@@ -753,17 +739,21 @@ const ClassManagement: React.FC = () => {
 };
 
 const ScheduleManagement: React.FC = () => {
-    // This is similar to TeacherScheduleManager but for admin view.
-    // For brevity, this will be a simplified view. An admin would manage all schedules.
-    // This functionality can be expanded similarly to TeacherManagement.
-    const [schedules, setSchedules] = useState<Schedule[]>(db.getItem('schedules') || []);
-    const teachers = useMemo(() => db.getItem<User[]>('users')?.filter(u => u.role === UserRoleEnum.TEACHER) || [], []);
-    const classes = useMemo(() => db.getItem<Class[]>('classes') || [], []);
+    const [schedules, setSchedules] = useState<Schedule[]>([]);
+    const [teachers, setTeachers] = useState<User[]>([]);
+    const [classes, setClasses] = useState<Class[]>([]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setSchedules(await api.getSchedules());
+            setTeachers(await api.getUsersByRole(UserRoleEnum.TEACHER));
+            setClasses(await api.getClasses());
+        };
+        fetchData();
+    }, []);
 
     const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
     const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
-    
-    // CRUD functionality for schedules by admin can be added here using a Modal and form.
     
     return (
         <div className="bg-white p-6 rounded-lg shadow">
@@ -795,10 +785,19 @@ const ScheduleManagement: React.FC = () => {
 };
 
 const AttendanceReport: React.FC = () => {
-    const allAttendance = useMemo(() => db.getItem<AttendanceRecord[]>('attendance') || [], []);
-    const teachers = useMemo(() => db.getItem<User[]>('users')?.filter(u => u.role === UserRoleEnum.TEACHER) || [], []);
-    const classes = useMemo(() => db.getItem<Class[]>('classes') || [], []);
+    const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>([]);
+    const [teachers, setTeachers] = useState<User[]>([]);
+    const [classes, setClasses] = useState<Class[]>([]);
     
+    useEffect(() => {
+        const fetchData = async () => {
+            setAllAttendance(await api.getAttendanceRecords());
+            setTeachers(await api.getUsersByRole(UserRoleEnum.TEACHER));
+            setClasses(await api.getClasses());
+        };
+        fetchData();
+    }, []);
+
     const [filters, setFilters] = useState({ date: '', teacherId: '', classId: '' });
     
     const filteredAttendance = useMemo(() => {
@@ -857,8 +856,6 @@ const AttendanceReport: React.FC = () => {
             </div>
              <div className="flex gap-2 mb-4">
                 <button onClick={() => handleExport('excel')} className="bg-green-600 text-white px-4 py-2 rounded">Export Excel</button>
-                {/* PDF export requires jspdf-autotable which is not added via CDN for simplicity, so this might not work out of the box. */}
-                {/* <button onClick={() => handleExport('pdf')} className="bg-red-600 text-white px-4 py-2 rounded">Export PDF</button> */}
             </div>
             <div className="overflow-x-auto">
                  <table className="w-full text-left">
@@ -893,35 +890,35 @@ const AuthScreen: React.FC<{ onLoginSuccess: (user: User) => void }> = ({ onLogi
     const [name, setName] = useState('');
     const [role, setRole] = useState<UserRole>(UserRoleEnum.TEACHER);
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleLogin = () => {
-        const users: User[] = db.getItem('users') || [];
-        const user = users.find(u => u.userId === userId && u.password === password);
+
+    const handleLogin = async () => {
+        setLoading(true);
+        const user = await api.loginUser(userId, password);
         if (user) {
             onLoginSuccess(user);
         } else {
             setError('User ID atau Password salah.');
         }
+        setLoading(false);
     };
 
-    const handleRegister = () => {
+    const handleRegister = async () => {
         if (!userId || !password || !name) {
             setError('Semua kolom wajib diisi.');
             return;
         }
-        const users: User[] = db.getItem('users') || [];
-        if (users.some(u => u.userId === userId)) {
+        setLoading(true);
+        const success = await api.registerUser({ userId, password, name, role });
+        if (success) {
+            alert('Registrasi berhasil! Silakan login.');
+            setIsLogin(true);
+            setError('');
+        } else {
             setError('User ID sudah digunakan.');
-            return;
         }
-        const newUser: User = {
-            id: `user-${Date.now()}`,
-            userId, password, name, role
-        };
-        db.setItem('users', [...users, newUser]);
-        alert('Registrasi berhasil! Silakan login.');
-        setIsLogin(true);
-        setError('');
+        setLoading(false);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -963,8 +960,8 @@ const AuthScreen: React.FC<{ onLoginSuccess: (user: User) => void }> = ({ onLogi
                             </select>
                         </div>
                     )}
-                    <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition duration-300">
-                        {isLogin ? 'Login' : 'Daftar'}
+                    <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition duration-300 disabled:bg-blue-300" disabled={loading}>
+                        {loading ? <Spinner/> : (isLogin ? 'Login' : 'Daftar')}
                     </button>
                 </form>
                 <p className="text-center text-gray-600 mt-4">
