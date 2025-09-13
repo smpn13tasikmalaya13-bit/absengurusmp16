@@ -403,23 +403,59 @@ const TeacherAttendanceHistory: React.FC<{user: User, classes: Class[]}> = ({use
 
 const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, onLogout }) => {
     const [view, setView] = useState('dashboard');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    const handleSetView = (newView: string) => {
+        setView(newView);
+        if (window.innerWidth < 768) { // md breakpoint
+            setIsSidebarOpen(false);
+        }
+    };
+
     return (
-        <div className="flex h-screen bg-gray-100">
-            <aside className="w-64 bg-gray-800 text-white flex flex-col">
-                <div className="p-4 text-xl font-bold border-b border-gray-700">Admin Panel</div>
+        <div className="relative min-h-screen md:flex">
+            {/* Mobile menu overlay */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                ></div>
+            )}
+
+            {/* Sidebar */}
+            <aside className={`bg-gray-800 text-white w-64 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                <div className="p-4 text-xl font-bold border-b border-gray-700 flex justify-between items-center">
+                    <span>Admin Panel</span>
+                    <button className="md:hidden text-gray-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
                 <nav className="flex-grow">
-                    <a onClick={() => setView('dashboard')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Dashboard</a>
-                    <a onClick={() => setView('teachers')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Guru</a>
-                    <a onClick={() => setView('classes')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Kelas</a>
-                    <a onClick={() => setView('schedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Pelajaran</a>
-                    <a onClick={() => setView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi</a>
+                    <a onClick={() => handleSetView('dashboard')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Dashboard</a>
+                    <a onClick={() => handleSetView('teachers')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Guru</a>
+                    <a onClick={() => handleSetView('classes')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Kelas</a>
+                    <a onClick={() => handleSetView('schedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Pelajaran</a>
+                    <a onClick={() => handleSetView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi</a>
                 </nav>
                 <div className="p-4 border-t border-gray-700">
                     <p>{user.name}</p>
                     <button onClick={onLogout} className="text-sm text-red-400 hover:text-red-300">Logout</button>
                 </div>
             </aside>
-            <main className="flex-1 p-6 overflow-auto">
+
+            {/* Main content */}
+            <main className="flex-1 p-6 bg-gray-100 overflow-auto">
+                {/* Header with hamburger button for mobile */}
+                <header className="flex items-center justify-between mb-6 md:hidden">
+                    <button onClick={() => setIsSidebarOpen(true)} className="text-gray-500 focus:outline-none">
+                        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+                        </svg>
+                    </button>
+                    <h1 className="text-xl font-semibold capitalize">{view.replace(/([A-Z])/g, ' $1')}</h1>
+                </header>
+
+                {/* Page Content */}
                 {view === 'dashboard' && <DashboardHome />}
                 {view === 'teachers' && <TeacherManagement />}
                 {view === 'classes' && <ClassManagement />}
@@ -429,6 +465,7 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
         </div>
     );
 };
+
 
 const DashboardHome: React.FC = () => {
     const attendance = db.getItem<AttendanceRecord[]>('attendance') || [];
@@ -455,7 +492,7 @@ const DashboardHome: React.FC = () => {
 
     return (
         <div>
-            <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+            <h1 className="text-3xl font-bold mb-6 hidden md:block">Dashboard</h1>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div className="bg-white p-4 rounded-lg shadow">
                     <h3 className="font-semibold text-gray-500">Total Guru</h3>
