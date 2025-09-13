@@ -951,21 +951,32 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const unsubscribe = api.onAuthStateChanged(async (authUser) => {
-            if (authUser) {
-                // User is signed in, get their role from Firestore.
-                const userDoc = await api.getUser(authUser.uid);
-                if (userDoc) {
-                    setCurrentUser(userDoc);
+            try {
+                if (authUser) {
+                    // User is signed in, get their role from Firestore.
+                    const userDoc = await api.getUser(authUser.uid);
+                    if (userDoc) {
+                        setCurrentUser(userDoc);
+                    } else {
+                        // This case can happen if the Firestore doc wasn't created properly
+                        // or if security rules prevent reading it.
+                        console.error("User is authenticated, but no user document found in Firestore. Logging out.");
+                        api.signOut();
+                        setCurrentUser(null);
+                    }
                 } else {
-                    // This case might happen if the Firestore doc wasn't created properly.
-                    // Log them out to be safe.
-                    api.signOut();
+                    // User is signed out.
+                    setCurrentUser(null);
                 }
-            } else {
-                // User is signed out.
+            } catch (error) {
+                console.error("Error during authentication state change:", error);
+                // If there's an error (e.g., Firestore rules), log the user out.
+                api.signOut();
                 setCurrentUser(null);
+            } finally {
+                // This is crucial: always stop loading, regardless of success or failure.
+                setLoading(false);
             }
-            setLoading(false);
         });
         
         // Cleanup subscription on unmount
@@ -985,6 +996,8 @@ const App: React.FC = () => {
     if (!currentUser) {
         return <AuthScreen />;
     }
+
+
 
     if (currentUser.role === UserRoleEnum.ADMIN) {
         return <AdminDashboard user={currentUser} onLogout={handleLogout} />;
