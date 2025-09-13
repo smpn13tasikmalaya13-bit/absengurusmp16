@@ -1,3 +1,4 @@
+
 import type { User, Class, Schedule, AttendanceRecord, UserRole } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
@@ -38,42 +39,59 @@ db.enablePersistence()
 const docToData = <T,>(doc: any): T => ({ id: doc.id, ...doc.data() } as T);
 const collectionToData = <T,>(snapshot: any): T[] => snapshot.docs.map(docToData);
 
+const getDeviceId = (): string => {
+    let deviceId = localStorage.getItem('appDeviceId');
+    if (!deviceId) {
+        // Simple UUID generator
+        deviceId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+        localStorage.setItem('appDeviceId', deviceId);
+    }
+    return deviceId;
+};
+
+
 // --- Auth Functions (Secure) ---
 
 export const onAuthStateChanged = (callback: (user: any | null) => void) => {
     return auth.onAuthStateChanged(callback);
 };
 
-export const signIn = async (email: string, password: string): Promise<string> => {
+export const signIn = async (email: string, password: string): Promise<void> => {
     const userCredential = await auth.signInWithEmailAndPassword(email, password);
     const user = userCredential.user;
-    if (!user) {
-        throw new Error("User not found after sign in.");
-    }
-    // Generate a unique session ID
-    const sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    if (!user) throw new Error("User not found after sign in.");
 
-    // Store the session ID in the user's Firestore document
-    await db.collection('users').doc(user.uid).update({
-        currentSessionId: sessionId
-    });
+    const deviceId = getDeviceId();
+    const userDocRef = db.collection('users').doc(user.uid);
+    const userDoc = await userDocRef.get();
+
+    if (!userDoc.exists) {
+        await auth.signOut();
+        throw new Error("Profil pengguna tidak ditemukan. Hubungi admin.");
+    }
+
+    const userData = userDoc.data();
+    const boundDeviceId = userData.boundDeviceId;
+
+    // If a device is bound and it's NOT the current device, block login.
+    if (boundDeviceId && boundDeviceId !== deviceId) {
+        await auth.signOut();
+        throw new Error("Perangkat Anda tidak terdaftar. Hubungi admin untuk mengganti perangkat.");
+    }
     
-    return sessionId;
+    // If no device is bound (e.g., after admin reset), bind the current device.
+    if (!boundDeviceId) {
+        await userDocRef.update({ boundDeviceId: deviceId });
+    }
+
+    // If the bound device matches the current device, or if it was just bound, login proceeds.
 };
 
 export const signOut = async (): Promise<void> => {
-    const user = auth.currentUser;
-    if (user) {
-        // Clear the session ID from the user's document on logout
-        try {
-            await db.collection('users').doc(user.uid).update({
-                currentSessionId: null
-            });
-        } catch (error) {
-            console.error("Failed to clear session ID on logout:", error);
-            // Don't block sign-out if this fails
-        }
-    }
+    // Device binding is persistent and should NOT be removed on logout.
     await auth.signOut();
 };
 
@@ -82,12 +100,6 @@ export const sendPasswordResetEmail = async (email: string): Promise<void> => {
 };
 
 export const signUp = async (email: string, password: string, name: string, role: UserRole): Promise<{success: boolean; message?: string}> => {
-    // Note: The client-side admin limit check was removed.
-    // This check is insecure and often blocked by Firestore security rules,
-    // which was preventing admin profiles from being created and causing login failures.
-    // Admin limits should be managed via a secure backend (e.g., Cloud Functions)
-    // or manually in the Firebase console.
-
     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
 
@@ -95,11 +107,13 @@ export const signUp = async (email: string, password: string, name: string, role
         throw new Error("Gagal membuat pengguna.");
     }
     
-    // Store user role and name in Firestore, linking with the auth UID
+    const deviceId = getDeviceId();
+    // Store user profile and bind device immediately on registration
     await db.collection('users').doc(user.uid).set({
         name,
         role,
-        userId: email, // Keep userId as email for consistency
+        userId: email,
+        boundDeviceId: deviceId, 
     });
 
     return { success: true };
@@ -162,6 +176,13 @@ export const deleteUser = async (id: string): Promise<void> => {
 
     // Delete the user document from Firestore
     await db.collection('users').doc(id).delete();
+};
+
+export const resetDeviceBinding = async (id: string): Promise<void> => {
+    // This function is for admins to unbind a user's device.
+    await db.collection('users').doc(id).update({
+        boundDeviceId: firebase.firestore.FieldValue.delete()
+    });
 };
 
 // --- Class Functions ---

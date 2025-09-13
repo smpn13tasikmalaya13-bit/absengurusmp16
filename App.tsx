@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
@@ -645,6 +646,18 @@ const TeacherManagement: React.FC = () => {
         }
     };
 
+    const handleResetDevice = async (id: string, name: string) => {
+        if (window.confirm(`Yakin ingin mereset perangkat untuk guru "${name}"? Guru ini akan dapat login di perangkat baru setelahnya.`)) {
+            try {
+                await api.resetDeviceBinding(id);
+                alert(`Perangkat untuk ${name} berhasil direset.`);
+            } catch (error: any) {
+                console.error("Gagal mereset perangkat:", error);
+                alert(`Terjadi kesalahan: ${error.message}`);
+            }
+        }
+    };
+
     return (
         <>
             <CrudTable
@@ -655,7 +668,8 @@ const TeacherManagement: React.FC = () => {
                     <tr key={teacher.id} className="border-b hover:bg-gray-50">
                         <td className="p-3">{teacher.name}</td>
                         <td className="p-3">{teacher.userId}</td>
-                        <td className="p-3 space-x-2">
+                        <td className="p-3 space-x-4">
+                            <button onClick={() => handleResetDevice(teacher.id, teacher.name)} className="text-blue-600 hover:underline">Reset Perangkat</button>
                             <button onClick={() => handleDelete(teacher.id)} className="text-red-600 hover:underline">Hapus</button>
                         </td>
                     </tr>
@@ -990,8 +1004,7 @@ const AuthScreen: React.FC = () => {
         clearMessages();
         try {
             if (authView === 'login') {
-                const sessionId = await api.signIn(email, password);
-                localStorage.setItem('sessionId', sessionId);
+                await api.signIn(email, password);
                 // The onAuthStateChanged listener in App.tsx will handle the redirect.
             } else { // 'register'
                 if (!name) {
@@ -999,7 +1012,7 @@ const AuthScreen: React.FC = () => {
                 }
                 const result = await api.signUp(email, password, name, role);
                  if (result.success) {
-                    setMessage('Registrasi berhasil! Silakan login.');
+                    setMessage('Registrasi berhasil! Perangkat Anda telah terikat. Silakan login.');
                     setAuthView('login');
                 } else {
                     throw new Error(result.message || 'Gagal mendaftar.');
@@ -1052,7 +1065,7 @@ const AuthScreen: React.FC = () => {
                 {message && <p className="bg-green-100 text-green-700 p-3 rounded-md mb-4">{message}</p>}
                 
                 <form onSubmit={handleSubmit}>
-                    {authView !== 'reset' && !message && ( // Hide form on successful registration
+                    {authView !== 'reset' && !message.startsWith('Registrasi berhasil') && ( // Hide form on successful registration
                         <>
                             {authView === 'register' && (
                                 <div className="mb-4">
@@ -1141,12 +1154,6 @@ const App: React.FC = () => {
                 setLoading(true);
                 userProfileUnsubscribe = api.onUserProfileChange(authUser.uid, (userDoc) => {
                     if (userDoc) {
-                        const localSessionId = localStorage.getItem('sessionId');
-                        if (userDoc.currentSessionId && localSessionId && userDoc.currentSessionId !== localSessionId) {
-                           alert("Anda telah login dari perangkat lain. Sesi di perangkat ini telah dihentikan.");
-                           api.signOut();
-                           return; // onAuthStateChanged will handle the rest.
-                        }
                         setCurrentUser(userDoc);
                         setLoading(false);
                     } else {
@@ -1159,7 +1166,6 @@ const App: React.FC = () => {
                 });
             } else {
                 // User is not authenticated.
-                localStorage.removeItem('sessionId');
                 setCurrentUser(null);
                 setLoading(false);
             }
@@ -1177,7 +1183,6 @@ const App: React.FC = () => {
 
     const handleLogout = async () => {
         await api.signOut();
-        localStorage.removeItem('sessionId'); // Ensure local session is cleared
         setCurrentUser(null);
     };
 
