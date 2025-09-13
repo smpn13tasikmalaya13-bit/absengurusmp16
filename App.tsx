@@ -105,7 +105,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         const dayOfWeek = now.getDay(); // Sunday - 0, Monday - 1
-        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek).getTime();
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)).getTime();
 
         const todayCount = attendance.filter(rec => new Date(rec.scanTime).getTime() >= startOfToday).length;
         const weekCount = attendance.filter(rec => new Date(rec.scanTime).getTime() >= startOfWeek).length;
@@ -169,10 +169,10 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
     }
     
     return (
-      <div className="bg-gray-100 min-h-screen font-sans">
+      <div className="bg-gray-50 min-h-screen font-sans">
             <header className="bg-white p-4 flex justify-between items-center shadow-sm">
                 <div>
-                    <h1 className="text-xl md:text-2xl font-bold text-gray-800">Dashboard Guru</h1>
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Dashboard Guru</h1>
                     <p className="text-sm text-gray-500">Selamat datang, {user.name}</p>
                 </div>
                 <button onClick={onLogout} className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-4 py-2 rounded-md border border-gray-300 hover:border-gray-400">
@@ -184,25 +184,25 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             <main className="p-4 md:p-6 space-y-6">
                 {/* Top Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                         <div className="flex justify-between items-center mb-1">
-                             <p className="font-medium text-gray-700">Absensi Hari Ini</p>
+                             <p className="font-semibold text-gray-700">Absensi Hari Ini</p>
                             <div className="text-gray-400"><CalendarIcon /></div>
                         </div>
                         <p className="text-3xl font-bold text-gray-800">{attendanceStats.today}</p>
                         <p className="text-xs text-gray-400">Jam pelajaran yang sudah diabsen</p>
                     </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                          <div className="flex justify-between items-center mb-1">
-                            <p className="font-medium text-gray-700">Minggu Ini</p>
+                            <p className="font-semibold text-gray-700">Minggu Ini</p>
                             <div className="text-gray-400"><ClockIcon /></div>
                         </div>
                         <p className="text-3xl font-bold text-gray-800">{attendanceStats.week}</p>
                         <p className="text-xs text-gray-400">Total absensi minggu ini</p>
                     </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                         <div className="flex justify-between items-center mb-1">
-                            <p className="font-medium text-gray-700">Total Absensi</p>
+                            <p className="font-semibold text-gray-700">Total Absensi</p>
                             <div className="text-gray-400"><UserIcon /></div>
                         </div>
                         <p className="text-3xl font-bold text-gray-800">{attendanceStats.total}</p>
@@ -212,7 +212,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
                 {/* Action Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <button onClick={() => setIsLessonHourModalOpen(true)} disabled={!isWithinRadius} className="bg-white p-6 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-sm group flex flex-col items-center justify-center gap-4">
+                     <button onClick={() => setIsLessonHourModalOpen(true)} disabled={!isWithinRadius} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-sm group flex flex-col items-center justify-center gap-4 border border-gray-200">
                         <QrScanIcon />
                         <div>
                             <h3 className="text-lg font-bold text-gray-800 group-disabled:text-gray-500">Scan QR Code</h3>
@@ -220,7 +220,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                             {!isWithinRadius && <p className="text-xs text-red-500 mt-1">Anda berada di luar radius sekolah.</p>}
                         </div>
                     </button>
-                     <button onClick={() => setIsScheduleModalOpen(true)} className="bg-white p-6 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow flex flex-col items-center justify-center gap-4">
+                     <button onClick={() => setIsScheduleModalOpen(true)} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow flex flex-col items-center justify-center gap-4 border border-gray-200">
                         <ScheduleIcon />
                         <div>
                             <h3 className="text-lg font-bold text-gray-800">Jadwal Mengajar</h3>
@@ -231,7 +231,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
                 {/* Data Display Cards */}
                 <div className="grid grid-cols-1 gap-6">
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                         <h3 className="font-bold text-lg">Riwayat Absensi Terbaru</h3>
                         <p className="text-sm text-gray-500 mb-4">10 absensi terakhir Anda</p>
                         <div className="space-y-3">
@@ -251,10 +251,10 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                             )}
                         </div>
                     </div>
-                     <div className="bg-white p-4 rounded-lg shadow-sm">
+                     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                         <h3 className="font-bold text-lg">Jadwal Hari Ini</h3>
                         <p className="text-sm text-gray-500 mb-4">Jadwal mengajar Anda hari ini</p>
-                         <div>
+                         <div className="space-y-3">
                             {todaySchedules.length === 0 ? (
                                 <div className="text-center py-10 text-gray-400">
                                     <CalendarEmptyIcon />
@@ -269,12 +269,12 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                                     const grade = lastSpaceIndex !== -1 ? fullClassName.substring(lastSpaceIndex + 1) : '';
 
                                     return (
-                                        <div key={s.id} className="flex justify-between items-center border-b last:border-b-0 py-3">
+                                        <div key={s.id} className="bg-gray-50 p-4 rounded-lg flex justify-between items-center">
                                             <div>
                                                 <p className="font-semibold text-gray-800">{subject}</p>
                                                 {grade && <p className="text-sm text-gray-500">{grade}</p>}
                                             </div>
-                                            <span className="text-sm text-gray-500">{HARI_TRANSLATION[s.day]}</span>
+                                            <span className="text-sm font-medium text-gray-500">{HARI_TRANSLATION[s.day]}</span>
                                         </div>
                                     );
                                 })
@@ -1173,6 +1173,15 @@ const AIAssistant: React.FC = () => {
     );
 };
 
+// --- Branding Component ---
+const SabarLogo = () => (
+    <div className="flex flex-col items-center mb-8">
+        <img src="/smpn-13-tasikmalaya.png" alt="Logo SMP Negeri 13 Tasikmalaya" className="w-24 h-24 mb-4 object-contain" />
+        <h1 className="text-4xl font-bold tracking-wider text-gray-800">SABAR</h1>
+        <p className="text-gray-500 mt-1">Sistem Absensi Berbasis QR</p>
+    </div>
+);
+
 
 // --- Main App Component ---
 
@@ -1180,8 +1189,8 @@ const App: React.FC = () => {
     const [user, setUser] = useState<any | null>(null);
     const [userProfile, setUserProfile] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-    const [authError, setAuthError] = useState<string | null>(null);
-    const [isRegister, setIsRegister] = useState(false);
+    const [authView, setAuthView] = useState<'login' | 'register' | 'forgotPassword'>('login');
+    const [authMessage, setAuthMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     useEffect(() => {
         const unsubscribe = api.onAuthStateChanged(firebaseUser => {
@@ -1214,13 +1223,13 @@ const App: React.FC = () => {
         e.preventDefault();
         const { email, password } = e.currentTarget.elements as any;
         setLoading(true);
-        setAuthError(null);
+        setAuthMessage(null);
         try {
             await api.signIn(email.value, password.value);
             // onAuthStateChanged will handle the rest
         } catch (error: any) {
             console.error("Login failed:", error.message);
-            setAuthError(error.message || "Email atau password salah.");
+            setAuthMessage({ type: 'error', text: error.message || "Email atau password salah."});
             setLoading(false);
         }
     };
@@ -1229,19 +1238,36 @@ const App: React.FC = () => {
         e.preventDefault();
         const { name, email, password, confirmPassword, role } = e.currentTarget.elements as any;
         if (password.value !== confirmPassword.value) {
-            setAuthError("Password tidak cocok.");
+            setAuthMessage({ type: 'error', text: "Password tidak cocok."});
             return;
         }
         setLoading(true);
-        setAuthError(null);
+        setAuthMessage(null);
         try {
             await api.signUp(email.value, password.value, name.value, role.value as UserRole);
         } catch (error: any) {
              console.error("Registration failed:", error.message);
-            setAuthError(error.message || "Gagal mendaftar.");
+            setAuthMessage({ type: 'error', text: error.message || "Gagal mendaftar."});
             setLoading(false);
         }
     }
+
+    const handleForgotPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const { email } = e.currentTarget.elements as any;
+        setLoading(true);
+        setAuthMessage(null);
+        try {
+            await api.sendPasswordResetEmail(email.value);
+            setAuthMessage({ type: 'success', text: 'Email untuk reset password telah dikirim. Silakan cek inbox Anda.' });
+            setAuthView('login');
+        } catch (error: any) {
+            console.error("Forgot password failed:", error.message);
+            setAuthMessage({ type: 'error', text: error.message || "Gagal mengirim email reset." });
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleLogout = async () => {
         setLoading(true);
@@ -1255,57 +1281,105 @@ const App: React.FC = () => {
 
     if (!user || !userProfile) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-md">
-                     <h2 className="text-2xl font-bold text-center mb-6">{isRegister ? 'Daftar Akun Baru' : 'Login Sistem Absensi'}</h2>
-                    {isRegister ? (
-                        <form onSubmit={handleRegister}>
-                             <div className="mb-4">
-                                <label className="block mb-1">Nama Lengkap</label>
-                                <input name="name" type="text" required className="w-full p-2 border rounded"/>
-                            </div>
-                            <div className="mb-4">
-                                <label className="block mb-1">Email</label>
-                                <input name="email" type="email" required className="w-full p-2 border rounded"/>
-                            </div>
-                            <div className="mb-4">
-                                <label className="block mb-1">Password</label>
-                                <input name="password" type="password" required className="w-full p-2 border rounded"/>
-                            </div>
-                            <div className="mb-4">
-                                <label className="block mb-1">Konfirmasi Password</label>
-                                <input name="confirmPassword" type="password" required className="w-full p-2 border rounded"/>
-                            </div>
-                            <div className="mb-4">
-                                <label className="block mb-1">Peran</label>
-                                <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full p-2 border rounded">
-                                    <option value={UserRoleEnum.TEACHER}>Guru</option>
-                                    <option value={UserRoleEnum.ADMIN}>Admin</option>
-                                </select>
-                            </div>
-                             {authError && <p className="text-red-500 text-sm mb-4">{authError}</p>}
-                            <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Daftar</button>
-                        </form>
-                    ) : (
-                        <form onSubmit={handleLogin}>
-                            <div className="mb-4">
-                                <label className="block mb-1">Email</label>
-                                <input name="email" type="email" required className="w-full p-2 border rounded"/>
-                            </div>
-                            <div className="mb-6">
-                                <label className="block mb-1">Password</label>
-                                <input name="password" type="password" required className="w-full p-2 border rounded"/>
-                            </div>
-                            {authError && <p className="text-red-500 text-sm mb-4">{authError}</p>}
-                            <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Login</button>
-                        </form>
+            <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+                <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg">
+                     <SabarLogo />
+                    
+                    {authView === 'login' && (
+                        <>
+                            <h2 className="text-2xl font-bold text-center mb-6 text-gray-700">Login</h2>
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <div>
+                                    <label className="block mb-1 font-medium text-gray-700">Email</label>
+                                    <input name="email" type="email" required className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"/>
+                                </div>
+                                <div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="block font-medium text-gray-700">Password</label>
+                                        <button type="button" onClick={() => { setAuthView('forgotPassword'); setAuthMessage(null); }} className="text-sm font-medium text-blue-600 hover:underline">
+                                            Lupa Password?
+                                        </button>
+                                    </div>
+                                    <input name="password" type="password" required className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"/>
+                                </div>
+                                {authMessage && authMessage.type === 'error' && <p className="text-red-500 text-sm text-center">{authMessage.text}</p>}
+                                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Login</button>
+                            </form>
+                        </>
                     )}
-                    <p className="text-center mt-4">
-                        {isRegister ? 'Sudah punya akun?' : 'Belum punya akun?'}
-                        <button onClick={() => { setIsRegister(!isRegister); setAuthError(null); }} className="text-blue-500 hover:underline ml-1">
-                            {isRegister ? 'Login' : 'Daftar'}
-                        </button>
-                    </p>
+
+                    {authView === 'register' && (
+                        <>
+                             <h2 className="text-2xl font-bold text-center mb-6 text-gray-700">Daftar Akun Baru</h2>
+                            <form onSubmit={handleRegister} className="space-y-4">
+                                <div>
+                                    <label className="block mb-1 font-medium text-gray-700">Nama Lengkap</label>
+                                    <input name="name" type="text" required className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"/>
+                                </div>
+                                <div>
+                                    <label className="block mb-1 font-medium text-gray-700">Email</label>
+                                    <input name="email" type="email" required className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"/>
+                                </div>
+                                <div>
+                                    <label className="block mb-1 font-medium text-gray-700">Password</label>
+                                    <input name="password" type="password" required className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"/>
+                                </div>
+                                <div>
+                                    <label className="block mb-1 font-medium text-gray-700">Konfirmasi Password</label>
+                                    <input name="confirmPassword" type="password" required className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"/>
+                                </div>
+                                <div>
+                                    <label className="block mb-1 font-medium text-gray-700">Peran</label>
+                                    <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                        <option value={UserRoleEnum.TEACHER}>Guru</option>
+                                        <option value={UserRoleEnum.ADMIN}>Admin</option>
+                                    </select>
+                                </div>
+                                {authMessage && authMessage.type === 'error' && <p className="text-red-500 text-sm text-center">{authMessage.text}</p>}
+                                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Daftar</button>
+                            </form>
+                        </>
+                    )}
+
+                    {authView === 'forgotPassword' && (
+                        <>
+                            <h2 className="text-2xl font-bold text-center mb-6 text-gray-700">Lupa Password</h2>
+                            <p className="text-sm text-gray-600 text-center mb-4">Masukkan email Anda untuk menerima link reset password.</p>
+                             <form onSubmit={handleForgotPassword} className="space-y-4">
+                                <div>
+                                    <label className="block mb-1 font-medium text-gray-700">Email</label>
+                                    <input name="email" type="email" required className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"/>
+                                </div>
+                                {authMessage && authMessage.type === 'error' && <p className="text-red-500 text-sm text-center">{authMessage.text}</p>}
+                                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Kirim Link Reset</button>
+                            </form>
+                        </>
+                    )}
+
+                    {authMessage && authMessage.type === 'success' && (
+                        <p className="mt-4 text-green-600 bg-green-100 p-3 rounded-md text-sm text-center">{authMessage.text}</p>
+                    )}
+                    
+                    <div className="text-center mt-6 text-sm text-gray-600">
+                        {authView === 'login' && (
+                            <>
+                                Belum punya akun?
+                                <button onClick={() => { setAuthView('register'); setAuthMessage(null); }} className="font-semibold text-blue-600 hover:text-blue-700 hover:underline ml-1">Daftar</button>
+                            </>
+                        )}
+                        {authView === 'register' && (
+                            <>
+                                Sudah punya akun?
+                                <button onClick={() => { setAuthView('login'); setAuthMessage(null); }} className="font-semibold text-blue-600 hover:text-blue-700 hover:underline ml-1">Login</button>
+                            </>
+                        )}
+                        {authView === 'forgotPassword' && (
+                            <>
+                                Ingat password Anda?
+                                <button onClick={() => { setAuthView('login'); setAuthMessage(null); }} className="font-semibold text-blue-600 hover:text-blue-700 hover:underline ml-1">Kembali ke Login</button>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
         )
