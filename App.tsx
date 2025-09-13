@@ -1060,52 +1060,56 @@ const App: React.FC = () => {
 
     useEffect(() => {
         let userProfileUnsubscribe: (() => void) | null = null;
+        let profileLoadTimeout: number | null = null;
 
         const authUnsubscribe = api.onAuthStateChanged((authUser) => {
-            // Clean up any existing profile listener when auth state changes
-            if (userProfileUnsubscribe) {
-                userProfileUnsubscribe();
-            }
+            // Always clean up listeners and timeouts from the previous auth state
+            if (userProfileUnsubscribe) userProfileUnsubscribe();
+            if (profileLoadTimeout) clearTimeout(profileLoadTimeout);
 
             if (authUser) {
-                // User is authenticated, set up a real-time listener for their profile
+                // Set loading to true whenever we get a new authenticated user,
+                // as we need to fetch their profile.
+                setLoading(true);
+
+                // Set a timeout as a safety net. If we don't get a profile
+                // within 15 seconds, something is wrong, so we sign out.
+                profileLoadTimeout = window.setTimeout(() => {
+                    console.error(`User profile for UID ${authUser.uid} did not load in time. Signing out.`);
+                    api.signOut();
+                }, 15000);
+
                 userProfileUnsubscribe = api.onUserProfileChange(authUser.uid, (userDoc) => {
                     if (userDoc) {
-                        // We have the user profile (from cache or server)
+                        // We got the profile, so clear the safety-net timeout.
+                        if (profileLoadTimeout) clearTimeout(profileLoadTimeout);
+
                         const localSessionId = localStorage.getItem('sessionId');
-                        
-                        // Session Validation: Check if another device has logged in.
                         if (userDoc.currentSessionId && localSessionId && userDoc.currentSessionId !== localSessionId) {
-                           // Session mismatch found. Force logout on this device.
                            alert("Anda telah login dari perangkat lain. Sesi di perangkat ini telah dihentikan.");
-                           api.signOut(); // This will trigger the onAuthStateChanged listener to clean up state.
-                           return; // Stop further processing of the stale user data.
+                           api.signOut();
+                           return;
                         }
 
                         setCurrentUser(userDoc);
                         setLoading(false);
-                    } else {
-                        // Auth record exists but no profile document.
-                        // This can happen if profile creation failed or was deleted.
-                        // Sign out to prevent being stuck in an inconsistent state.
-                        console.error(`No user profile found for UID: ${authUser.uid}. Signing out.`);
-                        api.signOut(); // This will re-trigger onAuthStateChanged with authUser = null
                     }
+                    // If userDoc is null, we do nothing and wait for the listener
+                    // to provide data or for the timeout to trigger.
                 });
             } else {
-                // User is not authenticated
-                localStorage.removeItem('sessionId'); // Clear session on logout
+                // User is not authenticated.
+                localStorage.removeItem('sessionId');
                 setCurrentUser(null);
                 setLoading(false);
             }
         });
 
-        // Cleanup subscriptions on component unmount
+        // Cleanup on component unmount
         return () => {
             authUnsubscribe();
-            if (userProfileUnsubscribe) {
-                userProfileUnsubscribe();
-            }
+            if (userProfileUnsubscribe) userProfileUnsubscribe();
+            if (profileLoadTimeout) clearTimeout(profileLoadTimeout);
         };
     }, []);
 

@@ -192,32 +192,50 @@ export const getSchedules = async (): Promise<Schedule[]> => {
 };
 
 export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
-    // 1. Check for class conflict (is this class already scheduled at this time?)
-    const classConflictQuery = db.collection('schedules')
-        .where('day', '==', scheduleData.day)
-        .where('lessonHour', '==', scheduleData.lessonHour)
-        .where('classId', '==', scheduleData.classId)
-        .limit(1)
-        .get();
+    const { day, startTime, endTime, classId, teacherId } = scheduleData;
 
-    // 2. Check for teacher conflict (is this teacher already scheduled at this time?)
-    const teacherConflictQuery = db.collection('schedules')
-        .where('day', '==', scheduleData.day)
-        .where('lessonHour', '==', scheduleData.lessonHour)
-        .where('teacherId', '==', scheduleData.teacherId)
-        .limit(1)
+    // Basic time validation
+    if (startTime >= endTime) {
+        return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
+    }
+
+    // --- 1. Check for class conflict using time range overlap ---
+    const classSchedulesSnapshot = await db.collection('schedules')
+        .where('day', '==', day)
+        .where('classId', '==', classId)
+        .get();
+    
+    const existingClassSchedules: Schedule[] = collectionToData<Schedule>(classSchedulesSnapshot);
+
+    for (const existing of existingClassSchedules) {
+        // Overlap condition: (StartA < EndB) and (StartB < EndA)
+        if (startTime < existing.endTime && existing.startTime < endTime) {
+            return { 
+                success: false, 
+                message: `Jadwal bentrok! Kelas ini sudah memiliki jadwal pada pukul ${existing.startTime}-${existing.endTime}.` 
+            };
+        }
+    }
+
+    // --- 2. Check for teacher conflict using time range overlap ---
+    const teacherSchedulesSnapshot = await db.collection('schedules')
+        .where('day', '==', day)
+        .where('teacherId', '==', teacherId)
         .get();
         
-    const [classConflictSnapshot, teacherConflictSnapshot] = await Promise.all([classConflictQuery, teacherConflictQuery]);
-
-    if (!classConflictSnapshot.empty) {
-        return { success: false, message: "Jadwal bentrok! Kelas ini sudah ada yang mengisi pada hari dan jam tersebut." };
-    }
+    const existingTeacherSchedules: Schedule[] = collectionToData<Schedule>(teacherSchedulesSnapshot);
     
-    if (!teacherConflictSnapshot.empty) {
-        return { success: false, message: "Jadwal bentrok! Anda sudah memiliki jadwal lain pada waktu yang sama." };
+    for (const existing of existingTeacherSchedules) {
+        // Overlap condition: (StartA < EndB) and (StartB < EndA)
+        if (startTime < existing.endTime && existing.startTime < endTime) {
+            return { 
+                success: false, 
+                message: `Jadwal bentrok! Anda sudah memiliki jadwal lain pada pukul ${existing.startTime}-${existing.endTime}.` 
+            };
+        }
     }
 
+    // If no conflicts found, add the new schedule
     await db.collection('schedules').add(scheduleData);
     return { success: true, message: "Jadwal berhasil ditambahkan." };
 };
