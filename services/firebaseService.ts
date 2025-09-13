@@ -1,4 +1,5 @@
 import type { User, Class, Schedule, AttendanceRecord, UserRole } from '../types';
+import { HARI_TRANSLATION } from '../constants';
 
 declare var firebase: any;
 
@@ -189,7 +190,7 @@ export const deleteClass = async (id: string): Promise<void> => {
 
 // Helper function for conflict checking
 const performConflictCheck = async (scheduleData: Omit<Schedule, 'id'>, scheduleIdToExclude: string | null = null): Promise<{success: boolean, message: string}> => {
-    const { day, startTime, endTime, classId, teacherId } = scheduleData;
+    const { day, startTime, endTime, classId, teacherId, lessonHour } = scheduleData;
     
     // Basic time validation
     if (startTime >= endTime) {
@@ -206,13 +207,21 @@ const performConflictCheck = async (scheduleData: Omit<Schedule, 'id'>, schedule
         .filter((s: Schedule) => s.id !== scheduleIdToExclude); 
 
     for (const existing of existingClassSchedules) {
-        // Check if the schedule is on the same day before checking for time overlap
+        // Check if the schedule is on the same day before checking for conflicts
         if (existing.day === day) {
+            // Conflict A: Same lesson hour on the same day
+            if (existing.lessonHour === lessonHour) {
+                return { 
+                    success: false, 
+                    message: `Jadwal bentrok! Jam ke-${lessonHour} untuk kelas ini sudah ada pada hari ${HARI_TRANSLATION[day]}.` 
+                };
+            }
+            // Conflict B: Overlapping times on the same day
             // Overlap condition: (StartA < EndB) and (StartB < EndA)
             if (startTime < existing.endTime && existing.startTime < endTime) {
                 return { 
                     success: false, 
-                    message: `Jadwal bentrok! Kelas ini sudah memiliki jadwal pada pukul ${existing.startTime}-${existing.endTime}.` 
+                    message: `Jadwal bentrok! Waktu bertabrakan dengan jadwal lain (${existing.startTime}-${existing.endTime}) untuk kelas ini pada hari ${HARI_TRANSLATION[day]}.` 
                 };
             }
         }
@@ -228,13 +237,21 @@ const performConflictCheck = async (scheduleData: Omit<Schedule, 'id'>, schedule
         .filter((s: Schedule) => s.id !== scheduleIdToExclude);
     
     for (const existing of existingTeacherSchedules) {
-        // Check if the schedule is on the same day before checking for time overlap
+        // Check if the schedule is on the same day before checking for conflicts
         if (existing.day === day) {
+            // Conflict A: Same lesson hour on the same day
+            if (existing.lessonHour === lessonHour) {
+                return { 
+                    success: false, 
+                    message: `Jadwal bentrok! Anda sudah memiliki jadwal untuk jam ke-${lessonHour} pada hari ${HARI_TRANSLATION[day]}.` 
+                };
+            }
+             // Conflict B: Overlapping times on the same day
              // Overlap condition: (StartA < EndB) and (StartB < EndA)
             if (startTime < existing.endTime && existing.startTime < endTime) {
                 return { 
                     success: false, 
-                    message: `Jadwal bentrok! Anda sudah memiliki jadwal lain pada pukul ${existing.startTime}-${existing.endTime}.` 
+                    message: `Jadwal bentrok! Waktu Anda bertabrakan dengan jadwal lain (${existing.startTime}-${existing.endTime}) pada hari ${HARI_TRANSLATION[day]}.` 
                 };
             }
         }
