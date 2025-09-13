@@ -1039,35 +1039,33 @@ const App: React.FC = () => {
     useEffect(() => {
         const unsubscribe = api.onAuthStateChanged(async (authUser) => {
             if (authUser) {
+                // User is authenticated with Firebase Auth. Now, fetch their profile.
                 try {
                     const userDoc = await api.getUser(authUser.uid);
                     if (userDoc) {
-                        // Success: user is authenticated and we have their profile data.
+                        // Success: User is authenticated and we have their profile data.
                         setCurrentUser(userDoc);
+                        setLoading(false);
                     } else {
-                        // This is an inconsistent state: authenticated but no profile document.
-                        // This can happen if the user is deleted from Firestore but not from Auth.
-                        // To be safe, we sign the user out.
+                        // Inconsistent state: authenticated but no profile document.
+                        // This can happen if the user is deleted from Firestore but not Auth.
+                        // It's safe to sign the user out here.
                         console.error(`No user profile found in Firestore for UID: ${authUser.uid}. Signing out.`);
                         await api.signOut();
                         setCurrentUser(null);
+                        setLoading(false);
                     }
                 } catch (error) {
-                    // This can happen if there's a network error when fetching the user profile.
-                    // To prevent the user from being stuck in a logged-in but unusable state,
-                    // we sign them out.
-                    console.error("Failed to fetch user profile, signing out:", error);
-                    await api.signOut();
-                    setCurrentUser(null);
+                    // Network error or Firestore is offline.
+                    // DO NOT sign out. The auth state is valid. We'll wait for the connection.
+                    // The app will remain on the loading screen.
+                    console.warn("Could not fetch user profile, possibly offline. Waiting for connection...", error);
                 }
             } else {
                 // User is not authenticated.
                 setCurrentUser(null);
+                setLoading(false);
             }
-            
-            // In all cases, once we have a definitive state (logged in or logged out),
-            // we should stop showing the main loading spinner.
-            setLoading(false);
         });
 
         // Cleanup subscription on unmount
