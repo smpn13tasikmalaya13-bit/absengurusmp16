@@ -261,6 +261,7 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
 const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onScheduleUpdate: () => Promise<void>, classes: Class[]}> = ({ user, schedules, onScheduleUpdate, classes }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<Partial<Schedule> | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -269,25 +270,32 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
             return;
         }
 
-        const scheduleData: Omit<Schedule, 'id'> = {
-          teacherId: user.id,
-          classId: editingSchedule.classId,
-          day: editingSchedule.day,
-          lessonHour: editingSchedule.lessonHour,
-          startTime: editingSchedule.startTime,
-          endTime: editingSchedule.endTime,
-        }
+        setIsSaving(true);
+        try {
+            const scheduleData: Omit<Schedule, 'id'> = {
+              teacherId: user.id,
+              classId: editingSchedule.classId,
+              day: editingSchedule.day,
+              lessonHour: editingSchedule.lessonHour,
+              startTime: editingSchedule.startTime,
+              endTime: editingSchedule.endTime,
+            };
 
-        const result = editingSchedule.id
-            ? await api.updateSchedule(editingSchedule.id, scheduleData)
-            : await api.addSchedule(scheduleData);
-        
-        if(result.success) {
-            await onScheduleUpdate();
-            setIsModalOpen(false);
-            setEditingSchedule(null);
-        } else {
-            alert(result.message);
+            const result = editingSchedule.id
+                ? await api.updateSchedule(editingSchedule.id, scheduleData)
+                : await api.addSchedule(scheduleData);
+            
+            if(result.success) {
+                await onScheduleUpdate();
+                handleCloseModal();
+            } else {
+                alert(result.message);
+            }
+        } catch (error: any) {
+            console.error("Gagal menyimpan jadwal:", error);
+            alert(`Terjadi kesalahan saat menyimpan: ${error.message || 'Silakan coba lagi.'}`);
+        } finally {
+            setIsSaving(false);
         }
     };
     
@@ -371,7 +379,14 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
-                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
+                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg flex justify-center items-center transition duration-150 disabled:bg-blue-400" disabled={isSaving}>
+                        {isSaving ? (
+                            <>
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                                <span>Menyimpan...</span>
+                            </>
+                        ) : 'Simpan'}
+                    </button>
                 </form>
             </Modal>
         </div>
