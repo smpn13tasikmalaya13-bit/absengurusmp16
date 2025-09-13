@@ -177,7 +177,10 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                         <select
                             id="lessonHourSelect"
                             value={selectedLessonHour || ''}
-                            onChange={(e) => setSelectedLessonHour(parseInt(e.target.value))}
+                            onChange={(e) => {
+                                const value = parseInt(e.target.value, 10);
+                                setSelectedLessonHour(isNaN(value) ? null : value);
+                            }}
                             className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
                         >
                             <option value="">-- Pilih Jam --</option>
@@ -319,7 +322,14 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
                     </div>
                     <div className="mb-4">
                         <label className="block mb-1">Jam Ke</label>
-                        <select value={editingSchedule?.lessonHour || ''} onChange={e => setEditingSchedule({...editingSchedule, lessonHour: parseInt(e.target.value)})} className="w-full p-2 border rounded">
+                        <select 
+                            value={editingSchedule?.lessonHour || ''} 
+                            onChange={e => {
+                                const value = parseInt(e.target.value, 10);
+                                setEditingSchedule({...editingSchedule, lessonHour: isNaN(value) ? undefined : value });
+                            }} 
+                            className="w-full p-2 border rounded"
+                        >
                             <option value="">Pilih Jam</option>
                             {LESSON_HOURS.map(hour => <option key={hour} value={hour}>{hour}</option>)}
                         </select>
@@ -698,7 +708,16 @@ const ClassManagement: React.FC = () => {
                     </div>
                      <div className="mb-4">
                         <label className="block mb-1">Tingkat</label>
-                        <input type="number" value={editingClass?.grade || ''} onChange={e => setEditingClass({...editingClass, grade: parseInt(e.target.value) || undefined })} className="w-full p-2 border rounded" />
+                        <input 
+                            type="number" 
+                            value={editingClass?.grade || ''} 
+                            onChange={e => {
+                                const value = e.target.value;
+                                const grade = value === '' ? undefined : parseInt(value, 10);
+                                setEditingClass({...editingClass, grade: isNaN(grade) ? undefined : grade });
+                            }} 
+                            className="w-full p-2 border rounded" 
+                        />
                     </div>
                     <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
                 </form>

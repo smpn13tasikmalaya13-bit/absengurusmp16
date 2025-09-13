@@ -31,7 +31,7 @@ export const onAuthStateChanged = (callback: (user: any | null) => void) => {
     return auth.onAuthStateChanged(callback);
 };
 
-export const signIn = async (email: string, password?: string): Promise<void> => {
+export const signIn = async (email: string, password: string): Promise<void> => {
     await auth.signInWithEmailAndPassword(email, password);
 };
 
