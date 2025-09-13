@@ -985,224 +985,226 @@ const AuthScreen: React.FC = () => {
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
     
-    const clearMessages = () => {
+    const logoUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARgAAAEZCAYAAACwBCx8AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDpAAB1MAAA6mAAADqYAAAXb5JfxUYAAEcASURBVHja7N15fF1Xfcd/72tN1e5y2V2yyUKWEJbLhAyTQQYYYICYYQYDDDDDDAYDDDEGY4AJ2ZjlYQITJgyGYQaCYcIyA0kyyEKySJfL7VbV6v6ep/ePqupSdy9d3e5Uffz8/FzVve6pU/c+1T711FOlYwwxxLg50/j/M8bY/7WjDDHGeH9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD"
+
+    const handleAuth = async (action: 'login' | 'register' | 'reset') => {
         setError('');
         setMessage('');
-    };
-    
-    const switchAuthView = (view: 'login' | 'register' | 'reset') => {
-        setAuthView(view);
-        setEmail('');
-        setPassword('');
-        setName('');
-        setRole(UserRoleEnum.TEACHER); // Explicitly reset role to default
-        clearMessages();
-    };
-
-    const handleAuthAction = async () => {
         setLoading(true);
-        clearMessages();
+
         try {
-            if (authView === 'login') {
-                await api.signIn(email, password);
-                // The onAuthStateChanged listener in App.tsx will handle the redirect.
-            } else { // 'register'
-                if (!name) {
-                    throw new Error('Nama Lengkap wajib diisi.');
+            if (action === 'register') {
+                if (!email || !password || !name) {
+                    setError('Harap isi semua kolom untuk mendaftar.');
+                    setLoading(false);
+                    return;
                 }
-                const result = await api.signUp(email, password, name, role);
-                 if (result.success) {
-                    setMessage('Registrasi berhasil! Perangkat Anda telah terikat. Silakan login.');
-                    setAuthView('login');
+                const { success, message: regMessage } = await api.signUp(email, password, name, role);
+                if(success) {
+                  setMessage('Registrasi berhasil! Silakan login.');
+                  setAuthView('login');
                 } else {
-                    throw new Error(result.message || 'Gagal mendaftar.');
+                  setError(regMessage || 'Registrasi gagal.');
                 }
+            } else if (action === 'login') {
+                await api.signIn(email, password);
+                // The main App component will handle navigation via onAuthStateChanged
+            } else if (action === 'reset') {
+                if (!email) {
+                    setError('Harap isi email untuk reset password.');
+                    setLoading(false);
+                    return;
+                }
+                await api.sendPasswordResetEmail(email);
+                setMessage('Email reset password telah dikirim.');
             }
-        } catch (authError: any) {
-            setError(authError.message || 'Terjadi kesalahan.');
+        } catch (error: any) {
+            setError(error.message);
         } finally {
             setLoading(false);
         }
-    };
-    
-    const handlePasswordReset = async () => {
-        setLoading(true);
-        clearMessages();
-        try {
-            await api.sendPasswordResetEmail(email);
-            setMessage('Link reset password telah dikirim ke email Anda. Silakan periksa inbox.');
-        } catch (authError: any) {
-            if (authError.code === 'auth/user-not-found') {
-                setError('Email tidak terdaftar.');
-            } else {
-                setError(authError.message || 'Gagal mengirim email reset.');
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
-    
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (authView === 'reset') {
-            handlePasswordReset();
-        } else {
-            handleAuthAction();
-        }
-    };
-    
-    const getTitle = () => {
-        if (authView === 'login') return 'Login';
-        if (authView === 'register') return 'Daftar';
-        return 'Reset Password';
     };
 
+    const renderForm = () => {
+        switch (authView) {
+            case 'register':
+                return (
+                    <>
+                        <h3 className="text-2xl font-bold text-center mb-6">Daftar Akun Baru</h3>
+                        <div className="mb-4">
+                            <label className="block text-gray-700">Nama Lengkap</label>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Nama Lengkap"
+                                required
+                            />
+                        </div>
+                        <div className="mb-4">
+                            <label className="block text-gray-700">Email</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="email@sekolah.sch.id"
+                                required
+                            />
+                        </div>
+                        <div className="mb-6">
+                            <label className="block text-gray-700">Password</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="******"
+                                required
+                            />
+                        </div>
+                         <div className="mb-6">
+                            <label className="block text-gray-700">Role</label>
+                            <select value={role} onChange={e => setRole(e.target.value as UserRole)} className="w-full px-3 py-2 border rounded-lg">
+                                <option value={UserRoleEnum.TEACHER}>Guru</option>
+                                <option value={UserRoleEnum.ADMIN}>Admin</option>
+                            </select>
+                        </div>
+                        <button onClick={() => handleAuth('register')} disabled={loading} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200 disabled:bg-blue-300">
+                            {loading ? 'Mendaftar...' : 'Daftar'}
+                        </button>
+                        <p className="mt-4 text-center">
+                            Sudah punya akun? <button onClick={() => setAuthView('login')} className="text-blue-500 hover:underline">Login</button>
+                        </p>
+                    </>
+                );
+            case 'reset':
+                return (
+                     <>
+                        <h3 className="text-2xl font-bold text-center mb-6">Reset Password</h3>
+                        <div className="mb-4">
+                            <label className="block text-gray-700">Email</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="email@sekolah.sch.id"
+                                required
+                            />
+                        </div>
+                        <button onClick={() => handleAuth('reset')} disabled={loading} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200 disabled:bg-blue-300">
+                            {loading ? 'Mengirim...' : 'Kirim Link Reset'}
+                        </button>
+                        <p className="mt-4 text-center">
+                           Kembali ke <button onClick={() => setAuthView('login')} className="text-blue-500 hover:underline">Login</button>
+                        </p>
+                    </>
+                )
+            default: // login
+                return (
+                    <>
+                        <h3 className="text-2xl font-bold text-center mb-6">Login Sistem</h3>
+                        <div className="mb-4">
+                            <label className="block text-gray-700">Email</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="email@sekolah.sch.id"
+                            />
+                        </div>
+                        <div className="mb-6">
+                            <label className="block text-gray-700">Password</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="******"
+                            />
+                        </div>
+                        <button onClick={() => handleAuth('login')} disabled={loading} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200 disabled:bg-blue-300">
+                            {loading ? 'Loading...' : 'Login'}
+                        </button>
+                        <div className="mt-4 text-center flex justify-between text-sm">
+                           <button onClick={() => setAuthView('register')} className="text-blue-500 hover:underline">Daftar Akun Baru</button>
+                            <button onClick={() => setAuthView('reset')} className="text-gray-500 hover:underline">Lupa Password?</button>
+                        </div>
+                    </>
+                );
+        }
+    };
+    
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-            <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-                <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">{getTitle()}</h2>
-                {error && <p className="bg-red-100 text-red-700 p-3 rounded-md mb-4">{error}</p>}
-                {message && <p className="bg-green-100 text-green-700 p-3 rounded-md mb-4">{message}</p>}
-                
-                <form onSubmit={handleSubmit}>
-                    {authView !== 'reset' && !message.startsWith('Registrasi berhasil') && ( // Hide form on successful registration
-                        <>
-                            {authView === 'register' && (
-                                <div className="mb-4">
-                                    <label className="block text-gray-700 mb-2">Nama Lengkap</label>
-                                    <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                                </div>
-                            )}
-                            <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Email</label>
-                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                            </div>
-                            <div className="mb-6">
-                                <div className="flex justify-between items-center mb-2">
-                                    <label className="block text-gray-700">Password</label>
-                                    {authView === 'login' && (
-                                        <button type="button" onClick={() => switchAuthView('reset')} className="text-sm text-blue-600 hover:underline">
-                                            Lupa Password?
-                                        </button>
-                                    )}
-                                </div>
-                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                            </div>
-                             {authView === 'register' && (
-                                <div className="mb-4">
-                                    <label className="block text-gray-700 mb-2">Daftar Sebagai</label>
-                                    <select value={role} onChange={e => setRole(e.target.value as UserRole)} className="w-full px-3 py-2 border rounded-lg">
-                                        <option value={UserRoleEnum.TEACHER}>Guru</option>
-                                        <option value={UserRoleEnum.ADMIN}>Admin</option>
-                                    </select>
-                                </div>
-                            )}
-                            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition duration-300 disabled:bg-blue-300" disabled={loading}>
-                                {loading ? <Spinner/> : (authView === 'login' ? 'Login' : 'Daftar')}
-                            </button>
-                        </>
-                    )}
-                    
-                    {authView === 'reset' && (
-                         <>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Email</label>
-                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                            </div>
-                            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition duration-300 disabled:bg-blue-300" disabled={loading}>
-                                {loading ? <Spinner/> : 'Kirim Link Reset'}
-                            </button>
-                        </>
-                    )}
-                </form>
-
-                <p className="text-center text-gray-600 mt-4">
-                    {authView === 'login' && "Belum punya akun? "}
-                    {authView === 'register' && "Sudah punya akun? "}
-                    {authView === 'reset' && "Ingat password Anda? "}
-                    
-                    <button 
-                        onClick={() => switchAuthView(authView === 'register' || authView === 'reset' ? 'login' : 'register')} 
-                        className="text-blue-600 hover:underline ml-1"
-                    >
-                        {authView === 'register' || authView === 'reset' ? 'Login di sini' : 'Daftar di sini'}
-                    </button>
-                </p>
+        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+            <div className="w-full max-w-sm bg-white p-8 rounded-xl shadow-lg">
+                <div className="flex justify-center mb-4">
+                    <img src={logoUrl} alt="Logo Sekolah" className="h-24 w-24 object-contain"/>
+                </div>
+                <h2 className="text-xl font-semibold text-center text-gray-700 mb-1">
+                   Selamat Datang di Sistem Absensi Berbasis QR
+                </h2>
+                <h3 className="text-lg font-bold text-center text-gray-800 mb-6">
+                    SMP NEGERI 13 TASIKMALAYA
+                </h3>
+                {error && <p className="bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-center">{error}</p>}
+                {message && <p className="bg-green-100 text-green-700 p-3 rounded-lg mb-4 text-center">{message}</p>}
+                {renderForm()}
             </div>
         </div>
     );
 };
 
-
 // --- Main App Component ---
 
 const App: React.FC = () => {
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [user, setUser] = useState<any>(null);
+    const [userData, setUserData] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-
+    
     useEffect(() => {
-        let userProfileUnsubscribe: (() => void) | null = null;
-
-        const authUnsubscribe = api.onAuthStateChanged((authUser) => {
-            // Always clean up the previous profile listener when auth state changes.
-            if (userProfileUnsubscribe) {
-                userProfileUnsubscribe();
-                userProfileUnsubscribe = null;
-            }
-
-            if (authUser) {
-                setLoading(true);
-                userProfileUnsubscribe = api.onUserProfileChange(authUser.uid, (userDoc) => {
-                    if (userDoc) {
-                        setCurrentUser(userDoc);
-                        setLoading(false);
-                    } else {
-                        // If user is authenticated but has no profile document, it's an error state.
-                        // This can occur if the document creation failed during signup.
-                        // Signing out is the safest action.
-                        console.error(`User profile not found for authenticated user UID: ${authUser.uid}. Signing out.`);
-                        api.signOut();
-                    }
-                });
-            } else {
-                // User is not authenticated.
-                setCurrentUser(null);
+        const unsubscribe = api.onAuthStateChanged(firebaseUser => {
+            setUser(firebaseUser);
+            if (!firebaseUser) {
+                setUserData(null);
                 setLoading(false);
             }
         });
-
-        // Cleanup on component unmount
-        return () => {
-            authUnsubscribe();
-            if (userProfileUnsubscribe) {
-                userProfileUnsubscribe();
-            }
-        };
+        return () => unsubscribe();
     }, []);
 
-
+    useEffect(() => {
+        if (user) {
+            const unsubscribe = api.onUserProfileChange(user.uid, (profile) => {
+                setUserData(profile);
+                setLoading(false);
+            });
+            return () => unsubscribe();
+        }
+    }, [user]);
+    
     const handleLogout = async () => {
         await api.signOut();
-        setCurrentUser(null);
+        setUser(null);
+        setUserData(null);
     };
 
     if (loading) {
-        return <FullPageSpinner />;
+       return <FullPageSpinner />;
     }
 
-    if (!currentUser) {
+    if (!user || !userData) {
         return <AuthScreen />;
     }
 
-    if (currentUser.role === UserRoleEnum.ADMIN) {
-        return <AdminDashboard user={currentUser} onLogout={handleLogout} />;
+    if (userData.role === UserRoleEnum.ADMIN) {
+        return <AdminDashboard user={userData} onLogout={handleLogout} />;
     }
 
-    if (currentUser.role === UserRoleEnum.TEACHER) {
-        return <TeacherDashboard user={currentUser} onLogout={handleLogout} />;
-    }
-
-    return <div>Role tidak diketahui. Silakan hubungi admin.</div>;
+    return <TeacherDashboard user={userData} onLogout={handleLogout} />;
 };
 
 export default App;
