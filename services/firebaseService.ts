@@ -81,6 +81,27 @@ export const signUp = async (email: string, password: string, name: string, role
 
 // --- User Functions ---
 
+export const onUserProfileChange = (uid: string, callback: (user: User | null) => void) => {
+    const userDocRef = db.collection('users').doc(uid);
+    // onSnapshot handles offline cases gracefully. It provides cached data first,
+    // then updates with server data when the connection is restored.
+    const unsubscribe = userDocRef.onSnapshot(
+        (doc: any) => {
+            if (doc.exists) {
+                callback(docToData<User>(doc));
+            } else {
+                callback(null);
+            }
+        },
+        (error: any) => {
+            console.error("Error listening to user profile:", error);
+            // In case of an error (e.g., permissions), treat as if the user profile doesn't exist.
+            callback(null);
+        }
+    );
+    return unsubscribe;
+};
+
 export const getUser = async (id: string): Promise<User | null> => {
     const doc = await db.collection('users').doc(id).get();
     if (!doc.exists) {

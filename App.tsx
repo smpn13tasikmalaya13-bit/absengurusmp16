@@ -1037,39 +1037,43 @@ const App: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = api.onAuthStateChanged(async (authUser) => {
+        let userProfileUnsubscribe: (() => void) | null = null;
+
+        const authUnsubscribe = api.onAuthStateChanged((authUser) => {
+            // Clean up any existing profile listener when auth state changes
+            if (userProfileUnsubscribe) {
+                userProfileUnsubscribe();
+            }
+
             if (authUser) {
-                // User is authenticated with Firebase Auth. Now, fetch their profile.
-                try {
-                    const userDoc = await api.getUser(authUser.uid);
+                // User is authenticated, set up a real-time listener for their profile
+                userProfileUnsubscribe = api.onUserProfileChange(authUser.uid, (userDoc) => {
                     if (userDoc) {
-                        // Success: User is authenticated and we have their profile data.
+                        // We have the user profile (from cache or server)
                         setCurrentUser(userDoc);
                         setLoading(false);
                     } else {
-                        // Inconsistent state: authenticated but no profile document.
-                        // This can happen if the user is deleted from Firestore but not Auth.
-                        // It's safe to sign the user out here.
-                        console.error(`No user profile found in Firestore for UID: ${authUser.uid}. Signing out.`);
-                        await api.signOut();
-                        setCurrentUser(null);
-                        setLoading(false);
+                        // Auth record exists but no profile document.
+                        // This can happen if profile creation failed or was deleted.
+                        // Sign out to prevent being stuck in an inconsistent state.
+                        console.error(`No user profile found for UID: ${authUser.uid}. Signing out.`);
+                        api.signOut(); // This will re-trigger onAuthStateChanged with authUser = null
                     }
-                } catch (error) {
-                    // Network error or Firestore is offline.
-                    // DO NOT sign out. The auth state is valid. We'll wait for the connection.
-                    // The app will remain on the loading screen.
-                    console.warn("Could not fetch user profile, possibly offline. Waiting for connection...", error);
-                }
+                });
             } else {
-                // User is not authenticated.
+                // User is not authenticated
                 setCurrentUser(null);
                 setLoading(false);
             }
         });
 
-        // Cleanup subscription on unmount
-        return () => unsubscribe();
+        // Cleanup subscriptions on component unmount
+        return () => {
+            authUnsubscribe();
+            if (userProfileUnsubscribe) {
+                userProfileUnsubscribe();
+            }
+        };
     }, []);
 
 
