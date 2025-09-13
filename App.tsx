@@ -23,6 +23,13 @@ const Spinner = () => (
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
 );
 
+const FullPageSpinner = () => (
+    <div className="fixed inset-0 bg-gray-100 flex justify-center items-center z-50">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
+    </div>
+);
+
+
 interface ModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -539,12 +546,14 @@ const CrudTable: React.FC<{
     columns: string[];
     data: any[];
     renderRow: (item: any) => React.ReactNode;
-    onAdd: () => void;
+    onAdd?: () => void;
 }> = ({ title, columns, data, renderRow, onAdd }) => (
     <div className="bg-white p-6 rounded-lg shadow">
         <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold">{title}</h2>
-            <button onClick={onAdd} className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">Tambah</button>
+            {onAdd && (
+                <button onClick={onAdd} className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">Tambah</button>
+            )}
         </div>
         <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -563,8 +572,6 @@ const CrudTable: React.FC<{
 
 const TeacherManagement: React.FC = () => {
     const [teachers, setTeachers] = useState<User[]>([]);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingTeacher, setEditingTeacher] = useState<Partial<User> | null>(null);
 
     const fetchTeachers = async () => {
         setTeachers(await api.getUsersByRole(UserRoleEnum.TEACHER));
@@ -573,30 +580,11 @@ const TeacherManagement: React.FC = () => {
     useEffect(() => {
         fetchTeachers();
     }, []);
-
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editingTeacher || !editingTeacher.name || !editingTeacher.userId || (!editingTeacher.id && !editingTeacher.password)) {
-            alert("Harap isi semua kolom.");
-            return;
-        }
-
-        const teacherData: Omit<User, 'id'> = {
-            name: editingTeacher.name,
-            userId: editingTeacher.userId,
-            password: editingTeacher.password,
-            role: UserRoleEnum.TEACHER,
-        };
-
-        await api.addUser(teacherData);
-        await fetchTeachers();
-        
-        setIsModalOpen(false);
-        setEditingTeacher(null);
-    };
-
+    
     const handleDelete = async (id: string) => {
         if (window.confirm("Yakin ingin menghapus guru ini? Ini juga akan menghapus jadwal terkait.")) {
+            // Note: This only deletes Firestore data. The user will remain in Firebase Auth.
+            // Secure user deletion requires admin privileges, typically via a Cloud Function.
             await api.deleteUser(id);
             setTeachers(teachers.filter(t => t.id !== id));
         }
@@ -606,9 +594,8 @@ const TeacherManagement: React.FC = () => {
         <>
             <CrudTable
                 title="Manajemen Guru"
-                columns={['Nama', 'User ID', 'Aksi']}
+                columns={['Nama', 'User ID (Email)', 'Aksi']}
                 data={teachers}
-                onAdd={() => { setEditingTeacher({}); setIsModalOpen(true); }}
                 renderRow={(teacher: User) => (
                     <tr key={teacher.id} className="border-b hover:bg-gray-50">
                         <td className="p-3">{teacher.name}</td>
@@ -619,23 +606,9 @@ const TeacherManagement: React.FC = () => {
                     </tr>
                 )}
             />
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Form Guru">
-                <form onSubmit={handleSave}>
-                    <div className="mb-4">
-                        <label className="block mb-1">Nama Lengkap</label>
-                        <input type="text" value={editingTeacher?.name || ''} onChange={e => setEditingTeacher({...editingTeacher, name: e.target.value})} className="w-full p-2 border rounded" />
-                    </div>
-                     <div className="mb-4">
-                        <label className="block mb-1">User ID</label>
-                        <input type="text" value={editingTeacher?.userId || ''} onChange={e => setEditingTeacher({...editingTeacher, userId: e.target.value})} className="w-full p-2 border rounded" />
-                    </div>
-                     <div className="mb-4">
-                        <label className="block mb-1">Password</label>
-                        <input type="password" onChange={e => setEditingTeacher({...editingTeacher, password: e.target.value})} className="w-full p-2 border rounded" placeholder={editingTeacher?.id ? "Kosongkan jika tidak ganti" : ""} />
-                    </div>
-                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
-                </form>
-            </Modal>
+            <div className="mt-4 p-4 bg-yellow-100 text-yellow-800 rounded-lg">
+                <p><strong>Catatan:</strong> Untuk menambahkan guru baru, silakan gunakan halaman pendaftaran utama. Ini untuk memastikan semua akun dibuat dengan aman.</p>
+            </div>
         </>
     );
 };
@@ -885,52 +858,44 @@ const AttendanceReport: React.FC = () => {
 
 // --- Login/Register Component ---
 
-const AuthScreen: React.FC<{ onLoginSuccess: (user: User) => void }> = ({ onLoginSuccess }) => {
+const AuthScreen: React.FC = () => {
     const [isLogin, setIsLogin] = useState(true);
-    const [userId, setUserId] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
     const [role, setRole] = useState<UserRole>(UserRoleEnum.TEACHER);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-
-    const handleLogin = async () => {
+    const handleAuthAction = async () => {
         setLoading(true);
-        const user = await api.loginUser(userId, password);
-        if (user) {
-            onLoginSuccess(user);
-        } else {
-            setError('User ID atau Password salah.');
+        setError('');
+        try {
+            if (isLogin) {
+                await api.signIn(email, password);
+                // The onAuthStateChanged listener in App.tsx will handle the redirect.
+            } else {
+                if (!name) {
+                    throw new Error('Nama Lengkap wajib diisi.');
+                }
+                const result = await api.signUp(email, password, name, role);
+                 if (result.success) {
+                    alert('Registrasi berhasil! Silakan login.');
+                    setIsLogin(true);
+                } else {
+                    throw new Error(result.message || 'Gagal mendaftar.');
+                }
+            }
+        } catch (authError: any) {
+            setError(authError.message || 'Terjadi kesalahan.');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
-
-    const handleRegister = async () => {
-        if (!userId || !password || !name) {
-            setError('Semua kolom wajib diisi.');
-            return;
-        }
-        setLoading(true);
-        const result = await api.registerUser({ userId, password, name, role });
-        if (result.success) {
-            alert('Registrasi berhasil! Silakan login.');
-            setIsLogin(true);
-            setError('');
-        } else {
-            setError(result.message || 'Terjadi kesalahan saat registrasi.');
-        }
-        setLoading(false);
-    };
-
+    
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
-        if (isLogin) {
-            handleLogin();
-        } else {
-            handleRegister();
-        }
+        handleAuthAction();
     };
 
     return (
@@ -946,8 +911,8 @@ const AuthScreen: React.FC<{ onLoginSuccess: (user: User) => void }> = ({ onLogi
                         </div>
                     )}
                      <div className="mb-4">
-                        <label className="block text-gray-700 mb-2">User ID</label>
-                        <input type="text" value={userId} onChange={e => setUserId(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                        <label className="block text-gray-700 mb-2">Email</label>
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
                     </div>
                      <div className="mb-6">
                         <label className="block text-gray-700 mb-2">Password</label>
@@ -968,7 +933,7 @@ const AuthScreen: React.FC<{ onLoginSuccess: (user: User) => void }> = ({ onLogi
                 </form>
                 <p className="text-center text-gray-600 mt-4">
                     {isLogin ? "Belum punya akun?" : "Sudah punya akun?"}
-                    <button onClick={() => setIsLogin(!isLogin)} className="text-blue-600 hover:underline ml-1">
+                    <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-blue-600 hover:underline ml-1">
                         {isLogin ? 'Daftar di sini' : 'Login di sini'}
                     </button>
                 </p>
@@ -982,18 +947,43 @@ const AuthScreen: React.FC<{ onLoginSuccess: (user: User) => void }> = ({ onLogi
 
 const App: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const handleLoginSuccess = (user: User) => {
-        const { password, ...userWithoutPassword } = user;
-        setCurrentUser(userWithoutPassword);
-    };
+    useEffect(() => {
+        const unsubscribe = api.onAuthStateChanged(async (authUser) => {
+            if (authUser) {
+                // User is signed in, get their role from Firestore.
+                const userDoc = await api.getUser(authUser.uid);
+                if (userDoc) {
+                    setCurrentUser(userDoc);
+                } else {
+                    // This case might happen if the Firestore doc wasn't created properly.
+                    // Log them out to be safe.
+                    api.signOut();
+                }
+            } else {
+                // User is signed out.
+                setCurrentUser(null);
+            }
+            setLoading(false);
+        });
+        
+        // Cleanup subscription on unmount
+        return () => unsubscribe();
+    }, []);
 
-    const handleLogout = () => {
+
+    const handleLogout = async () => {
+        await api.signOut();
         setCurrentUser(null);
     };
 
+    if (loading) {
+        return <FullPageSpinner />;
+    }
+
     if (!currentUser) {
-        return <AuthScreen onLoginSuccess={handleLoginSuccess} />;
+        return <AuthScreen />;
     }
 
     if (currentUser.role === UserRoleEnum.ADMIN) {
@@ -1004,7 +994,7 @@ const App: React.FC = () => {
         return <TeacherDashboard user={currentUser} onLogout={handleLogout} />;
     }
 
-    return <div>Role tidak diketahui.</div>;
+    return <div>Role tidak diketahui. Silakan hubungi admin.</div>;
 };
 
 export default App;

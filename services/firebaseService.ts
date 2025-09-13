@@ -3,7 +3,6 @@ import type { User, Class, Schedule, AttendanceRecord, UserRole } from '../types
 declare var firebase: any;
 
 // --- Firebase Configuration ---
-// Konfigurasi ini telah diperbarui dengan kredensial Anda.
 const firebaseConfig = {
   apiKey: "AIzaSyDw3_F5evnkiTJ4L-rjfiOLER19jozdM3k",
   authDomain: "absensi-guru13.firebaseapp.com",
@@ -20,46 +19,62 @@ if (!firebase.apps.length) {
 }
 
 const db = firebase.firestore();
+const auth = firebase.auth();
 
 // --- Helper Functions ---
 const docToData = <T,>(doc: any): T => ({ id: doc.id, ...doc.data() } as T);
 const collectionToData = <T,>(snapshot: any): T[] => snapshot.docs.map(docToData);
 
-// --- Auth Functions ---
-export const loginUser = async (userId: string, password?: string): Promise<User | null> => {
-    const snapshot = await db.collection('users')
-        .where('userId', '==', userId)
-        .where('password', '==', password)
-        .limit(1)
-        .get();
-        
-    if (snapshot.empty) {
-        return null;
-    }
-    return docToData<User>(snapshot.docs[0]);
+// --- Auth Functions (Secure) ---
+
+export const onAuthStateChanged = (callback: (user: any | null) => void) => {
+    return auth.onAuthStateChanged(callback);
 };
 
-export const registerUser = async (userData: Omit<User, 'id'>): Promise<{success: boolean; message?: string}> => {
-    // Check for existing User ID
-    const userSnapshot = await db.collection('users').where('userId', '==', userData.userId).get();
-    if (!userSnapshot.empty) {
-        return { success: false, message: 'User ID sudah digunakan.' };
-    }
+export const signIn = async (email: string, password?: string): Promise<void> => {
+    await auth.signInWithEmailAndPassword(email, password);
+};
 
-    // NEW: Check for admin limit
-    if (userData.role === 'ADMIN') {
+export const signOut = async (): Promise<void> => {
+    await auth.signOut();
+};
+
+export const signUp = async (email: string, password: string, name: string, role: UserRole): Promise<{success: boolean; message?: string}> => {
+     // Check for admin limit before creating the user in Auth
+    if (role === 'ADMIN') {
         const adminSnapshot = await db.collection('users').where('role', '==', 'ADMIN').get();
         if (adminSnapshot.docs.length >= 3) {
             return { success: false, message: 'Batas maksimal admin (3) telah tercapai.' };
         }
     }
     
-    await db.collection('users').add(userData);
+    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+
+    if (!user) {
+        throw new Error("Gagal membuat pengguna.");
+    }
+    
+    // Store user role and name in Firestore, linking with the auth UID
+    await db.collection('users').doc(user.uid).set({
+        name,
+        role,
+        userId: email, // Keep userId as email for consistency
+    });
+
     return { success: true };
 };
 
+// --- User Functions ---
 
-// --- User (Teacher) Functions ---
+export const getUser = async (id: string): Promise<User | null> => {
+    const doc = await db.collection('users').doc(id).get();
+    if (!doc.exists) {
+        return null;
+    }
+    return docToData<User>(doc);
+};
+
 export const getUsers = async (): Promise<User[]> => {
     const snapshot = await db.collection('users').get();
     return collectionToData<User>(snapshot);
@@ -70,12 +85,13 @@ export const getUsersByRole = async (role: UserRole): Promise<User[]> => {
     return collectionToData<User>(snapshot);
 };
 
-export const addUser = async (userData: Omit<User, 'id'>): Promise<void> => {
-    await db.collection('users').add(userData);
-};
-
 export const deleteUser = async (id: string): Promise<void> => {
-    // Also delete associated schedules
+    // This function now only deletes the Firestore user data.
+    // Deleting a user from Firebase Authentication is a privileged operation
+    // and should be handled in a secure backend environment (e.g., Cloud Functions)
+    // or manually in the Firebase Console to prevent abuse.
+    
+    // Delete associated schedules
     const schedulesSnapshot = await db.collection('schedules').where('teacherId', '==', id).get();
     const batch = db.batch();
     schedulesSnapshot.docs.forEach((doc: any) => {
@@ -83,6 +99,7 @@ export const deleteUser = async (id: string): Promise<void> => {
     });
     await batch.commit();
 
+    // Delete the user document from Firestore
     await db.collection('users').doc(id).delete();
 };
 
@@ -107,7 +124,6 @@ export const getSchedules = async (): Promise<Schedule[]> => {
 };
 
 export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<boolean> => {
-    // NEW: Check for schedule conflicts before adding
     const conflictSnapshot = await db.collection('schedules')
         .where('day', '==', scheduleData.day)
         .where('lessonHour', '==', scheduleData.lessonHour)
@@ -116,8 +132,7 @@ export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<b
         .get();
 
     if (!conflictSnapshot.empty) {
-        console.log("Schedule conflict detected.");
-        return false; // Conflict found, do not add
+        return false; // Conflict found
     }
 
     await db.collection('schedules').add(scheduleData);
