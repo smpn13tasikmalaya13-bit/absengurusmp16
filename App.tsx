@@ -970,6 +970,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const unsubscribe = api.onAuthStateChanged(async (authUser) => {
+            let shouldStopLoading = true;
             try {
                 if (authUser) {
                     // User is signed in, get their role from Firestore.
@@ -989,12 +990,22 @@ const App: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Error during authentication state change:", error);
-                // If there's an error (e.g., Firestore rules), log the user out.
-                api.signOut();
-                setCurrentUser(null);
+                const errorMessage = String((error as Error).message || '').toLowerCase();
+                // If the error is due to being offline, don't log the user out and keep showing the loading spinner.
+                // The app will resolve itself once the connection is back.
+                if (errorMessage.includes('offline') || errorMessage.includes('network')) {
+                     console.warn('Offline mode: Could not fetch latest user data.');
+                     shouldStopLoading = false;
+                } else {
+                    // For other errors (e.g., Firestore rules), log the user out.
+                    api.signOut();
+                    setCurrentUser(null);
+                }
             } finally {
-                // This is crucial: always stop loading, regardless of success or failure.
-                setLoading(false);
+                // Stop loading only if there wasn't a temporary offline error.
+                if (shouldStopLoading) {
+                    setLoading(false);
+                }
             }
         });
         

@@ -21,6 +21,18 @@ if (!firebase.apps.length) {
 const db = firebase.firestore();
 const auth = firebase.auth();
 
+// Enable offline persistence
+db.enablePersistence()
+  .catch((err: any) => {
+      if (err.code == 'failed-precondition') {
+          // This can happen if multiple tabs are open.
+          console.warn('Firestore persistence failed. Multiple tabs may be open.');
+      } else if (err.code == 'unimplemented') {
+          // The current browser does not support persistence.
+          console.warn('Firestore persistence is not supported in this browser.');
+      }
+  });
+
 // --- Helper Functions ---
 const docToData = <T,>(doc: any): T => ({ id: doc.id, ...doc.data() } as T);
 const collectionToData = <T,>(snapshot: any): T[] => snapshot.docs.map(docToData);
