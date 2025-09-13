@@ -274,14 +274,14 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
           endTime: editingSchedule.endTime,
         }
 
-        const success = await api.addSchedule(scheduleData);
+        const result = await api.addSchedule(scheduleData);
         
-        if(success) {
+        if(result.success) {
             setSchedules(await api.getSchedules());
             setIsModalOpen(false);
             setEditingSchedule(null);
         } else {
-            alert("Jadwal bentrok! Kelas ini sudah ada yang mengisi pada hari dan jam tersebut.");
+            alert(result.message);
         }
     };
     

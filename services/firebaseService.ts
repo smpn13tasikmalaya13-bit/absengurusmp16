@@ -174,6 +174,14 @@ export const addClass = async (classData: Omit<Class, 'id'>): Promise<void> => {
 };
 
 export const deleteClass = async (id: string): Promise<void> => {
+    // Also delete associated schedules to prevent orphaned data
+    const schedulesSnapshot = await db.collection('schedules').where('classId', '==', id).get();
+    const batch = db.batch();
+    schedulesSnapshot.docs.forEach((doc: any) => {
+        batch.delete(doc.ref);
+    });
+    await batch.commit();
+
     await db.collection('classes').doc(id).delete();
 };
 
@@ -183,20 +191,35 @@ export const getSchedules = async (): Promise<Schedule[]> => {
     return collectionToData<Schedule>(snapshot);
 };
 
-export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<boolean> => {
-    const conflictSnapshot = await db.collection('schedules')
+export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
+    // 1. Check for class conflict (is this class already scheduled at this time?)
+    const classConflictQuery = db.collection('schedules')
         .where('day', '==', scheduleData.day)
         .where('lessonHour', '==', scheduleData.lessonHour)
         .where('classId', '==', scheduleData.classId)
         .limit(1)
         .get();
 
-    if (!conflictSnapshot.empty) {
-        return false; // Conflict found
+    // 2. Check for teacher conflict (is this teacher already scheduled at this time?)
+    const teacherConflictQuery = db.collection('schedules')
+        .where('day', '==', scheduleData.day)
+        .where('lessonHour', '==', scheduleData.lessonHour)
+        .where('teacherId', '==', scheduleData.teacherId)
+        .limit(1)
+        .get();
+        
+    const [classConflictSnapshot, teacherConflictSnapshot] = await Promise.all([classConflictQuery, teacherConflictQuery]);
+
+    if (!classConflictSnapshot.empty) {
+        return { success: false, message: "Jadwal bentrok! Kelas ini sudah ada yang mengisi pada hari dan jam tersebut." };
+    }
+    
+    if (!teacherConflictSnapshot.empty) {
+        return { success: false, message: "Jadwal bentrok! Anda sudah memiliki jadwal lain pada waktu yang sama." };
     }
 
     await db.collection('schedules').add(scheduleData);
-    return true; // Successfully added
+    return { success: true, message: "Jadwal berhasil ditambahkan." };
 };
 
 export const deleteSchedule = async (id: string): Promise<void> => {
