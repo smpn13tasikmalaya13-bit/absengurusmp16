@@ -260,16 +260,18 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!editingSchedule || !editingSchedule.classId || !editingSchedule.day || !editingSchedule.lessonHour) {
+        if (!editingSchedule || !editingSchedule.classId || !editingSchedule.day || !editingSchedule.lessonHour || !editingSchedule.startTime || !editingSchedule.endTime) {
             alert("Harap isi semua kolom");
             return;
         }
 
-        const scheduleData = {
+        const scheduleData: Omit<Schedule, 'id'> = {
           teacherId: user.id,
           classId: editingSchedule.classId,
           day: editingSchedule.day,
           lessonHour: editingSchedule.lessonHour,
+          startTime: editingSchedule.startTime,
+          endTime: editingSchedule.endTime,
         }
 
         const success = await api.addSchedule(scheduleData);
@@ -296,7 +298,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
         <div className="bg-white p-4 rounded-lg shadow">
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">Jadwal Mengajar Saya</h2>
-                <button onClick={() => { setEditingSchedule({}); setIsModalOpen(true); }} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Tambah Jadwal</button>
+                <button onClick={() => { setEditingSchedule({startTime: '07:00', endTime: '08:00'}); setIsModalOpen(true); }} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Tambah Jadwal</button>
             </div>
             <div className="space-y-4">
                 {schedules.length === 0 ? <p>Anda belum memiliki jadwal.</p> : schedules.map(s => (
@@ -304,6 +306,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
                         <div>
                             <p className="font-semibold">{s.day}, Jam ke-{s.lessonHour}</p>
                             <p className="text-gray-600">Kelas: {getClassName(s.classId)}</p>
+                             <p className="text-sm text-gray-500">Waktu: {s.startTime} - {s.endTime}</p>
                         </div>
                         <div>
                             <button onClick={() => handleDelete(s.id)} className="text-red-500 hover:text-red-700 text-sm">Hapus</button>
@@ -333,6 +336,16 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
                             <option value="">Pilih Jam</option>
                             {LESSON_HOURS.map(hour => <option key={hour} value={hour}>{hour}</option>)}
                         </select>
+                    </div>
+                     <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block mb-1">Waktu Mulai</label>
+                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded" />
+                        </div>
+                        <div>
+                            <label className="block mb-1">Waktu Selesai</label>
+                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded" />
+                        </div>
                     </div>
                     <div className="mb-4">
                         <label className="block mb-1">Kelas</label>
@@ -760,6 +773,7 @@ const ScheduleManagement: React.FC = () => {
                             <th className="p-3">Kelas</th>
                             <th className="p-3">Hari</th>
                             <th className="p-3">Jam Ke</th>
+                            <th className="p-3">Waktu</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -769,6 +783,7 @@ const ScheduleManagement: React.FC = () => {
                                 <td className="p-3">{getClassName(s.classId)}</td>
                                 <td className="p-3">{s.day}</td>
                                 <td className="p-3">{s.lessonHour}</td>
+                                <td className="p-3">{s.startTime} - {s.endTime}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -891,13 +906,23 @@ const AuthScreen: React.FC = () => {
         setError('');
         setMessage('');
     };
+    
+    const switchAuthView = (view: 'login' | 'register' | 'reset') => {
+        setAuthView(view);
+        setEmail('');
+        setPassword('');
+        setName('');
+        setRole(UserRoleEnum.TEACHER); // Explicitly reset role to default
+        clearMessages();
+    };
 
     const handleAuthAction = async () => {
         setLoading(true);
         clearMessages();
         try {
             if (authView === 'login') {
-                await api.signIn(email, password);
+                const sessionId = await api.signIn(email, password);
+                localStorage.setItem('sessionId', sessionId);
                 // The onAuthStateChanged listener in App.tsx will handle the redirect.
             } else { // 'register'
                 if (!name) {
@@ -974,7 +999,7 @@ const AuthScreen: React.FC = () => {
                                 <div className="flex justify-between items-center mb-2">
                                     <label className="block text-gray-700">Password</label>
                                     {authView === 'login' && (
-                                        <button type="button" onClick={() => { setAuthView('reset'); clearMessages(); }} className="text-sm text-blue-600 hover:underline">
+                                        <button type="button" onClick={() => switchAuthView('reset')} className="text-sm text-blue-600 hover:underline">
                                             Lupa Password?
                                         </button>
                                     )}
@@ -1015,10 +1040,7 @@ const AuthScreen: React.FC = () => {
                     {authView === 'reset' && "Ingat password Anda? "}
                     
                     <button 
-                        onClick={() => { 
-                            setAuthView(authView === 'register' || authView === 'reset' ? 'login' : 'register'); 
-                            clearMessages(); 
-                        }} 
+                        onClick={() => switchAuthView(authView === 'register' || authView === 'reset' ? 'login' : 'register')} 
                         className="text-blue-600 hover:underline ml-1"
                     >
                         {authView === 'register' || authView === 'reset' ? 'Login di sini' : 'Daftar di sini'}
@@ -1050,6 +1072,16 @@ const App: React.FC = () => {
                 userProfileUnsubscribe = api.onUserProfileChange(authUser.uid, (userDoc) => {
                     if (userDoc) {
                         // We have the user profile (from cache or server)
+                        const localSessionId = localStorage.getItem('sessionId');
+                        
+                        // Session Validation: Check if another device has logged in.
+                        if (userDoc.currentSessionId && localSessionId && userDoc.currentSessionId !== localSessionId) {
+                           // Session mismatch found. Force logout on this device.
+                           alert("Anda telah login dari perangkat lain. Sesi di perangkat ini telah dihentikan.");
+                           api.signOut(); // This will trigger the onAuthStateChanged listener to clean up state.
+                           return; // Stop further processing of the stale user data.
+                        }
+
                         setCurrentUser(userDoc);
                         setLoading(false);
                     } else {
@@ -1062,6 +1094,7 @@ const App: React.FC = () => {
                 });
             } else {
                 // User is not authenticated
+                localStorage.removeItem('sessionId'); // Clear session on logout
                 setCurrentUser(null);
                 setLoading(false);
             }
@@ -1079,6 +1112,7 @@ const App: React.FC = () => {
 
     const handleLogout = async () => {
         await api.signOut();
+        localStorage.removeItem('sessionId'); // Ensure local session is cleared
         setCurrentUser(null);
     };
 

@@ -10,6 +10,7 @@ export interface User {
   password?: string; // Not stored in frontend state after login
   name: string;
   role: UserRole;
+  currentSessionId?: string;
 }
 
 export interface Class {
@@ -24,6 +25,8 @@ export interface Schedule {
   classId: string;
   day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
   lessonHour: number; // e.g., 1 for 1st hour
+  startTime: string; // e.g., "07:00"
+  endTime: string; // e.g., "08:30"
 }
 
 export interface AttendanceRecord {

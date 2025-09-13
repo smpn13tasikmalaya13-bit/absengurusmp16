@@ -43,11 +43,36 @@ export const onAuthStateChanged = (callback: (user: any | null) => void) => {
     return auth.onAuthStateChanged(callback);
 };
 
-export const signIn = async (email: string, password: string): Promise<void> => {
-    await auth.signInWithEmailAndPassword(email, password);
+export const signIn = async (email: string, password: string): Promise<string> => {
+    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+    if (!user) {
+        throw new Error("User not found after sign in.");
+    }
+    // Generate a unique session ID
+    const sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+
+    // Store the session ID in the user's Firestore document
+    await db.collection('users').doc(user.uid).update({
+        currentSessionId: sessionId
+    });
+    
+    return sessionId;
 };
 
 export const signOut = async (): Promise<void> => {
+    const user = auth.currentUser;
+    if (user) {
+        // Clear the session ID from the user's document on logout
+        try {
+            await db.collection('users').doc(user.uid).update({
+                currentSessionId: null
+            });
+        } catch (error) {
+            console.error("Failed to clear session ID on logout:", error);
+            // Don't block sign-out if this fails
+        }
+    }
     await auth.signOut();
 };
 
@@ -154,7 +179,7 @@ export const deleteClass = async (id: string): Promise<void> => {
 
 // --- Schedule Functions ---
 export const getSchedules = async (): Promise<Schedule[]> => {
-    const snapshot = await db.collection('schedules').get();
+    const snapshot = await db.collection('schedules').orderBy('day').orderBy('startTime').get();
     return collectionToData<Schedule>(snapshot);
 };
 
