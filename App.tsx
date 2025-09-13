@@ -64,6 +64,10 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
         setClasses(await api.getClasses());
         setSchedules(await api.getSchedules());
     }, []);
+    
+    const refreshSchedules = useCallback(async () => {
+        setSchedules(await api.getSchedules());
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -161,7 +165,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                 )}
                 {view === 'scan' && selectedLessonHour && <QRScanner onScanSuccess={(classId) => recordAttendance(classId, selectedLessonHour)} onCancel={handleScanCancel} />}
                 {view === 'history' && <TeacherAttendanceHistory user={user} classes={classes}/>}
-                {view === 'schedule' && <TeacherScheduleManager user={user} schedules={userSchedules} setSchedules={setSchedules} classes={classes}/>}
+                {view === 'schedule' && <TeacherScheduleManager user={user} schedules={userSchedules} onScheduleUpdate={refreshSchedules} classes={classes}/>}
             </main>
             <footer className="bg-white shadow-t-md p-2 sticky bottom-0">
                 <nav className="flex justify-around">
@@ -254,7 +258,7 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
 };
 
 
-const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSchedules: React.Dispatch<React.SetStateAction<Schedule[]>>, classes: Class[]}> = ({ user, schedules, setSchedules, classes }) => {
+const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onScheduleUpdate: () => Promise<void>, classes: Class[]}> = ({ user, schedules, onScheduleUpdate, classes }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<Partial<Schedule> | null>(null);
 
@@ -279,7 +283,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
             : await api.addSchedule(scheduleData);
         
         if(result.success) {
-            setSchedules(await api.getSchedules());
+            await onScheduleUpdate();
             setIsModalOpen(false);
             setEditingSchedule(null);
         } else {
@@ -290,7 +294,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
     const handleDelete = async (id: string) => {
         if(window.confirm("Yakin ingin menghapus jadwal ini?")){
             await api.deleteSchedule(id);
-            setSchedules(schedules.filter(s => s.id !== id));
+            await onScheduleUpdate();
         }
     }
 
