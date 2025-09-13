@@ -7,6 +7,8 @@ import { UserRole as UserRoleEnum } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CENTRAL_COORDINATES, MAX_RADIUS_METERS, DAYS_OF_WEEK, LESSON_HOURS, HARI_TRANSLATION } from './constants';
 import * as api from './services/firebaseService';
+import * as geminiApi from './services/geminiService';
+
 
 // FIX: Add declarations for globally available libraries
 declare var Html5Qrcode: any;
@@ -17,6 +19,15 @@ declare global {
     }
 }
 
+// --- SVG Icons ---
+const CalendarIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>);
+const ClockIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>);
+const UserIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>);
+const QrScanIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg></div>);
+const ScheduleIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>);
+const QrCodeEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg>);
+const CalendarEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>);
+const LogoutIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>);
 
 // --- UI Components ---
 
@@ -54,21 +65,35 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 
 // --- Teacher Dashboard Components ---
 const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, onLogout }) => {
-    const [view, setView] = useState<'home' | 'scan' | 'history' | 'schedule'>('home');
+    const [view, setView] = useState<'dashboard' | 'scan'>('dashboard');
     const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
-    const { distance, isWithinRadius, error: geoError, loading: geoLoading, refreshLocation } = useGeolocation();
+    const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+    const [loadingData, setLoadingData] = useState(true);
+
+    const { isWithinRadius } = useGeolocation();
+
     const [isLessonHourModalOpen, setIsLessonHourModalOpen] = useState(false);
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [selectedLessonHour, setSelectedLessonHour] = useState<number | null>(null);
 
     const fetchData = useCallback(async () => {
-        setClasses(await api.getClasses());
-        setSchedules(await api.getSchedules());
-    }, []);
-    
-    const refreshSchedules = useCallback(async () => {
-        setSchedules(await api.getSchedules());
-    }, []);
+        setLoadingData(true);
+        const [classesData, schedulesData, allAttendance] = await Promise.all([
+            api.getClasses(),
+            api.getSchedules(),
+            api.getAttendanceRecords()
+        ]);
+        setClasses(classesData);
+        setSchedules(schedulesData);
+
+        const userAttendance = allAttendance
+            .filter(rec => rec.teacherId === user.id)
+            .sort((a, b) => new Date(b.scanTime).getTime() - new Date(a.scanTime).getTime());
+        setAttendance(userAttendance);
+        
+        setLoadingData(false);
+    }, [user.id]);
 
     useEffect(() => {
         fetchData();
@@ -76,33 +101,48 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
     const userSchedules = useMemo(() => schedules.filter(s => s.teacherId === user.id), [schedules, user.id]);
 
+    const attendanceStats = useMemo(() => {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const dayOfWeek = now.getDay(); // Sunday - 0, Monday - 1
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek).getTime();
+
+        const todayCount = attendance.filter(rec => new Date(rec.scanTime).getTime() >= startOfToday).length;
+        const weekCount = attendance.filter(rec => new Date(rec.scanTime).getTime() >= startOfWeek).length;
+        const totalCount = attendance.length;
+
+        return { today: todayCount, week: weekCount, total: totalCount };
+    }, [attendance]);
+
+    const todaySchedules = useMemo(() => {
+        const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
+        return userSchedules
+            .filter(s => s.day === todayName)
+            .sort((a,b) => (a.startTime || '').localeCompare(b.startTime || ''));
+    }, [userSchedules]);
+
+    const getClassName = useCallback((classId: string) => classes.find(c => c.id === classId)?.name || 'N/A', [classes]);
+
     const recordAttendance = async (classId: string, lessonHour: number) => {
       const now = new Date();
-      
       if (!lessonHour) {
           alert("Jam pelajaran tidak valid.");
           return;
       }
-
       const hasScanned = await api.checkIfAlreadyScanned(user.id, classId, lessonHour);
-
       if (hasScanned) {
           alert('Anda sudah absen untuk jam pelajaran ini.');
-          setView('home');
+          setView('dashboard');
           setSelectedLessonHour(null);
           return;
       }
-
       const newRecord: Omit<AttendanceRecord, 'id'> = {
-          teacherId: user.id,
-          classId: classId,
-          lessonHour,
-          scanTime: now.toISOString(),
+          teacherId: user.id, classId, lessonHour, scanTime: now.toISOString(),
       };
-      
       await api.addAttendanceRecord(newRecord);
       alert('Absensi berhasil!');
-      setView('home');
+      await fetchData();
+      setView('dashboard');
       setSelectedLessonHour(null);
     };
 
@@ -116,76 +156,142 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
     };
     
     const handleScanCancel = () => {
-        setView('home');
+        setView('dashboard');
         setSelectedLessonHour(null);
     };
+
+    if (loadingData) {
+        return <FullPageSpinner />;
+    }
+    
+    if (view === 'scan' && selectedLessonHour) {
+        return <QRScanner onScanSuccess={(classId) => recordAttendance(classId, selectedLessonHour)} onCancel={handleScanCancel} />;
+    }
     
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
-            <header className="bg-white shadow-md p-4 flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-gray-800">Halo, {user.name}</h1>
-                <button onClick={onLogout} className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">Logout</button>
+      <div className="bg-gray-100 min-h-screen font-sans">
+            <header className="bg-white p-4 flex justify-between items-center shadow-sm">
+                <div>
+                    <h1 className="text-xl md:text-2xl font-bold text-gray-800">Dashboard Guru</h1>
+                    <p className="text-sm text-gray-500">Selamat datang, {user.name}</p>
+                </div>
+                <button onClick={onLogout} className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-4 py-2 rounded-md border border-gray-300 hover:border-gray-400">
+                    <LogoutIcon />
+                    <span>Logout</span>
+                </button>
             </header>
-            <main className="flex-grow p-4 md:p-6">
-                {view === 'home' && (
-                    <div className="max-w-md mx-auto">
-                        <div className="bg-white p-4 rounded-lg shadow-md mb-6 text-center">
-                            <h2 className="text-lg font-semibold mb-2 text-gray-700">Status Lokasi</h2>
-                            {geoLoading ? <Spinner /> : 
-                                geoError ? <p className="text-red-500">Error: {geoError}</p> :
-                                <>
-                                    <p className="text-gray-600">Jarak dari sekolah: <strong>{distance?.toFixed(0) ?? '...'} meter</strong></p>
-                                    <p className={`font-semibold mt-1 ${isWithinRadius ? 'text-green-600' : 'text-red-600'}`}>
-                                        {isWithinRadius ? 'Anda berada dalam radius absen.' : 'Anda di luar radius absen.'}
-                                    </p>
-                                    <button onClick={refreshLocation} className="mt-2 text-sm text-blue-500 hover:underline">
-                                        Refresh Lokasi
-                                    </button>
-                                </>
-                            }
-                        </div>
 
-                        <div className="grid grid-cols-1 gap-4">
-                            <button
-                                onClick={() => setIsLessonHourModalOpen(true)}
-                                disabled={!isWithinRadius}
-                                className="bg-blue-600 text-white p-6 rounded-lg shadow-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex flex-col items-center justify-center text-center"
-                            >
-                                <span className="text-4xl mb-2">📷</span>
-                                <span className="font-semibold text-lg">Scan QR Absen</span>
-                            </button>
-                            <button
-                                onClick={() => setView('schedule')}
-                                className="bg-green-500 text-white p-6 rounded-lg shadow-lg hover:bg-green-600 transition flex flex-col items-center justify-center text-center"
-                            >
-                                <span className="text-4xl mb-2">📅</span>
-                                <span className="font-semibold text-lg">Kelola Jadwal Pelajaran</span>
-                            </button>
+            <main className="p-4 md:p-6 space-y-6">
+                {/* Top Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                        <div className="flex justify-between items-center mb-1">
+                             <p className="font-medium text-gray-700">Absensi Hari Ini</p>
+                            <div className="text-gray-400"><CalendarIcon /></div>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-800">{attendanceStats.today}</p>
+                        <p className="text-xs text-gray-400">Jam pelajaran yang sudah diabsen</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                         <div className="flex justify-between items-center mb-1">
+                            <p className="font-medium text-gray-700">Minggu Ini</p>
+                            <div className="text-gray-400"><ClockIcon /></div>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-800">{attendanceStats.week}</p>
+                        <p className="text-xs text-gray-400">Total absensi minggu ini</p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                        <div className="flex justify-between items-center mb-1">
+                            <p className="font-medium text-gray-700">Total Absensi</p>
+                            <div className="text-gray-400"><UserIcon /></div>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-800">{attendanceStats.total}</p>
+                        <p className="text-xs text-gray-400">Semua absensi Anda</p>
+                    </div>
+                </div>
+
+                {/* Action Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <button onClick={() => setIsLessonHourModalOpen(true)} disabled={!isWithinRadius} className="bg-white p-6 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-sm group flex flex-col items-center justify-center gap-4">
+                        <QrScanIcon />
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-800 group-disabled:text-gray-500">Scan QR Code</h3>
+                            <p className="text-gray-500 text-sm mt-1">Scan QR Code kelas untuk absensi</p>
+                            {!isWithinRadius && <p className="text-xs text-red-500 mt-1">Anda berada di luar radius sekolah.</p>}
+                        </div>
+                    </button>
+                     <button onClick={() => setIsScheduleModalOpen(true)} className="bg-white p-6 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow flex flex-col items-center justify-center gap-4">
+                        <ScheduleIcon />
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-800">Jadwal Mengajar</h3>
+                            <p className="text-gray-500 text-sm mt-1">Lihat dan kelola jadwal mengajar Anda</p>
+                        </div>
+                    </button>
+                </div>
+
+                {/* Data Display Cards */}
+                <div className="grid grid-cols-1 gap-6">
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                        <h3 className="font-bold text-lg">Riwayat Absensi Terbaru</h3>
+                        <p className="text-sm text-gray-500 mb-4">10 absensi terakhir Anda</p>
+                        <div className="space-y-3">
+                            {attendance.length === 0 ? (
+                                <div className="text-center py-10 text-gray-400">
+                                    <QrCodeEmptyIcon />
+                                    <p className="font-semibold mt-2 text-gray-600">Belum ada riwayat absensi</p>
+                                    <p className="text-sm">Scan QR Code kelas untuk mulai absensi</p>
+                                </div>
+                            ) : (
+                                attendance.slice(0, 10).map(rec => (
+                                    <div key={rec.id} className="border-b last:border-b-0 pb-3 pt-2">
+                                        <p className="font-semibold">Kelas {getClassName(rec.classId)} - Jam ke-{rec.lessonHour}</p>
+                                        <p className="text-sm text-gray-500">{new Date(rec.scanTime).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}</p>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
-                )}
-                {view === 'scan' && selectedLessonHour && <QRScanner onScanSuccess={(classId) => recordAttendance(classId, selectedLessonHour)} onCancel={handleScanCancel} />}
-                {view === 'history' && <TeacherAttendanceHistory user={user} classes={classes}/>}
-                {view === 'schedule' && <TeacherScheduleManager user={user} schedules={userSchedules} onScheduleUpdate={refreshSchedules} classes={classes}/>}
+                     <div className="bg-white p-4 rounded-lg shadow-sm">
+                        <h3 className="font-bold text-lg">Jadwal Hari Ini</h3>
+                        <p className="text-sm text-gray-500 mb-4">Jadwal mengajar Anda hari ini</p>
+                         <div>
+                            {todaySchedules.length === 0 ? (
+                                <div className="text-center py-10 text-gray-400">
+                                    <CalendarEmptyIcon />
+                                    <p className="font-semibold mt-2 text-gray-600">Belum ada jadwal mengajar</p>
+                                    <p className="text-sm">Hubungi admin untuk mengatur jadwal</p>
+                                </div>
+                            ) : (
+                                todaySchedules.map(s => {
+                                    const fullClassName = getClassName(s.classId) || 'Tanpa Nama';
+                                    const lastSpaceIndex = fullClassName.lastIndexOf(' ');
+                                    const subject = lastSpaceIndex !== -1 ? fullClassName.substring(0, lastSpaceIndex) : fullClassName;
+                                    const grade = lastSpaceIndex !== -1 ? fullClassName.substring(lastSpaceIndex + 1) : '';
+
+                                    return (
+                                        <div key={s.id} className="flex justify-between items-center border-b last:border-b-0 py-3">
+                                            <div>
+                                                <p className="font-semibold text-gray-800">{subject}</p>
+                                                {grade && <p className="text-sm text-gray-500">{grade}</p>}
+                                            </div>
+                                            <span className="text-sm text-gray-500">{HARI_TRANSLATION[s.day]}</span>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
             </main>
-            <footer className="bg-white shadow-t-md p-2 sticky bottom-0">
-                <nav className="flex justify-around">
-                    <button onClick={() => setView('home')} className={`p-2 rounded-lg text-gray-600 hover:bg-gray-100 ${view === 'home' && 'bg-blue-100 text-blue-700'}`}>Home</button>
-                    <button onClick={() => setView('schedule')} className={`p-2 rounded-lg text-gray-600 hover:bg-gray-100 ${view === 'schedule' && 'bg-blue-100 text-blue-700'}`}>Jadwal</button>
-                    <button onClick={() => setView('history')} className={`p-2 rounded-lg text-gray-600 hover:bg-gray-100 ${view === 'history' && 'bg-blue-100 text-blue-700'}`}>Riwayat</button>
-                </nav>
-            </footer>
-             <Modal isOpen={isLessonHourModalOpen} onClose={() => setIsLessonHourModalOpen(false)} title="Pilih Jam Pelajaran">
+            
+            <Modal isOpen={isLessonHourModalOpen} onClose={() => setIsLessonHourModalOpen(false)} title="Pilih Jam Pelajaran">
                 <div>
                     <div className="mb-4">
                         <label htmlFor="lessonHourSelect" className="block mb-2 text-sm font-medium text-gray-900">Pilih jam ke berapa Anda mengajar:</label>
                         <select
                             id="lessonHourSelect"
                             value={selectedLessonHour || ''}
-                            onChange={(e) => {
-                                const value = parseInt(e.target.value, 10);
-                                setSelectedLessonHour(isNaN(value) ? null : value);
-                            }}
+                            onChange={(e) => setSelectedLessonHour(e.target.value ? parseInt(e.target.value, 10) : null)}
                             className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
                         >
                             <option value="">-- Pilih Jam --</option>
@@ -197,6 +303,10 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                         <button onClick={handleProceedToScan} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Lanjutkan ke Scan</button>
                     </div>
                 </div>
+            </Modal>
+
+            <Modal isOpen={isScheduleModalOpen} onClose={() => setIsScheduleModalOpen(false)} title="Kelola Jadwal Mengajar">
+                <TeacherScheduleManager user={user} schedules={userSchedules} onScheduleUpdate={fetchData} classes={classes}/>
             </Modal>
         </div>
     );
@@ -320,12 +430,12 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
     const getClassName = (classId: string) => classes.find(c => c.id === classId)?.name || 'N/A';
     
     return (
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div className="bg-white p-4 rounded-lg">
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">Jadwal Mengajar Saya</h2>
                 <button onClick={() => handleOpenModal()} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Tambah Jadwal</button>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-96 overflow-y-auto">
                 {schedules.length === 0 ? <p>Anda belum memiliki jadwal.</p> : schedules.map(s => (
                     <div key={s.id} className="border p-3 rounded-lg flex justify-between items-center">
                         <div>
@@ -394,40 +504,6 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
     );
 };
 
-const TeacherAttendanceHistory: React.FC<{user: User, classes: Class[]}> = ({user, classes}) => {
-    const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-
-    useEffect(() => {
-        const fetchHistory = async () => {
-            const allAttendance = await api.getAttendanceRecords();
-            const userHistory = allAttendance
-                .filter(rec => rec.teacherId === user.id)
-                .sort((a,b) => new Date(b.scanTime).getTime() - new Date(a.scanTime).getTime());
-            setAttendance(userHistory);
-        };
-        fetchHistory();
-    }, [user.id]);
-    
-    const getClassName = (classId: string) => classes.find(c => c.id === classId)?.name || 'N/A';
-
-    return (
-        <div className="bg-white p-4 rounded-lg shadow">
-            <h2 className="text-xl font-bold mb-4">Riwayat Absensi</h2>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-                {attendance.length === 0 ? <p>Belum ada riwayat absensi.</p> :
-                attendance.map(rec => (
-                    <div key={rec.id} className="border p-3 rounded-lg">
-                        <p className="font-semibold">Tanggal: {new Date(rec.scanTime).toLocaleDateString('id-ID')}</p>
-                        <p>Waktu: {new Date(rec.scanTime).toLocaleTimeString('id-ID')}</p>
-                        <p>Kelas: {getClassName(rec.classId)}</p>
-                        <p>Jam ke: {rec.lessonHour}</p>
-                    </div>
-                ))}
-            </div>
-        </div>
-    )
-}
-
 // --- Admin Dashboard Components ---
 
 const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, onLogout }) => {
@@ -465,6 +541,7 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                     <a onClick={() => handleSetView('classes')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Kelas</a>
                     <a onClick={() => handleSetView('schedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Pelajaran</a>
                     <a onClick={() => handleSetView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi</a>
+                    <a onClick={() => handleSetView('ai-assistant')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">AI Assistant</a>
                 </nav>
                 <div className="p-4 border-t border-gray-700">
                     <p>{user.name}</p>
@@ -490,6 +567,7 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                 {view === 'classes' && <ClassManagement />}
                 {view === 'schedules' && <ScheduleManagement />}
                 {view === 'reports' && <AttendanceReport />}
+                {view === 'ai-assistant' && <AIAssistant />}
             </main>
         </div>
     );
@@ -675,70 +753,43 @@ const TeacherManagement: React.FC = () => {
                     </tr>
                 )}
             />
-            <div className="mt-4 p-4 bg-yellow-100 text-yellow-800 rounded-lg">
-                <p><strong>Catatan:</strong> Untuk menambahkan guru baru, silakan gunakan halaman pendaftaran utama. Ini untuk memastikan semua akun dibuat dengan aman.</p>
+            <div className="mt-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-lg">
+                <p className="font-bold">Informasi Pendaftaran Guru</p>
+                <p>Untuk menambahkan guru baru, mereka harus mendaftar melalui halaman login dengan memilih opsi 'Daftar' dan menggunakan peran 'Guru'.</p>
             </div>
         </>
     );
 };
 
+
 const ClassManagement: React.FC = () => {
     const [classes, setClasses] = useState<Class[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-    const [selectedClass, setSelectedClass] = useState<Class | null>(null);
-    const [editingClass, setEditingClass] = useState<Partial<Class> | null>(null);
+    const [newClassName, setNewClassName] = useState('');
+    const [newClassGrade, setNewClassGrade] = useState<number | ''>('');
 
-    const fetchClasses = async () => {
-        setClasses(await api.getClasses());
-    };
+    const fetchClasses = async () => setClasses(await api.getClasses());
 
     useEffect(() => {
         fetchClasses();
     }, []);
 
-    const handleSave = async (e: React.FormEvent) => {
+    const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!editingClass || !editingClass.name || !editingClass.grade) {
-            alert("Harap isi semua kolom.");
-            return;
+        if (newClassName && newClassGrade) {
+            await api.addClass({ name: newClassName, grade: newClassGrade as number });
+            setNewClassName('');
+            setNewClassGrade('');
+            setIsModalOpen(false);
+            fetchClasses();
         }
-        
-        const classData: Omit<Class, 'id'> = {
-            name: editingClass.name,
-            grade: editingClass.grade
-        };
-
-        await api.addClass(classData);
-        await fetchClasses();
-
-        setIsModalOpen(false);
-        setEditingClass(null);
     };
-
+    
     const handleDelete = async (id: string) => {
-        if (window.confirm("Yakin ingin menghapus kelas ini?")) {
+        if (window.confirm("Yakin ingin menghapus kelas ini? Ini juga akan menghapus jadwal terkait.")) {
             await api.deleteClass(id);
-            setClasses(classes.filter(c => c.id !== id));
+            fetchClasses();
         }
-    };
-    
-    const showQrCode = (cls: Class) => {
-        setSelectedClass(cls);
-        setIsQrModalOpen(true);
-    };
-    
-    const printQrCode = () => {
-      const canvas = document.getElementById('qr-code-canvas') as HTMLCanvasElement;
-      if (canvas) {
-        const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
-        let downloadLink = document.createElement("a");
-        downloadLink.href = pngUrl;
-        downloadLink.download = `qr-code-${selectedClass?.name}.png`;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-      }
     };
 
     return (
@@ -747,45 +798,29 @@ const ClassManagement: React.FC = () => {
                 title="Manajemen Kelas"
                 columns={['Nama Kelas', 'Tingkat', 'Aksi']}
                 data={classes}
-                onAdd={() => { setEditingClass({}); setIsModalOpen(true); }}
-                renderRow={(cls: Class) => (
-                    <tr key={cls.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3">{cls.name}</td>
-                        <td className="p-3">{cls.grade}</td>
-                        <td className="p-3 space-x-2">
-                             <button onClick={() => showQrCode(cls)} className="text-blue-600 hover:underline">QR Code</button>
-                            <button onClick={() => handleDelete(cls.id)} className="text-red-600 hover:underline">Hapus</button>
+                onAdd={() => setIsModalOpen(true)}
+                renderRow={(c: Class) => (
+                    <tr key={c.id} className="border-b hover:bg-gray-50">
+                        <td className="p-3">{c.name}</td>
+                        <td className="p-3">{c.grade}</td>
+                        <td className="p-3">
+                            <button onClick={() => handleDelete(c.id)} className="text-red-600 hover:underline">Hapus</button>
                         </td>
                     </tr>
                 )}
             />
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Form Kelas">
-                <form onSubmit={handleSave}>
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Tambah Kelas Baru">
+                <form onSubmit={handleAdd}>
                     <div className="mb-4">
-                        <label className="block mb-1">Nama Kelas</label>
-                        <input type="text" value={editingClass?.name || ''} onChange={e => setEditingClass({...editingClass, name: e.target.value})} className="w-full p-2 border rounded" />
+                        <label className="block mb-2">Nama Kelas (Contoh: Matematika X-A)</label>
+                        <input value={newClassName} onChange={e => setNewClassName(e.target.value)} className="w-full p-2 border rounded"/>
                     </div>
                      <div className="mb-4">
-                        <label className="block mb-1">Tingkat</label>
-                        <input 
-                            type="number" 
-                            value={editingClass?.grade || ''} 
-                            onChange={e => {
-                                const value = e.target.value;
-                                const grade = value === '' ? undefined : parseInt(value, 10);
-                                setEditingClass({...editingClass, grade: isNaN(grade) ? undefined : grade });
-                            }} 
-                            className="w-full p-2 border rounded" 
-                        />
+                        <label className="block mb-2">Tingkat (Contoh: 10)</label>
+                        <input type="number" value={newClassGrade} onChange={e => setNewClassGrade(e.target.value ? parseInt(e.target.value, 10) : '')} className="w-full p-2 border rounded"/>
                     </div>
                     <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
                 </form>
-            </Modal>
-            <Modal isOpen={isQrModalOpen} onClose={() => setIsQrModalOpen(false)} title={`QR Code untuk ${selectedClass?.name}`}>
-                <div className="text-center">
-                    <QRCode id="qr-code-canvas" value={JSON.stringify({ type: 'attendance', classId: selectedClass?.id })} size={256} />
-                    <button onClick={printQrCode} className="mt-4 bg-green-500 text-white px-4 py-2 rounded-lg">Download / Print</button>
-                </div>
             </Modal>
         </>
     );
@@ -793,82 +828,345 @@ const ClassManagement: React.FC = () => {
 
 const ScheduleManagement: React.FC = () => {
     const [schedules, setSchedules] = useState<Schedule[]>([]);
-    const [teachers, setTeachers] = useState<User[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [teachers, setTeachers] = useState<User[]>([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingSchedule, setEditingSchedule] = useState<Partial<Schedule> | null>(null);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const [schedulesData, teachersData, classesData] = await Promise.all([
-                api.getSchedules(),
-                api.getUsersByRole(UserRoleEnum.TEACHER),
-                api.getClasses(),
-            ]);
-            setSchedules(schedulesData);
-            setTeachers(teachersData);
-            setClasses(classesData);
-        } catch (error) {
-            console.error("Gagal memuat data:", error);
-            alert("Terjadi kesalahan saat memuat data. Silakan coba lagi.");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    const fetchData = async () => {
+        const [s, c, t] = await Promise.all([
+            api.getSchedules(),
+            api.getClasses(),
+            api.getUsersByRole(UserRoleEnum.TEACHER)
+        ]);
+        setSchedules(s);
+        setClasses(c);
+        setTeachers(t);
+    };
 
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+    }, []);
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingSchedule || !editingSchedule.teacherId || !editingSchedule.classId || !editingSchedule.day || !editingSchedule.lessonHour || !editingSchedule.startTime || !editingSchedule.endTime) {
+            alert("Harap isi semua kolom");
+            return;
+        }
+
+        const scheduleData: Omit<Schedule, 'id'> = {
+            teacherId: editingSchedule.teacherId,
+            classId: editingSchedule.classId,
+            day: editingSchedule.day,
+            lessonHour: editingSchedule.lessonHour,
+            startTime: editingSchedule.startTime,
+            endTime: editingSchedule.endTime
+        };
+
+        const result = editingSchedule.id
+            ? await api.updateSchedule(editingSchedule.id, scheduleData)
+            : await api.addSchedule(scheduleData);
+        
+        if (result.success) {
+            setIsModalOpen(false);
+            setEditingSchedule(null);
+            fetchData();
+        } else {
+            alert(result.message);
+        }
+    };
+    
+    const handleDelete = async (id: string) => {
+        if(window.confirm("Yakin ingin menghapus jadwal ini?")){
+            await api.deleteSchedule(id);
+            fetchData();
+        }
+    }
+    
+    const handleOpenModal = (schedule: Partial<Schedule> | null = null) => {
+        setEditingSchedule(schedule || {startTime: '07:00', endTime: '08:00'});
+        setIsModalOpen(true);
+    };
+
+    const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
+    const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
+
+    return (
+        <>
+            <CrudTable
+                title="Manajemen Jadwal Pelajaran"
+                columns={['Hari', 'Waktu', 'Guru', 'Kelas', 'Jam Ke', 'Aksi']}
+                data={schedules}
+                onAdd={() => handleOpenModal()}
+                renderRow={(s: Schedule) => (
+                    <tr key={s.id} className="border-b hover:bg-gray-50">
+                        <td className="p-3">{HARI_TRANSLATION[s.day]}</td>
+                        <td className="p-3">{s.startTime} - {s.endTime}</td>
+                        <td className="p-3">{getTeacherName(s.teacherId)}</td>
+                        <td className="p-3">{getClassName(s.classId)}</td>
+                        <td className="p-3">{s.lessonHour}</td>
+                        <td className="p-3 space-x-2">
+                            <button onClick={() => handleOpenModal(s)} className="text-blue-600 hover:underline">Ubah</button>
+                            <button onClick={() => handleDelete(s.id)} className="text-red-600 hover:underline">Hapus</button>
+                        </td>
+                    </tr>
+                )}
+            />
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingSchedule?.id ? 'Ubah Jadwal' : 'Tambah Jadwal'}>
+                <form onSubmit={handleSave}>
+                    <div className="mb-4">
+                        <label className="block mb-1">Guru</label>
+                        <select value={editingSchedule?.teacherId || ''} onChange={e => setEditingSchedule({...editingSchedule, teacherId: e.target.value})} className="w-full p-2 border rounded">
+                            <option value="">Pilih Guru</option>
+                            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </div>
+                     <div className="mb-4">
+                        <label className="block mb-1">Kelas</label>
+                        <select value={editingSchedule?.classId || ''} onChange={e => setEditingSchedule({...editingSchedule, classId: e.target.value})} className="w-full p-2 border rounded">
+                            <option value="">Pilih Kelas</option>
+                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="mb-4">
+                        <label className="block mb-1">Hari</label>
+                        <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as Schedule['day']})} className="w-full p-2 border rounded">
+                            <option value="">Pilih Hari</option>
+                            {DAYS_OF_WEEK.map(day => <option key={day} value={day}>{HARI_TRANSLATION[day]}</option>)}
+                        </select>
+                    </div>
+                    <div className="mb-4">
+                        <label className="block mb-1">Jam Ke</label>
+                         <select value={editingSchedule?.lessonHour || ''} onChange={e => setEditingSchedule({...editingSchedule, lessonHour: parseInt(e.target.value, 10)})} className="w-full p-2 border rounded">
+                            <option value="">Pilih Jam</option>
+                            {LESSON_HOURS.map(hour => <option key={hour} value={hour}>{hour}</option>)}
+                        </select>
+                    </div>
+                     <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block mb-1">Waktu Mulai</label>
+                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded" />
+                        </div>
+                        <div>
+                            <label className="block mb-1">Waktu Selesai</label>
+                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded" />
+                        </div>
+                    </div>
+                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
+                </form>
+            </Modal>
+        </>
+    );
+};
+
+const AttendanceReport: React.FC = () => {
+    const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+    const [teachers, setTeachers] = useState<User[]>([]);
+    const [classes, setClasses] = useState<Class[]>([]);
+    const [filter, setFilter] = useState({ teacherId: '', classId: '', startDate: '', endDate: '' });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            const [att, tch, cls] = await Promise.all([
+                api.getAttendanceRecords(),
+                api.getUsersByRole(UserRoleEnum.TEACHER),
+                api.getClasses(),
+            ]);
+            setAttendance(att);
+            setTeachers(tch);
+            setClasses(cls);
+            setLoading(false);
+        };
+        fetchData();
+    }, []);
+
+    const filteredAttendance = useMemo(() => {
+        return attendance.filter(rec => {
+            const scanDate = new Date(rec.scanTime);
+            const startDate = filter.startDate ? new Date(filter.startDate) : null;
+            const endDate = filter.endDate ? new Date(filter.endDate) : null;
+            if (startDate) startDate.setHours(0,0,0,0);
+            if (endDate) endDate.setHours(23,59,59,999);
+            
+            return (
+                (filter.teacherId ? rec.teacherId === filter.teacherId : true) &&
+                (filter.classId ? rec.classId === filter.classId : true) &&
+                (startDate ? scanDate >= startDate : true) &&
+                (endDate ? scanDate <= endDate : true)
+            );
+        });
+    }, [attendance, filter]);
 
     const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
     const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
     
+    const exportToPDF = () => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        doc.text("Laporan Absensi Guru", 20, 10);
+        
+        const tableData = filteredAttendance.map(rec => [
+            getTeacherName(rec.teacherId),
+            getClassName(rec.classId),
+            `Jam ke-${rec.lessonHour}`,
+            new Date(rec.scanTime).toLocaleString('id-ID'),
+        ]);
+        
+        doc.autoTable({
+            head: [['Nama Guru', 'Kelas', 'Jam Pelajaran', 'Waktu Scan']],
+            body: tableData,
+            startY: 20,
+        });
+
+        doc.save('laporan_absensi.pdf');
+    };
+
+    const exportToExcel = () => {
+        const worksheetData = filteredAttendance.map(rec => ({
+            "Nama Guru": getTeacherName(rec.teacherId),
+            "Kelas": getClassName(rec.classId),
+            "Jam Pelajaran": `Jam ke-${rec.lessonHour}`,
+            "Waktu Scan": new Date(rec.scanTime).toLocaleString('id-ID'),
+        }));
+        const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Absensi");
+        XLSX.writeFile(workbook, "Laporan_Absensi.xlsx");
+    };
+
     return (
         <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold">Semua Jadwal Pelajaran</h2>
-                <button 
-                    onClick={fetchData} 
-                    disabled={loading} 
-                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 transition"
-                >
-                    {loading ? 
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> :
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V4a1 1 0 011-1zm10 8a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 111.885-.666A5.002 5.002 0 0014.001 13H11a1 1 0 01-1-1z" clipRule="evenodd" />
-                        </svg>
-                    }
-                    <span>{loading ? 'Memuat...' : 'Refresh'}</span>
-                </button>
-            </div>
-            {loading ? (
-                <div className="text-center p-10">
-                    <Spinner />
+            <h2 className="text-2xl font-bold mb-4">Laporan Absensi</h2>
+            
+            {/* Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 border rounded-lg">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Guru</label>
+                    <select value={filter.teacherId} onChange={e => setFilter({...filter, teacherId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option value="">Semua Guru</option>
+                        {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
                 </div>
-            ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-gray-50">
-                                <th className="p-3">Guru</th>
-                                <th className="p-3">Kelas</th>
-                                <th className="p-3">Hari</th>
-                                <th className="p-3">Jam Ke</th>
-                                <th className="p-3">Waktu</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {schedules.map(s => (
-                                 <tr key={s.id} className="border-b">
-                                    <td className="p-3">{getTeacherName(s.teacherId)}</td>
-                                    <td className="p-3">{getClassName(s.classId)}</td>
-                                    <td className="p-3">{HARI_TRANSLATION[s.day]}</td>
-                                    <td className="p-3">{s.lessonHour}</td>
-                                    <td className="p-3">{s.startTime} - {s.endTime}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-700">Kelas</label>
+                    <select value={filter.classId} onChange={e => setFilter({...filter, classId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option value="">Semua Kelas</option>
+                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-700">Tanggal Mulai</label>
+                    <input type="date" value={filter.startDate} onChange={e => setFilter({...filter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-700">Tanggal Selesai</label>
+                    <input type="date" value={filter.endDate} onChange={e => setFilter({...filter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                </div>
+            </div>
+            
+            {/* Export Buttons */}
+            <div className="flex justify-end gap-2 mb-4">
+                <button onClick={exportToPDF} className="bg-red-500 text-white px-4 py-2 rounded-lg">Export PDF</button>
+                <button onClick={exportToExcel} className="bg-green-500 text-white px-4 py-2 rounded-lg">Export Excel</button>
+            </div>
+
+            {/* Table */}
+            {loading ? <Spinner/> : (
+                <CrudTable
+                    title=""
+                    columns={['Guru', 'Kelas', 'Jam Ke', 'Waktu Scan']}
+                    data={filteredAttendance}
+                    renderRow={(rec: AttendanceRecord) => (
+                         <tr key={rec.id} className="border-b hover:bg-gray-50">
+                            <td className="p-3">{getTeacherName(rec.teacherId)}</td>
+                            <td className="p-3">{getClassName(rec.classId)}</td>
+                            <td className="p-3">{rec.lessonHour}</td>
+                            <td className="p-3">{new Date(rec.scanTime).toLocaleString('id-ID')}</td>
+                        </tr>
+                    )}
+                />
+            )}
+
+        </div>
+    );
+};
+
+
+const AIAssistant: React.FC = () => {
+    const [query, setQuery] = useState('');
+    const [response, setResponse] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleQuery = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!query.trim()) return;
+
+        setIsLoading(true);
+        setError('');
+        setResponse('');
+
+        try {
+            const [teachers, classes, schedules, attendance] = await Promise.all([
+                api.getUsersByRole(UserRoleEnum.TEACHER),
+                api.getClasses(),
+                api.getSchedules(),
+                api.getAttendanceRecords()
+            ]);
+
+            const analysis = await geminiApi.getAIAnalysis({ teachers, classes, schedules, attendance }, query);
+            setResponse(analysis);
+
+        } catch (err: any) {
+            console.error("Error fetching data or getting AI analysis:", err);
+            setError(`Terjadi kesalahan: ${err.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="bg-white p-6 rounded-lg shadow max-w-4xl mx-auto">
+            <h2 className="text-2xl font-bold mb-4">AI Assistant Analisis Absensi</h2>
+            <p className="text-gray-600 mb-6">Ajukan pertanyaan tentang data absensi, jadwal, atau guru, dan AI akan membantu Anda menganalisisnya. Contoh: "Siapa guru yang paling sering hadir minggu ini?", "Buat ringkasan absensi untuk kelas VII A hari ini", atau "Berapa total jam mengajar Budi?".</p>
+            
+            <form onSubmit={handleQuery}>
+                <div className="flex gap-2">
+                    <input 
+                        type="text"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Ketik pertanyaan Anda di sini..."
+                        className="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        disabled={isLoading}
+                    />
+                    <button 
+                        type="submit"
+                        className="bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
+                        disabled={isLoading}
+                    >
+                        {isLoading ? 'Memproses...' : 'Tanya'}
+                    </button>
+                </div>
+            </form>
+
+            {error && <div className="mt-4 p-3 bg-red-100 text-red-700 border border-red-300 rounded-lg">{error}</div>}
+
+            {isLoading && (
+                 <div className="mt-6 text-center">
+                    <Spinner />
+                    <p className="text-gray-500 mt-2">AI sedang berpikir...</p>
+                 </div>
+            )}
+            
+            {response && (
+                <div className="mt-6 p-4 border rounded-lg bg-gray-50">
+                    <h3 className="font-bold text-lg mb-2">Jawaban AI:</h3>
+                    <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: response.replace(/\n/g, '<br />') }}></div>
                 </div>
             )}
         </div>
@@ -876,300 +1174,19 @@ const ScheduleManagement: React.FC = () => {
 };
 
 
-const AttendanceReport: React.FC = () => {
-    const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>([]);
-    const [teachers, setTeachers] = useState<User[]>([]);
-    const [classes, setClasses] = useState<Class[]>([]);
-    
-    useEffect(() => {
-        const fetchData = async () => {
-            setAllAttendance(await api.getAttendanceRecords());
-            setTeachers(await api.getUsersByRole(UserRoleEnum.TEACHER));
-            setClasses(await api.getClasses());
-        };
-        fetchData();
-    }, []);
-
-    const [filters, setFilters] = useState({ date: '', teacherId: '', classId: '' });
-    
-    const filteredAttendance = useMemo(() => {
-        return allAttendance.filter(rec => {
-            const recDate = rec.scanTime.split('T')[0];
-            const dateMatch = !filters.date || recDate === filters.date;
-            const teacherMatch = !filters.teacherId || rec.teacherId === filters.teacherId;
-            const classMatch = !filters.classId || rec.classId === filters.classId;
-            return dateMatch && teacherMatch && classMatch;
-        });
-    }, [allAttendance, filters]);
-
-    const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
-    const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
-
-    const handleExport = (format: 'pdf' | 'excel') => {
-        const dataToExport = filteredAttendance.map(rec => ({
-            'Nama Guru': getTeacherName(rec.teacherId),
-            'Kelas': getClassName(rec.classId),
-            'Tanggal': new Date(rec.scanTime).toLocaleDateString('id-ID'),
-            'Waktu': new Date(rec.scanTime).toLocaleTimeString('id-ID'),
-            'Jam Ke': rec.lessonHour,
-        }));
-
-        if (format === 'excel') {
-            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Absensi");
-            XLSX.writeFile(workbook, "Laporan_Absensi.xlsx");
-        } else if (format === 'pdf') {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.text("Laporan Absensi", 10, 10);
-            (doc as any).autoTable({
-                head: [['Nama Guru', 'Kelas', 'Tanggal', 'Waktu', 'Jam Ke']],
-                body: dataToExport.map(Object.values),
-            });
-            doc.save('Laporan_Absensi.pdf');
-        }
-    };
-    
-    return (
-        <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-2xl font-bold mb-4">Laporan Absensi</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 border rounded-lg">
-                <input type="date" value={filters.date} onChange={e => setFilters({...filters, date: e.target.value})} className="p-2 border rounded" />
-                <select value={filters.teacherId} onChange={e => setFilters({...filters, teacherId: e.target.value})} className="p-2 border rounded">
-                    <option value="">Semua Guru</option>
-                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-                <select value={filters.classId} onChange={e => setFilters({...filters, classId: e.target.value})} className="p-2 border rounded">
-                     <option value="">Semua Kelas</option>
-                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <button onClick={() => setFilters({ date: '', teacherId: '', classId: '' })} className="p-2 bg-gray-200 rounded">Reset Filter</button>
-            </div>
-             <div className="flex gap-2 mb-4">
-                <button onClick={() => handleExport('excel')} className="bg-green-600 text-white px-4 py-2 rounded">Export Excel</button>
-            </div>
-            <div className="overflow-x-auto">
-                 <table className="w-full text-left">
-                    <thead>
-                        <tr className="bg-gray-50">
-                            <th className="p-3">Guru</th><th className="p-3">Kelas</th>
-                            <th className="p-3">Waktu Scan</th><th className="p-3">Jam Ke</th>
-                        </tr>
-                    </thead>
-                     <tbody>
-                        {filteredAttendance.map(rec => (
-                             <tr key={rec.id} className="border-b">
-                                <td className="p-3">{getTeacherName(rec.teacherId)}</td>
-                                <td className="p-3">{getClassName(rec.classId)}</td>
-                                <td className="p-3">{new Date(rec.scanTime).toLocaleString('id-ID')}</td>
-                                <td className="p-3">{rec.lessonHour}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                 </table>
-            </div>
-        </div>
-    );
-};
-
-// --- Login/Register Component ---
-
-const AuthScreen: React.FC = () => {
-    const [authView, setAuthView] = useState<'login' | 'register' | 'reset'>('login');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [name, setName] = useState('');
-    const [role, setRole] = useState<UserRole>(UserRoleEnum.TEACHER);
-    const [error, setError] = useState('');
-    const [message, setMessage] = useState('');
-    const [loading, setLoading] = useState(false);
-    
-    const logoUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARgAAAEZCAYAAACwBCx8AAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAJcEhZcwAACxMAAAsTAQCanBgAAAAhdEVYdENyZWF0aW9uIFRpbWUAMjAyNDowNzoyMCAxODo0ODo0OU03sW8AAH9CSURBVHja7Z15vF1Xfcd/72tN1e5y2V2yyUKWEJbLhAyTQQYYYICYYQYDDDDDDAYDDDEGY4AJ2ZjlYQITJgyGYQaCYcIyA0kyyEKySJfL7VbV6v6ep/ePqupSdy9d3e5Uffz8/FzVve6pU/c+1T711FOlYwwxxLg50/j/M8bY/7WjDDHGeH9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD9nDDHGeD"
-
-    const handleAuth = async (action: 'login' | 'register' | 'reset') => {
-        setError('');
-        setMessage('');
-        setLoading(true);
-
-        try {
-            if (action === 'register') {
-                if (!email || !password || !name) {
-                    setError('Harap isi semua kolom untuk mendaftar.');
-                    setLoading(false);
-                    return;
-                }
-                const { success, message: regMessage } = await api.signUp(email, password, name, role);
-                if(success) {
-                  setMessage('Registrasi berhasil! Silakan login.');
-                  setAuthView('login');
-                } else {
-                  setError(regMessage || 'Registrasi gagal.');
-                }
-            } else if (action === 'login') {
-                await api.signIn(email, password);
-                // The main App component will handle navigation via onAuthStateChanged
-            } else if (action === 'reset') {
-                if (!email) {
-                    setError('Harap isi email untuk reset password.');
-                    setLoading(false);
-                    return;
-                }
-                await api.sendPasswordResetEmail(email);
-                setMessage('Email reset password telah dikirim.');
-            }
-        } catch (error: any) {
-            setError(error.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const renderForm = () => {
-        switch (authView) {
-            case 'register':
-                return (
-                    <>
-                        <h3 className="text-2xl font-bold text-center mb-6">Daftar Akun Baru</h3>
-                        <div className="mb-4">
-                            <label className="block text-gray-700">Nama Lengkap</label>
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Nama Lengkap"
-                                required
-                            />
-                        </div>
-                        <div className="mb-4">
-                            <label className="block text-gray-700">Email</label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="email@sekolah.sch.id"
-                                required
-                            />
-                        </div>
-                        <div className="mb-6">
-                            <label className="block text-gray-700">Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="******"
-                                required
-                            />
-                        </div>
-                         <div className="mb-6">
-                            <label className="block text-gray-700">Role</label>
-                            <select value={role} onChange={e => setRole(e.target.value as UserRole)} className="w-full px-3 py-2 border rounded-lg">
-                                <option value={UserRoleEnum.TEACHER}>Guru</option>
-                                <option value={UserRoleEnum.ADMIN}>Admin</option>
-                            </select>
-                        </div>
-                        <button onClick={() => handleAuth('register')} disabled={loading} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200 disabled:bg-blue-300">
-                            {loading ? 'Mendaftar...' : 'Daftar'}
-                        </button>
-                        <p className="mt-4 text-center">
-                            Sudah punya akun? <button onClick={() => setAuthView('login')} className="text-blue-500 hover:underline">Login</button>
-                        </p>
-                    </>
-                );
-            case 'reset':
-                return (
-                     <>
-                        <h3 className="text-2xl font-bold text-center mb-6">Reset Password</h3>
-                        <div className="mb-4">
-                            <label className="block text-gray-700">Email</label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="email@sekolah.sch.id"
-                                required
-                            />
-                        </div>
-                        <button onClick={() => handleAuth('reset')} disabled={loading} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200 disabled:bg-blue-300">
-                            {loading ? 'Mengirim...' : 'Kirim Link Reset'}
-                        </button>
-                        <p className="mt-4 text-center">
-                           Kembali ke <button onClick={() => setAuthView('login')} className="text-blue-500 hover:underline">Login</button>
-                        </p>
-                    </>
-                )
-            default: // login
-                return (
-                    <>
-                        <h3 className="text-2xl font-bold text-center mb-6">Login Sistem</h3>
-                        <div className="mb-4">
-                            <label className="block text-gray-700">Email</label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="email@sekolah.sch.id"
-                            />
-                        </div>
-                        <div className="mb-6">
-                            <label className="block text-gray-700">Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="******"
-                            />
-                        </div>
-                        <button onClick={() => handleAuth('login')} disabled={loading} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200 disabled:bg-blue-300">
-                            {loading ? 'Loading...' : 'Login'}
-                        </button>
-                        <div className="mt-4 text-center flex justify-between text-sm">
-                           <button onClick={() => setAuthView('register')} className="text-blue-500 hover:underline">Daftar Akun Baru</button>
-                            <button onClick={() => setAuthView('reset')} className="text-gray-500 hover:underline">Lupa Password?</button>
-                        </div>
-                    </>
-                );
-        }
-    };
-    
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100">
-            <div className="w-full max-w-sm bg-white p-8 rounded-xl shadow-lg">
-                <div className="flex justify-center mb-4">
-                    <img src={logoUrl} alt="Logo Sekolah" className="h-24 w-24 object-contain"/>
-                </div>
-                <h2 className="text-2xl font-bold tracking-wider text-center text-gray-800">
-                    SABAR
-                </h2>
-                <h3 className="text-lg font-semibold text-center text-gray-700 mb-6">
-                    SMP NEGERI 13 TASIKMALAYA
-                </h3>
-                {error && <p className="bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-center">{error}</p>}
-                {message && <p className="bg-green-100 text-green-700 p-3 rounded-lg mb-4 text-center">{message}</p>}
-                {renderForm()}
-            </div>
-        </div>
-    );
-};
-
 // --- Main App Component ---
 
 const App: React.FC = () => {
-    const [user, setUser] = useState<any>(null);
-    const [userData, setUserData] = useState<User | null>(null);
+    const [user, setUser] = useState<any | null>(null);
+    const [userProfile, setUserProfile] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-    
+    const [authError, setAuthError] = useState<string | null>(null);
+    const [isRegister, setIsRegister] = useState(false);
+
     useEffect(() => {
         const unsubscribe = api.onAuthStateChanged(firebaseUser => {
             setUser(firebaseUser);
             if (!firebaseUser) {
-                setUserData(null);
                 setLoading(false);
             }
         });
@@ -1177,34 +1194,128 @@ const App: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        let unsubscribeProfile: (() => void) | undefined;
         if (user) {
-            const unsubscribe = api.onUserProfileChange(user.uid, (profile) => {
-                setUserData(profile);
+            unsubscribeProfile = api.onUserProfileChange(user.uid, profile => {
+                setUserProfile(profile);
                 setLoading(false);
             });
-            return () => unsubscribe();
+        } else {
+             setUserProfile(null);
         }
+        return () => {
+            if (unsubscribeProfile) {
+                unsubscribeProfile();
+            }
+        };
     }, [user]);
+
+    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const { email, password } = e.currentTarget.elements as any;
+        setLoading(true);
+        setAuthError(null);
+        try {
+            await api.signIn(email.value, password.value);
+            // onAuthStateChanged will handle the rest
+        } catch (error: any) {
+            console.error("Login failed:", error.message);
+            setAuthError(error.message || "Email atau password salah.");
+            setLoading(false);
+        }
+    };
     
+    const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const { name, email, password, confirmPassword, role } = e.currentTarget.elements as any;
+        if (password.value !== confirmPassword.value) {
+            setAuthError("Password tidak cocok.");
+            return;
+        }
+        setLoading(true);
+        setAuthError(null);
+        try {
+            await api.signUp(email.value, password.value, name.value, role.value as UserRole);
+        } catch (error: any) {
+             console.error("Registration failed:", error.message);
+            setAuthError(error.message || "Gagal mendaftar.");
+            setLoading(false);
+        }
+    }
+
     const handleLogout = async () => {
+        setLoading(true);
         await api.signOut();
-        setUser(null);
-        setUserData(null);
+        // State will be cleared by onAuthStateChanged
     };
 
     if (loading) {
-       return <FullPageSpinner />;
+        return <FullPageSpinner />;
     }
 
-    if (!user || !userData) {
-        return <AuthScreen />;
+    if (!user || !userProfile) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-md">
+                     <h2 className="text-2xl font-bold text-center mb-6">{isRegister ? 'Daftar Akun Baru' : 'Login Sistem Absensi'}</h2>
+                    {isRegister ? (
+                        <form onSubmit={handleRegister}>
+                             <div className="mb-4">
+                                <label className="block mb-1">Nama Lengkap</label>
+                                <input name="name" type="text" required className="w-full p-2 border rounded"/>
+                            </div>
+                            <div className="mb-4">
+                                <label className="block mb-1">Email</label>
+                                <input name="email" type="email" required className="w-full p-2 border rounded"/>
+                            </div>
+                            <div className="mb-4">
+                                <label className="block mb-1">Password</label>
+                                <input name="password" type="password" required className="w-full p-2 border rounded"/>
+                            </div>
+                            <div className="mb-4">
+                                <label className="block mb-1">Konfirmasi Password</label>
+                                <input name="confirmPassword" type="password" required className="w-full p-2 border rounded"/>
+                            </div>
+                            <div className="mb-4">
+                                <label className="block mb-1">Peran</label>
+                                <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full p-2 border rounded">
+                                    <option value={UserRoleEnum.TEACHER}>Guru</option>
+                                    <option value={UserRoleEnum.ADMIN}>Admin</option>
+                                </select>
+                            </div>
+                             {authError && <p className="text-red-500 text-sm mb-4">{authError}</p>}
+                            <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Daftar</button>
+                        </form>
+                    ) : (
+                        <form onSubmit={handleLogin}>
+                            <div className="mb-4">
+                                <label className="block mb-1">Email</label>
+                                <input name="email" type="email" required className="w-full p-2 border rounded"/>
+                            </div>
+                            <div className="mb-6">
+                                <label className="block mb-1">Password</label>
+                                <input name="password" type="password" required className="w-full p-2 border rounded"/>
+                            </div>
+                            {authError && <p className="text-red-500 text-sm mb-4">{authError}</p>}
+                            <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Login</button>
+                        </form>
+                    )}
+                    <p className="text-center mt-4">
+                        {isRegister ? 'Sudah punya akun?' : 'Belum punya akun?'}
+                        <button onClick={() => { setIsRegister(!isRegister); setAuthError(null); }} className="text-blue-500 hover:underline ml-1">
+                            {isRegister ? 'Login' : 'Daftar'}
+                        </button>
+                    </p>
+                </div>
+            </div>
+        )
     }
 
-    if (userData.role === UserRoleEnum.ADMIN) {
-        return <AdminDashboard user={userData} onLogout={handleLogout} />;
+    if (userProfile.role === UserRoleEnum.ADMIN) {
+        return <AdminDashboard user={userProfile} onLogout={handleLogout} />;
     }
 
-    return <TeacherDashboard user={userData} onLogout={handleLogout} />;
+    return <TeacherDashboard user={userProfile} onLogout={handleLogout} />;
 };
 
 export default App;
