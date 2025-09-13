@@ -197,13 +197,17 @@ export const getSchedules = async (): Promise<Schedule[]> => {
 
     // Sort schedules by day of the week, then by start time
     schedules.sort((a, b) => {
-        const dayAIndex = DAYS_OF_WEEK.indexOf(a.day);
-        const dayBIndex = DAYS_OF_WEEK.indexOf(b.day);
+        const dayAIndex = a.day ? DAYS_OF_WEEK.indexOf(a.day) : -1;
+        const dayBIndex = b.day ? DAYS_OF_WEEK.indexOf(b.day) : -1;
 
         if (dayAIndex !== dayBIndex) {
             return dayAIndex - dayBIndex;
         }
-        return a.startTime.localeCompare(b.startTime);
+        
+        // Safely compare startTime, defaulting to an empty string if null or undefined
+        const startTimeA = a.startTime || '';
+        const startTimeB = b.startTime || '';
+        return startTimeA.localeCompare(startTimeB);
     });
 
     return schedules;
