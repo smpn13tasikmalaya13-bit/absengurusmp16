@@ -1060,42 +1060,33 @@ const App: React.FC = () => {
 
     useEffect(() => {
         let userProfileUnsubscribe: (() => void) | null = null;
-        let profileLoadTimeout: number | null = null;
 
         const authUnsubscribe = api.onAuthStateChanged((authUser) => {
-            // Always clean up listeners and timeouts from the previous auth state
-            if (userProfileUnsubscribe) userProfileUnsubscribe();
-            if (profileLoadTimeout) clearTimeout(profileLoadTimeout);
+            // Always clean up the previous profile listener when auth state changes.
+            if (userProfileUnsubscribe) {
+                userProfileUnsubscribe();
+                userProfileUnsubscribe = null;
+            }
 
             if (authUser) {
-                // Set loading to true whenever we get a new authenticated user,
-                // as we need to fetch their profile.
                 setLoading(true);
-
-                // Set a timeout as a safety net. If we don't get a profile
-                // within 15 seconds, something is wrong, so we sign out.
-                profileLoadTimeout = window.setTimeout(() => {
-                    console.error(`User profile for UID ${authUser.uid} did not load in time. Signing out.`);
-                    api.signOut();
-                }, 15000);
-
                 userProfileUnsubscribe = api.onUserProfileChange(authUser.uid, (userDoc) => {
                     if (userDoc) {
-                        // We got the profile, so clear the safety-net timeout.
-                        if (profileLoadTimeout) clearTimeout(profileLoadTimeout);
-
                         const localSessionId = localStorage.getItem('sessionId');
                         if (userDoc.currentSessionId && localSessionId && userDoc.currentSessionId !== localSessionId) {
                            alert("Anda telah login dari perangkat lain. Sesi di perangkat ini telah dihentikan.");
                            api.signOut();
-                           return;
+                           return; // onAuthStateChanged will handle the rest.
                         }
-
                         setCurrentUser(userDoc);
                         setLoading(false);
+                    } else {
+                        // If user is authenticated but has no profile document, it's an error state.
+                        // This can occur if the document creation failed during signup.
+                        // Signing out is the safest action.
+                        console.error(`User profile not found for authenticated user UID: ${authUser.uid}. Signing out.`);
+                        api.signOut();
                     }
-                    // If userDoc is null, we do nothing and wait for the listener
-                    // to provide data or for the timeout to trigger.
                 });
             } else {
                 // User is not authenticated.
@@ -1108,8 +1099,9 @@ const App: React.FC = () => {
         // Cleanup on component unmount
         return () => {
             authUnsubscribe();
-            if (userProfileUnsubscribe) userProfileUnsubscribe();
-            if (profileLoadTimeout) clearTimeout(profileLoadTimeout);
+            if (userProfileUnsubscribe) {
+                userProfileUnsubscribe();
+            }
         };
     }, []);
 
