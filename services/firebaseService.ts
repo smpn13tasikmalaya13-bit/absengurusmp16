@@ -39,19 +39,23 @@ export const loginUser = async (userId: string, password?: string): Promise<User
     return docToData<User>(snapshot.docs[0]);
 };
 
-export const registerUser = async (userData: Omit<User, 'id'>): Promise<boolean> => {
-    const snapshot = await db.collection('users').where('userId', '==', userData.userId).get();
-    if (!snapshot.empty) {
-        return false; // User ID already exists
-    }
-    await db.collection('users').add(userData);
-    
-    // Create admin user if it's the first registration and role is admin
-    if (userData.role === 'ADMIN' && (await db.collection('users').get()).docs.length === 1) {
-        console.log("Admin user created as the first user.");
+export const registerUser = async (userData: Omit<User, 'id'>): Promise<{success: boolean; message?: string}> => {
+    // Check for existing User ID
+    const userSnapshot = await db.collection('users').where('userId', '==', userData.userId).get();
+    if (!userSnapshot.empty) {
+        return { success: false, message: 'User ID sudah digunakan.' };
     }
 
-    return true;
+    // NEW: Check for admin limit
+    if (userData.role === 'ADMIN') {
+        const adminSnapshot = await db.collection('users').where('role', '==', 'ADMIN').get();
+        if (adminSnapshot.docs.length >= 3) {
+            return { success: false, message: 'Batas maksimal admin (3) telah tercapai.' };
+        }
+    }
+    
+    await db.collection('users').add(userData);
+    return { success: true };
 };
 
 
@@ -102,8 +106,22 @@ export const getSchedules = async (): Promise<Schedule[]> => {
     return collectionToData<Schedule>(snapshot);
 };
 
-export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<void> => {
+export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<boolean> => {
+    // NEW: Check for schedule conflicts before adding
+    const conflictSnapshot = await db.collection('schedules')
+        .where('day', '==', scheduleData.day)
+        .where('lessonHour', '==', scheduleData.lessonHour)
+        .where('classId', '==', scheduleData.classId)
+        .limit(1)
+        .get();
+
+    if (!conflictSnapshot.empty) {
+        console.log("Schedule conflict detected.");
+        return false; // Conflict found, do not add
+    }
+
     await db.collection('schedules').add(scheduleData);
+    return true; // Successfully added
 };
 
 export const deleteSchedule = async (id: string): Promise<void> => {

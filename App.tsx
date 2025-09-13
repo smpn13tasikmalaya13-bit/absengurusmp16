@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
@@ -263,11 +262,15 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
           lessonHour: editingSchedule.lessonHour,
         }
 
-        await api.addSchedule(scheduleData);
-        setSchedules(await api.getSchedules());
+        const success = await api.addSchedule(scheduleData);
         
-        setIsModalOpen(false);
-        setEditingSchedule(null);
+        if(success) {
+            setSchedules(await api.getSchedules());
+            setIsModalOpen(false);
+            setEditingSchedule(null);
+        } else {
+            alert("Jadwal bentrok! Kelas ini sudah ada yang mengisi pada hari dan jam tersebut.");
+        }
     };
     
     const handleDelete = async (id: string) => {
@@ -722,8 +725,7 @@ const ClassManagement: React.FC = () => {
                     </div>
                      <div className="mb-4">
                         <label className="block mb-1">Tingkat</label>
-                        {/* FIX: Ensure the value passed to 'grade' is a number. parseInt('') is NaN (which is a number), but (NaN || '') is '', which is a string. */}
-                        <input type="number" value={editingClass?.grade || ''} onChange={e => setEditingClass({...editingClass, grade: parseInt(e.target.value)})} className="w-full p-2 border rounded" />
+                        <input type="number" value={editingClass?.grade || ''} onChange={e => setEditingClass({...editingClass, grade: parseInt(e.target.value) || undefined })} className="w-full p-2 border rounded" />
                     </div>
                     <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
                 </form>
@@ -910,13 +912,13 @@ const AuthScreen: React.FC<{ onLoginSuccess: (user: User) => void }> = ({ onLogi
             return;
         }
         setLoading(true);
-        const success = await api.registerUser({ userId, password, name, role });
-        if (success) {
+        const result = await api.registerUser({ userId, password, name, role });
+        if (result.success) {
             alert('Registrasi berhasil! Silakan login.');
             setIsLogin(true);
             setError('');
         } else {
-            setError('User ID sudah digunakan.');
+            setError(result.message || 'Terjadi kesalahan saat registrasi.');
         }
         setLoading(false);
     };
