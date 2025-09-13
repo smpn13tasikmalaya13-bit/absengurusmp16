@@ -274,7 +274,9 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
           endTime: editingSchedule.endTime,
         }
 
-        const result = await api.addSchedule(scheduleData);
+        const result = editingSchedule.id
+            ? await api.updateSchedule(editingSchedule.id, scheduleData)
+            : await api.addSchedule(scheduleData);
         
         if(result.success) {
             setSchedules(await api.getSchedules());
@@ -291,6 +293,16 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
             setSchedules(schedules.filter(s => s.id !== id));
         }
     }
+
+    const handleOpenModal = (schedule: Partial<Schedule> | null = null) => {
+        setEditingSchedule(schedule || {startTime: '07:00', endTime: '08:00'});
+        setIsModalOpen(true);
+    };
+    
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingSchedule(null);
+    }
     
     const getClassName = (classId: string) => classes.find(c => c.id === classId)?.name || 'N/A';
     
@@ -298,7 +310,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
         <div className="bg-white p-4 rounded-lg shadow">
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">Jadwal Mengajar Saya</h2>
-                <button onClick={() => { setEditingSchedule({startTime: '07:00', endTime: '08:00'}); setIsModalOpen(true); }} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Tambah Jadwal</button>
+                <button onClick={() => handleOpenModal()} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Tambah Jadwal</button>
             </div>
             <div className="space-y-4">
                 {schedules.length === 0 ? <p>Anda belum memiliki jadwal.</p> : schedules.map(s => (
@@ -308,13 +320,14 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
                             <p className="text-gray-600">Kelas: {getClassName(s.classId)}</p>
                              <p className="text-sm text-gray-500">Waktu: {s.startTime} - {s.endTime}</p>
                         </div>
-                        <div>
-                            <button onClick={() => handleDelete(s.id)} className="text-red-500 hover:text-red-700 text-sm">Hapus</button>
+                        <div className="flex items-center space-x-2">
+                            <button onClick={() => handleOpenModal(s)} className="text-blue-600 hover:underline text-sm font-medium">Ubah</button>
+                            <button onClick={() => handleDelete(s.id)} className="text-red-600 hover:underline text-sm font-medium">Hapus</button>
                         </div>
                     </div>
                 ))}
             </div>
-             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={'Tambah Jadwal'}>
+             <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingSchedule?.id ? 'Ubah Jadwal' : 'Tambah Jadwal'}>
                 <form onSubmit={handleSave}>
                     <div className="mb-4">
                         <label className="block mb-1">Hari</label>

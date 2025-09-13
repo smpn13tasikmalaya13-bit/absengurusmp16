@@ -186,26 +186,25 @@ export const deleteClass = async (id: string): Promise<void> => {
 };
 
 // --- Schedule Functions ---
-export const getSchedules = async (): Promise<Schedule[]> => {
-    const snapshot = await db.collection('schedules').orderBy('day').orderBy('startTime').get();
-    return collectionToData<Schedule>(snapshot);
-};
 
-export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
+// Helper function for conflict checking
+const performConflictCheck = async (scheduleData: Omit<Schedule, 'id'>, scheduleIdToExclude: string | null = null): Promise<{success: boolean, message: string}> => {
     const { day, startTime, endTime, classId, teacherId } = scheduleData;
-
+    
     // Basic time validation
     if (startTime >= endTime) {
         return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
     }
 
-    // --- 1. Check for class conflict using time range overlap ---
+    // --- 1. Check for class conflict ---
     const classSchedulesSnapshot = await db.collection('schedules')
         .where('day', '==', day)
         .where('classId', '==', classId)
         .get();
     
-    const existingClassSchedules: Schedule[] = collectionToData<Schedule>(classSchedulesSnapshot);
+    // Filter out the schedule being edited from the check
+    const existingClassSchedules: Schedule[] = collectionToData<Schedule>(classSchedulesSnapshot)
+        .filter((s: Schedule) => s.id !== scheduleIdToExclude); 
 
     for (const existing of existingClassSchedules) {
         // Overlap condition: (StartA < EndB) and (StartB < EndA)
@@ -217,13 +216,15 @@ export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{
         }
     }
 
-    // --- 2. Check for teacher conflict using time range overlap ---
+    // --- 2. Check for teacher conflict ---
     const teacherSchedulesSnapshot = await db.collection('schedules')
         .where('day', '==', day)
         .where('teacherId', '==', teacherId)
         .get();
         
-    const existingTeacherSchedules: Schedule[] = collectionToData<Schedule>(teacherSchedulesSnapshot);
+    // Filter out the schedule being edited from the check
+    const existingTeacherSchedules: Schedule[] = collectionToData<Schedule>(teacherSchedulesSnapshot)
+        .filter((s: Schedule) => s.id !== scheduleIdToExclude);
     
     for (const existing of existingTeacherSchedules) {
         // Overlap condition: (StartA < EndB) and (StartB < EndA)
@@ -235,10 +236,34 @@ export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{
         }
     }
 
-    // If no conflicts found, add the new schedule
+    return { success: true, message: "" };
+}
+
+export const getSchedules = async (): Promise<Schedule[]> => {
+    const snapshot = await db.collection('schedules').orderBy('day').orderBy('startTime').get();
+    return collectionToData<Schedule>(snapshot);
+};
+
+export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
+    const checkResult = await performConflictCheck(scheduleData);
+    if (!checkResult.success) {
+        return checkResult;
+    }
+
     await db.collection('schedules').add(scheduleData);
     return { success: true, message: "Jadwal berhasil ditambahkan." };
 };
+
+export const updateSchedule = async (id: string, scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
+    const checkResult = await performConflictCheck(scheduleData, id);
+    if (!checkResult.success) {
+        return checkResult;
+    }
+    
+    await db.collection('schedules').doc(id).update(scheduleData);
+    return { success: true, message: "Jadwal berhasil diperbarui." };
+};
+
 
 export const deleteSchedule = async (id: string): Promise<void> => {
     await db.collection('schedules').doc(id).delete();
