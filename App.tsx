@@ -4,7 +4,7 @@ import { QRCodeCanvas as QRCode } from 'qrcode.react';
 import type { User, Class, Schedule, AttendanceRecord, UserRole } from './types';
 import { UserRole as UserRoleEnum } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
-import { CENTRAL_COORDINATES, MAX_RADIUS_METERS, DAYS_OF_WEEK, LESSON_HOURS } from './constants';
+import { CENTRAL_COORDINATES, MAX_RADIUS_METERS, DAYS_OF_WEEK, LESSON_HOURS, HARI_TRANSLATION } from './constants';
 import * as api from './services/firebaseService';
 
 // FIX: Add declarations for globally available libraries
@@ -304,7 +304,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
                 {schedules.length === 0 ? <p>Anda belum memiliki jadwal.</p> : schedules.map(s => (
                     <div key={s.id} className="border p-3 rounded-lg flex justify-between items-center">
                         <div>
-                            <p className="font-semibold">{s.day}, Jam ke-{s.lessonHour}</p>
+                            <p className="font-semibold">{HARI_TRANSLATION[s.day]}, Jam ke-{s.lessonHour}</p>
                             <p className="text-gray-600">Kelas: {getClassName(s.classId)}</p>
                              <p className="text-sm text-gray-500">Waktu: {s.startTime} - {s.endTime}</p>
                         </div>
@@ -320,7 +320,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], setSc
                         <label className="block mb-1">Hari</label>
                         <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as Schedule['day']})} className="w-full p-2 border rounded">
                             <option value="">Pilih Hari</option>
-                            {DAYS_OF_WEEK.map(day => <option key={day} value={day}>{day}</option>)}
+                            {DAYS_OF_WEEK.map(day => <option key={day} value={day}>{HARI_TRANSLATION[day]}</option>)}
                         </select>
                     </div>
                     <div className="mb-4">
@@ -749,49 +749,86 @@ const ScheduleManagement: React.FC = () => {
     const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [teachers, setTeachers] = useState<User[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [schedulesData, teachersData, classesData] = await Promise.all([
+                api.getSchedules(),
+                api.getUsersByRole(UserRoleEnum.TEACHER),
+                api.getClasses(),
+            ]);
+            setSchedules(schedulesData);
+            setTeachers(teachersData);
+            setClasses(classesData);
+        } catch (error) {
+            console.error("Gagal memuat data:", error);
+            alert("Terjadi kesalahan saat memuat data. Silakan coba lagi.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const fetchData = async () => {
-            setSchedules(await api.getSchedules());
-            setTeachers(await api.getUsersByRole(UserRoleEnum.TEACHER));
-            setClasses(await api.getClasses());
-        };
         fetchData();
-    }, []);
+    }, [fetchData]);
 
     const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
     const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
     
     return (
         <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-2xl font-bold mb-4">Semua Jadwal Pelajaran</h2>
-            <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="bg-gray-50">
-                            <th className="p-3">Guru</th>
-                            <th className="p-3">Kelas</th>
-                            <th className="p-3">Hari</th>
-                            <th className="p-3">Jam Ke</th>
-                            <th className="p-3">Waktu</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {schedules.map(s => (
-                             <tr key={s.id} className="border-b">
-                                <td className="p-3">{getTeacherName(s.teacherId)}</td>
-                                <td className="p-3">{getClassName(s.classId)}</td>
-                                <td className="p-3">{s.day}</td>
-                                <td className="p-3">{s.lessonHour}</td>
-                                <td className="p-3">{s.startTime} - {s.endTime}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">Semua Jadwal Pelajaran</h2>
+                <button 
+                    onClick={fetchData} 
+                    disabled={loading} 
+                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 transition"
+                >
+                    {loading ? 
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> :
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V4a1 1 0 011-1zm10 8a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 111.885-.666A5.002 5.002 0 0014.001 13H11a1 1 0 01-1-1z" clipRule="evenodd" />
+                        </svg>
+                    }
+                    <span>{loading ? 'Memuat...' : 'Refresh'}</span>
+                </button>
             </div>
+            {loading ? (
+                <div className="text-center p-10">
+                    <Spinner />
+                </div>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-gray-50">
+                                <th className="p-3">Guru</th>
+                                <th className="p-3">Kelas</th>
+                                <th className="p-3">Hari</th>
+                                <th className="p-3">Jam Ke</th>
+                                <th className="p-3">Waktu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {schedules.map(s => (
+                                 <tr key={s.id} className="border-b">
+                                    <td className="p-3">{getTeacherName(s.teacherId)}</td>
+                                    <td className="p-3">{getClassName(s.classId)}</td>
+                                    <td className="p-3">{HARI_TRANSLATION[s.day]}</td>
+                                    <td className="p-3">{s.lessonHour}</td>
+                                    <td className="p-3">{s.startTime} - {s.endTime}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
     );
 };
+
 
 const AttendanceReport: React.FC = () => {
     const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>([]);

@@ -1,4 +1,3 @@
-
 import type { Coords } from './types';
 
 export const CENTRAL_COORDINATES: Coords = {
@@ -13,3 +12,13 @@ export const DAYS_OF_WEEK: ('Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'F
 ];
 
 export const LESSON_HOURS = Array.from({ length: 10 }, (_, i) => i + 1);
+
+export const HARI_TRANSLATION: { [key in typeof DAYS_OF_WEEK[number]]: string } = {
+    'Monday': 'Senin',
+    'Tuesday': 'Selasa',
+    'Wednesday': 'Rabu',
+    'Thursday': 'Kamis',
+    'Friday': 'Jumat',
+    'Saturday': 'Sabtu',
+    'Sunday': 'Minggu'
+};
