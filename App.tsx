@@ -1328,9 +1328,8 @@ const AIAssistant: React.FC = () => {
 
 // --- Branding Component ---
 const SabarLogo = () => (
-    <div className="flex flex-col items-center mb-8">
-        <img src="./public/smpn-13-tasikmalaya.png" alt="Logo SMP Negeri 13 Tasikmalaya" className="w-24 h-24 mb-4 object-contain" />
-        <h1 className="text-4xl font-bold tracking-wider text-gray-800">SABAR</h1>
+    <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold tracking-wider text-gray-800">SABAR</h1>
         <p className="text-gray-500 mt-1">Sistem Absensi Berbasis QR</p>
     </div>
 );
@@ -1434,7 +1433,7 @@ const App: React.FC = () => {
 
     if (!user || !userProfile) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+            <div className="min-h-screen flex items-center justify-center bg-gray-200 p-4">
                 <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg">
                      <SabarLogo />
                     
