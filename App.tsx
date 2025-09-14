@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
-import type { User, Class, Schedule, AttendanceRecord, UserRole } from './types';
+import type { User, Class, Schedule, AttendanceRecord, UserRole, Message } from './types';
 import { UserRole as UserRoleEnum } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CENTRAL_COORDINATES, MAX_RADIUS_METERS, DAYS_OF_WEEK, LESSON_HOURS, HARI_TRANSLATION } from './constants';
@@ -28,6 +28,15 @@ const ScheduleIcon = () => (<div className="w-12 h-12 flex items-center justify-
 const QrCodeEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg>);
 const CalendarEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>);
 const LogoutIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>);
+const MessageIcon = ({ hasUnread }: { hasUnread?: boolean }) => (
+    <div className="relative">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        {hasUnread && <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"></span>}
+    </div>
+);
+
 
 // --- UI Components ---
 
@@ -69,13 +78,17 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
     const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [loadingData, setLoadingData] = useState(true);
 
     const { isWithinRadius } = useGeolocation();
 
     const [isLessonHourModalOpen, setIsLessonHourModalOpen] = useState(false);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
     const [selectedLessonHour, setSelectedLessonHour] = useState<number | null>(null);
+
+    const unreadMessagesCount = useMemo(() => messages.filter(m => !m.isRead).length, [messages]);
 
     const fetchData = useCallback(async () => {
         setLoadingData(true);
@@ -97,7 +110,17 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+        const unsubscribeMessages = api.onMessagesReceived(user.id, setMessages);
+        return () => unsubscribeMessages();
+    }, [fetchData, user.id]);
+
+    const handleOpenMessageModal = () => {
+        setIsMessageModalOpen(true);
+        const unreadIds = messages.filter(m => !m.isRead).map(m => m.id);
+        if (unreadIds.length > 0) {
+            api.markMessagesAsRead(unreadIds);
+        }
+    };
 
     const userSchedules = useMemo(() => schedules.filter(s => s.teacherId === user.id), [schedules, user.id]);
 
@@ -175,10 +198,15 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                     <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Dashboard Guru</h1>
                     <p className="text-sm text-gray-500">Selamat datang, {user.name}</p>
                 </div>
-                <button onClick={onLogout} className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-4 py-2 rounded-md border border-gray-300 hover:border-gray-400">
-                    <LogoutIcon />
-                    <span>Logout</span>
-                </button>
+                <div className="flex items-center gap-4">
+                    <button onClick={handleOpenMessageModal} className="text-gray-600 hover:text-gray-900 transition-colors">
+                        <MessageIcon hasUnread={unreadMessagesCount > 0} />
+                    </button>
+                    <button onClick={onLogout} className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-4 py-2 rounded-md border border-gray-300 hover:border-gray-400">
+                        <LogoutIcon />
+                        <span>Logout</span>
+                    </button>
+                </div>
             </header>
 
             <main className="p-4 md:p-6 space-y-6">
@@ -262,22 +290,15 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                                     <p className="text-sm">Hubungi admin untuk mengatur jadwal</p>
                                 </div>
                             ) : (
-                                todaySchedules.map(s => {
-                                    const fullClassName = getClassName(s.classId) || 'Tanpa Nama';
-                                    const lastSpaceIndex = fullClassName.lastIndexOf(' ');
-                                    const subject = lastSpaceIndex !== -1 ? fullClassName.substring(0, lastSpaceIndex) : fullClassName;
-                                    const grade = lastSpaceIndex !== -1 ? fullClassName.substring(lastSpaceIndex + 1) : '';
-
-                                    return (
-                                        <div key={s.id} className="bg-gray-50 p-4 rounded-lg flex justify-between items-center">
-                                            <div>
-                                                <p className="font-semibold text-gray-800">{subject}</p>
-                                                {grade && <p className="text-sm text-gray-500">{grade}</p>}
-                                            </div>
-                                            <span className="text-sm font-medium text-gray-500">{HARI_TRANSLATION[s.day]}</span>
+                                todaySchedules.map(s => (
+                                    <div key={s.id} className="bg-gray-50 p-4 rounded-lg flex justify-between items-center">
+                                        <div>
+                                            <p className="font-semibold text-gray-800">{s.subject}</p>
+                                            <p className="text-sm text-gray-500">{getClassName(s.classId)}</p>
                                         </div>
-                                    );
-                                })
+                                        <span className="text-sm font-medium text-gray-500">{s.startTime} - {s.endTime}</span>
+                                    </div>
+                                ))
                             )}
                         </div>
                     </div>
@@ -307,6 +328,23 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
             <Modal isOpen={isScheduleModalOpen} onClose={() => setIsScheduleModalOpen(false)} title="Kelola Jadwal Mengajar">
                 <TeacherScheduleManager user={user} schedules={userSchedules} onScheduleUpdate={fetchData} classes={classes}/>
+            </Modal>
+            
+            <Modal isOpen={isMessageModalOpen} onClose={() => setIsMessageModalOpen(false)} title="Pesan Masuk">
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {messages.length === 0 ? (
+                        <p className="text-gray-500 text-center py-4">Tidak ada pesan.</p>
+                    ) : (
+                        messages.map(msg => (
+                            <div key={msg.id} className={`p-3 rounded-lg ${msg.isRead ? 'bg-gray-100' : 'bg-blue-50 border border-blue-200'}`}>
+                                <p className="text-sm text-gray-800">{msg.content}</p>
+                                <p className="text-xs text-gray-500 mt-2 text-right">
+                                    Dari: {msg.senderName} - {new Date(msg.timestamp).toLocaleString('id-ID')}
+                                </p>
+                            </div>
+                        ))
+                    )}
+                </div>
             </Modal>
         </div>
     );
@@ -376,7 +414,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!editingSchedule || !editingSchedule.classId || !editingSchedule.day || !editingSchedule.lessonHour || !editingSchedule.startTime || !editingSchedule.endTime) {
+        if (!editingSchedule || !editingSchedule.classId || !editingSchedule.day || !editingSchedule.lessonHour || !editingSchedule.startTime || !editingSchedule.endTime || !editingSchedule.subject) {
             alert("Harap isi semua kolom");
             return;
         }
@@ -386,6 +424,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
             const scheduleData: Omit<Schedule, 'id'> = {
               teacherId: user.id,
               classId: editingSchedule.classId,
+              subject: editingSchedule.subject,
               day: editingSchedule.day,
               lessonHour: editingSchedule.lessonHour,
               startTime: editingSchedule.startTime,
@@ -418,7 +457,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
     }
 
     const handleOpenModal = (schedule: Partial<Schedule> | null = null) => {
-        setEditingSchedule(schedule || {startTime: '07:00', endTime: '08:00'});
+        setEditingSchedule(schedule || {startTime: '07:00', endTime: '08:00', subject: ''});
         setIsModalOpen(true);
     };
     
@@ -439,8 +478,8 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
                 {schedules.length === 0 ? <p>Anda belum memiliki jadwal.</p> : schedules.map(s => (
                     <div key={s.id} className="border p-3 rounded-lg flex justify-between items-center">
                         <div>
-                            <p className="font-semibold">{HARI_TRANSLATION[s.day]}, Jam ke-{s.lessonHour}</p>
-                            <p className="text-gray-600">Kelas: {getClassName(s.classId)}</p>
+                            <p className="font-semibold">{s.subject}</p>
+                            <p className="text-gray-600">Kelas: {getClassName(s.classId)} ({HARI_TRANSLATION[s.day]}, Jam ke-{s.lessonHour})</p>
                              <p className="text-sm text-gray-500">Waktu: {s.startTime} - {s.endTime}</p>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -451,15 +490,26 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
                 ))}
             </div>
              <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingSchedule?.id ? 'Ubah Jadwal' : 'Tambah Jadwal'}>
-                <form onSubmit={handleSave}>
-                    <div className="mb-4">
+                <form onSubmit={handleSave} className="space-y-4">
+                    <div>
+                        <label className="block mb-1">Mata Pelajaran</label>
+                        <input type="text" value={editingSchedule?.subject || ''} onChange={e => setEditingSchedule({...editingSchedule, subject: e.target.value})} className="w-full p-2 border rounded" placeholder="Contoh: Matematika"/>
+                    </div>
+                     <div>
+                        <label className="block mb-1">Kelas</label>
+                        <select value={editingSchedule?.classId || ''} onChange={e => setEditingSchedule({...editingSchedule, classId: e.target.value})} className="w-full p-2 border rounded">
+                            <option value="">Pilih Kelas</option>
+                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
                         <label className="block mb-1">Hari</label>
                         <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as Schedule['day']})} className="w-full p-2 border rounded">
                             <option value="">Pilih Hari</option>
                             {DAYS_OF_WEEK.map(day => <option key={day} value={day}>{HARI_TRANSLATION[day]}</option>)}
                         </select>
                     </div>
-                    <div className="mb-4">
+                    <div>
                         <label className="block mb-1">Jam Ke</label>
                         <select 
                             value={editingSchedule?.lessonHour || ''} 
@@ -473,7 +523,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
                             {LESSON_HOURS.map(hour => <option key={hour} value={hour}>{hour}</option>)}
                         </select>
                     </div>
-                     <div className="grid grid-cols-2 gap-4 mb-4">
+                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block mb-1">Waktu Mulai</label>
                             <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded" />
@@ -483,13 +533,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
                             <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded" />
                         </div>
                     </div>
-                    <div className="mb-4">
-                        <label className="block mb-1">Kelas</label>
-                        <select value={editingSchedule?.classId || ''} onChange={e => setEditingSchedule({...editingSchedule, classId: e.target.value})} className="w-full p-2 border rounded">
-                            <option value="">Pilih Kelas</option>
-                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </div>
+                    
                     <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg flex justify-center items-center transition duration-150 disabled:bg-blue-400" disabled={isSaving}>
                         {isSaving ? (
                             <>
@@ -538,6 +582,7 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                 <nav className="flex-grow">
                     <a onClick={() => handleSetView('dashboard')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Dashboard</a>
                     <a onClick={() => handleSetView('teachers')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Guru</a>
+                    <a onClick={() => handleSetView('admins')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Admin</a>
                     <a onClick={() => handleSetView('classes')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Kelas</a>
                     <a onClick={() => handleSetView('schedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Pelajaran</a>
                     <a onClick={() => handleSetView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi</a>
@@ -563,7 +608,8 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
 
                 {/* Page Content */}
                 {view === 'dashboard' && <DashboardHome />}
-                {view === 'teachers' && <TeacherManagement />}
+                {view === 'teachers' && <TeacherManagement adminUser={user}/>}
+                {view === 'admins' && <AdminManagement />}
                 {view === 'classes' && <ClassManagement />}
                 {view === 'schedules' && <ScheduleManagement />}
                 {view === 'reports' && <AttendanceReport />}
@@ -697,15 +743,68 @@ const CrudTable: React.FC<{
                     </tr>
                 </thead>
                 <tbody>
-                    {data.map(item => renderRow(item))}
+                    {data.length === 0 ? (
+                        <tr><td colSpan={columns.length} className="text-center p-4 text-gray-500">Tidak ada data.</td></tr>
+                    ) : (
+                        data.map(item => renderRow(item))
+                    )}
                 </tbody>
             </table>
         </div>
     </div>
 );
 
-const TeacherManagement: React.FC = () => {
+const SendMessageModal: React.FC<{ teacher: User; adminUser: User; onClose: () => void }> = ({ teacher, adminUser, onClose }) => {
+    const [content, setContent] = useState('');
+    const [isSending, setIsSending] = useState(false);
+
+    const handleSend = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!content.trim()) return;
+        setIsSending(true);
+        try {
+            const newMessage: Omit<Message, 'id'> = {
+                senderId: adminUser.id,
+                senderName: adminUser.name,
+                recipientId: teacher.id,
+                content: content.trim(),
+                timestamp: new Date().toISOString(),
+                isRead: false,
+            };
+            await api.addMessage(newMessage);
+            alert(`Pesan berhasil dikirim ke ${teacher.name}`);
+            onClose();
+        } catch (error: any) {
+            alert(`Gagal mengirim pesan: ${error.message}`);
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    return (
+        <Modal isOpen={true} onClose={onClose} title={`Kirim Pesan ke ${teacher.name}`}>
+            <form onSubmit={handleSend}>
+                <textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    rows={5}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Ketik pesan Anda..."
+                    required
+                ></textarea>
+                <div className="flex justify-end mt-4">
+                    <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 disabled:bg-blue-300" disabled={isSending}>
+                        {isSending ? 'Mengirim...' : 'Kirim'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+const TeacherManagement: React.FC<{ adminUser: User }> = ({ adminUser }) => {
     const [teachers, setTeachers] = useState<User[]>([]);
+    const [messagingTeacher, setMessagingTeacher] = useState<User | null>(null);
 
     const fetchTeachers = async () => {
         setTeachers(await api.getUsersByRole(UserRoleEnum.TEACHER));
@@ -717,8 +816,6 @@ const TeacherManagement: React.FC = () => {
     
     const handleDelete = async (id: string) => {
         if (window.confirm("Yakin ingin menghapus guru ini? Ini juga akan menghapus jadwal terkait.")) {
-            // Note: This only deletes Firestore data. The user will remain in Firebase Auth.
-            // Secure user deletion requires admin privileges, typically via a Cloud Function.
             await api.deleteUser(id);
             setTeachers(teachers.filter(t => t.id !== id));
         }
@@ -747,6 +844,7 @@ const TeacherManagement: React.FC = () => {
                         <td className="p-3">{teacher.name}</td>
                         <td className="p-3">{teacher.userId}</td>
                         <td className="p-3 space-x-4">
+                            <button onClick={() => setMessagingTeacher(teacher)} className="text-green-600 hover:underline">Kirim Pesan</button>
                             <button onClick={() => handleResetDevice(teacher.id, teacher.name)} className="text-blue-600 hover:underline">Reset Perangkat</button>
                             <button onClick={() => handleDelete(teacher.id)} className="text-red-600 hover:underline">Hapus</button>
                         </td>
@@ -757,7 +855,55 @@ const TeacherManagement: React.FC = () => {
                 <p className="font-bold">Informasi Pendaftaran Guru</p>
                 <p>Untuk menambahkan guru baru, mereka harus mendaftar melalui halaman login dengan memilih opsi 'Daftar' dan menggunakan peran 'Guru'.</p>
             </div>
+
+            {messagingTeacher && (
+                <SendMessageModal
+                    teacher={messagingTeacher}
+                    adminUser={adminUser}
+                    onClose={() => setMessagingTeacher(null)}
+                />
+            )}
         </>
+    );
+};
+
+const AdminManagement: React.FC = () => {
+    const [admins, setAdmins] = useState<User[]>([]);
+
+    useEffect(() => {
+        const fetchAdmins = async () => {
+            setAdmins(await api.getUsersByRole(UserRoleEnum.ADMIN));
+        };
+        fetchAdmins();
+    }, []);
+
+    const handleResetDevice = async (id: string, name: string) => {
+        if (window.confirm(`Yakin ingin mereset perangkat untuk admin "${name}"? Admin ini akan dapat login di perangkat baru setelahnya.`)) {
+            try {
+                await api.resetDeviceBinding(id);
+                alert(`Perangkat untuk ${name} berhasil direset.`);
+            } catch (error: any) {
+                console.error("Gagal mereset perangkat:", error);
+                alert(`Terjadi kesalahan: ${error.message}`);
+            }
+        }
+    };
+
+    return (
+        <CrudTable
+            title="Manajemen Admin"
+            columns={['Nama', 'User ID (Email)', 'Aksi']}
+            data={admins}
+            renderRow={(admin: User) => (
+                <tr key={admin.id} className="border-b hover:bg-gray-50">
+                    <td className="p-3">{admin.name}</td>
+                    <td className="p-3">{admin.userId}</td>
+                    <td className="p-3">
+                        <button onClick={() => handleResetDevice(admin.id, admin.name)} className="text-blue-600 hover:underline">Reset Perangkat</button>
+                    </td>
+                </tr>
+            )}
+        />
     );
 };
 
@@ -812,7 +958,7 @@ const ClassManagement: React.FC = () => {
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Tambah Kelas Baru">
                 <form onSubmit={handleAdd}>
                     <div className="mb-4">
-                        <label className="block mb-2">Nama Kelas (Contoh: Matematika X-A)</label>
+                        <label className="block mb-2">Nama Kelas (Contoh: X-A)</label>
                         <input value={newClassName} onChange={e => setNewClassName(e.target.value)} className="w-full p-2 border rounded"/>
                     </div>
                      <div className="mb-4">
@@ -850,7 +996,7 @@ const ScheduleManagement: React.FC = () => {
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!editingSchedule || !editingSchedule.teacherId || !editingSchedule.classId || !editingSchedule.day || !editingSchedule.lessonHour || !editingSchedule.startTime || !editingSchedule.endTime) {
+        if (!editingSchedule || !editingSchedule.teacherId || !editingSchedule.classId || !editingSchedule.day || !editingSchedule.lessonHour || !editingSchedule.startTime || !editingSchedule.endTime || !editingSchedule.subject) {
             alert("Harap isi semua kolom");
             return;
         }
@@ -858,6 +1004,7 @@ const ScheduleManagement: React.FC = () => {
         const scheduleData: Omit<Schedule, 'id'> = {
             teacherId: editingSchedule.teacherId,
             classId: editingSchedule.classId,
+            subject: editingSchedule.subject,
             day: editingSchedule.day,
             lessonHour: editingSchedule.lessonHour,
             startTime: editingSchedule.startTime,
@@ -885,7 +1032,7 @@ const ScheduleManagement: React.FC = () => {
     }
     
     const handleOpenModal = (schedule: Partial<Schedule> | null = null) => {
-        setEditingSchedule(schedule || {startTime: '07:00', endTime: '08:00'});
+        setEditingSchedule(schedule || {startTime: '07:00', endTime: '08:00', subject: ''});
         setIsModalOpen(true);
     };
 
@@ -896,7 +1043,7 @@ const ScheduleManagement: React.FC = () => {
         <>
             <CrudTable
                 title="Manajemen Jadwal Pelajaran"
-                columns={['Hari', 'Waktu', 'Guru', 'Kelas', 'Jam Ke', 'Aksi']}
+                columns={['Hari', 'Waktu', 'Guru', 'Mata Pelajaran', 'Kelas', 'Jam Ke', 'Aksi']}
                 data={schedules}
                 onAdd={() => handleOpenModal()}
                 renderRow={(s: Schedule) => (
@@ -904,6 +1051,7 @@ const ScheduleManagement: React.FC = () => {
                         <td className="p-3">{HARI_TRANSLATION[s.day]}</td>
                         <td className="p-3">{s.startTime} - {s.endTime}</td>
                         <td className="p-3">{getTeacherName(s.teacherId)}</td>
+                        <td className="p-3">{s.subject}</td>
                         <td className="p-3">{getClassName(s.classId)}</td>
                         <td className="p-3">{s.lessonHour}</td>
                         <td className="p-3 space-x-2">
@@ -914,36 +1062,40 @@ const ScheduleManagement: React.FC = () => {
                 )}
             />
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingSchedule?.id ? 'Ubah Jadwal' : 'Tambah Jadwal'}>
-                <form onSubmit={handleSave}>
-                    <div className="mb-4">
+                <form onSubmit={handleSave} className="space-y-4">
+                    <div>
                         <label className="block mb-1">Guru</label>
                         <select value={editingSchedule?.teacherId || ''} onChange={e => setEditingSchedule({...editingSchedule, teacherId: e.target.value})} className="w-full p-2 border rounded">
                             <option value="">Pilih Guru</option>
                             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
                     </div>
-                     <div className="mb-4">
+                     <div>
+                        <label className="block mb-1">Mata Pelajaran</label>
+                        <input type="text" value={editingSchedule?.subject || ''} onChange={e => setEditingSchedule({...editingSchedule, subject: e.target.value})} className="w-full p-2 border rounded" placeholder="Contoh: Sejarah Indonesia"/>
+                    </div>
+                     <div>
                         <label className="block mb-1">Kelas</label>
                         <select value={editingSchedule?.classId || ''} onChange={e => setEditingSchedule({...editingSchedule, classId: e.target.value})} className="w-full p-2 border rounded">
                             <option value="">Pilih Kelas</option>
                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
-                    <div className="mb-4">
+                    <div>
                         <label className="block mb-1">Hari</label>
                         <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as Schedule['day']})} className="w-full p-2 border rounded">
                             <option value="">Pilih Hari</option>
                             {DAYS_OF_WEEK.map(day => <option key={day} value={day}>{HARI_TRANSLATION[day]}</option>)}
                         </select>
                     </div>
-                    <div className="mb-4">
+                    <div>
                         <label className="block mb-1">Jam Ke</label>
                          <select value={editingSchedule?.lessonHour || ''} onChange={e => setEditingSchedule({...editingSchedule, lessonHour: parseInt(e.target.value, 10)})} className="w-full p-2 border rounded">
                             <option value="">Pilih Jam</option>
                             {LESSON_HOURS.map(hour => <option key={hour} value={hour}>{hour}</option>)}
                         </select>
                     </div>
-                     <div className="grid grid-cols-2 gap-4 mb-4">
+                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block mb-1">Waktu Mulai</label>
                             <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded" />

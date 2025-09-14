@@ -23,6 +23,7 @@ export interface Schedule {
   id: string;
   teacherId: string;
   classId: string;
+  subject: string;
   day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
   lessonHour: number; // e.g., 1 for 1st hour
   startTime: string; // e.g., "07:00"
@@ -41,3 +42,13 @@ export type Coords = {
   latitude: number;
   longitude: number;
 };
+
+export interface Message {
+  id: string;
+  senderId: string;
+  senderName: string;
+  recipientId: string;
+  content: string;
+  timestamp: string; // ISO string
+  isRead: boolean;
+}

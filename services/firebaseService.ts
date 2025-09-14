@@ -1,5 +1,5 @@
 
-import type { User, Class, Schedule, AttendanceRecord, UserRole } from '../types';
+import type { User, Class, Schedule, AttendanceRecord, UserRole, Message } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
 declare var firebase: any;
@@ -282,4 +282,33 @@ export const checkIfAlreadyScanned = async (teacherId: string, classId: string, 
         .get();
         
     return !snapshot.empty;
+};
+
+// --- Message Functions ---
+
+export const addMessage = async (messageData: Omit<Message, 'id'>): Promise<void> => {
+    await db.collection('messages').add(messageData);
+};
+
+// Use onSnapshot for real-time updates
+export const onMessagesReceived = (userId: string, callback: (messages: Message[]) => void): (() => void) => {
+    return db.collection('messages')
+        .where('recipientId', '==', userId)
+        .orderBy('timestamp', 'desc')
+        .onSnapshot((snapshot: any) => {
+            callback(collectionToData<Message>(snapshot));
+        }, (error: any) => {
+            console.error("Error listening to messages:", error);
+            callback([]);
+        });
+};
+
+export const markMessagesAsRead = async (messageIds: string[]): Promise<void> => {
+    if (messageIds.length === 0) return;
+    const batch = db.batch();
+    messageIds.forEach(id => {
+        const docRef = db.collection('messages').doc(id);
+        batch.update(docRef, { isRead: true });
+    });
+    await batch.commit();
 };
