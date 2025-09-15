@@ -95,20 +95,25 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
     const fetchData = useCallback(async () => {
         setLoadingData(true);
-        const [classesData, schedulesData, allAttendance] = await Promise.all([
-            api.getClasses(),
-            api.getSchedules(),
-            api.getAttendanceRecords()
-        ]);
-        setClasses(classesData);
-        setSchedules(schedulesData);
+        try {
+            const [classesData, schedulesData, allAttendance] = await Promise.all([
+                api.getClasses(),
+                api.getSchedules(),
+                api.getAttendanceRecords()
+            ]);
+            setClasses(classesData);
+            setSchedules(schedulesData);
 
-        const userAttendance = allAttendance
-            .filter(rec => rec.teacherId === user.id)
-            .sort((a, b) => new Date(b.scanTime).getTime() - new Date(a.scanTime).getTime());
-        setAttendance(userAttendance);
-        
-        setLoadingData(false);
+            const userAttendance = allAttendance
+                .filter(rec => rec.teacherId === user.id)
+                .sort((a, b) => new Date(b.scanTime).getTime() - new Date(a.scanTime).getTime());
+            setAttendance(userAttendance);
+        } catch (error) {
+            console.error("Failed to fetch data:", error);
+            // Optionally set an error state here to show in the UI
+        } finally {
+            setLoadingData(false);
+        }
     }, [user.id]);
 
     useEffect(() => {
@@ -137,7 +142,8 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
     const handleScheduleDelete = async (idToDelete: string) => {
         try {
             await api.deleteSchedule(idToDelete);
-            setSchedules(prevSchedules => prevSchedules.filter(s => s.id !== idToDelete));
+            // After successful deletion, re-fetch data to ensure UI consistency.
+            await fetchData();
         } catch (error) {
             console.error("Gagal menghapus jadwal:", error);
             alert("Terjadi kesalahan saat menghapus jadwal.");

@@ -1,4 +1,5 @@
 
+
 import type { User, Class, Schedule, AttendanceRecord, UserRole, Message } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
@@ -234,10 +235,36 @@ export const getSchedules = async (): Promise<Schedule[]> => {
     return schedules;
 };
 
+const checkDuplicateSchedule = async (scheduleData: Omit<Schedule, 'id'>, existingId?: string): Promise<boolean> => {
+    const query = db.collection('schedules')
+        .where('teacherId', '==', scheduleData.teacherId)
+        .where('classId', '==', scheduleData.classId)
+        .where('day', '==', scheduleData.day)
+        .where('lessonHour', '==', scheduleData.lessonHour);
+
+    const snapshot = await query.get();
+    
+    if (snapshot.empty) {
+        return false;
+    }
+
+    // If we are updating, we need to make sure the found duplicate isn't the document we're currently editing.
+    if (existingId) {
+        return snapshot.docs.some((doc: any) => doc.id !== existingId);
+    }
+
+    return !snapshot.empty;
+}
+
 export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
     // Basic time validation
     if (scheduleData.startTime >= scheduleData.endTime) {
         return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
+    }
+
+    const isDuplicate = await checkDuplicateSchedule(scheduleData);
+    if (isDuplicate) {
+        return { success: false, message: "Jadwal yang sama persis sudah ada untuk guru, kelas, hari, dan jam ini." };
     }
 
     await db.collection('schedules').add(scheduleData);
@@ -248,6 +275,11 @@ export const updateSchedule = async (id: string, scheduleData: Omit<Schedule, 'i
      // Basic time validation
     if (scheduleData.startTime >= scheduleData.endTime) {
         return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
+    }
+    
+    const isDuplicate = await checkDuplicateSchedule(scheduleData, id);
+    if (isDuplicate) {
+        return { success: false, message: "Jadwal yang sama persis sudah ada untuk guru, kelas, hari, dan jam ini." };
     }
 
     await db.collection('schedules').doc(id).update(scheduleData);
