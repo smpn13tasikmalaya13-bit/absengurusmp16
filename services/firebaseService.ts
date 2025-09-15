@@ -265,8 +265,9 @@ export const getAttendanceRecords = async (): Promise<AttendanceRecord[]> => {
     return collectionToData<AttendanceRecord>(snapshot);
 };
 
-export const addAttendanceRecord = async (recordData: Omit<AttendanceRecord, 'id'>): Promise<void> => {
-    await db.collection('attendance').add(recordData);
+export const addAttendanceRecord = async (recordData: Omit<AttendanceRecord, 'id'>): Promise<string> => {
+    const docRef = await db.collection('attendance').add(recordData);
+    return docRef.id;
 };
 
 export const checkIfAlreadyScanned = async (teacherId: string, classId: string, lessonHour: number): Promise<boolean> => {

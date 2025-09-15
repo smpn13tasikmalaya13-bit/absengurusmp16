@@ -189,15 +189,23 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
         // Record attendance
         try {
-            const newRecord: Omit<AttendanceRecord, 'id'> = {
+            const newRecordData: Omit<AttendanceRecord, 'id'> = {
                 teacherId: user.id,
                 classId,
                 lessonHour,
                 scanTime: now.toISOString(),
             };
-            await api.addAttendanceRecord(newRecord);
+            const newRecordId = await api.addAttendanceRecord(newRecordData);
+            
+            const newRecord: AttendanceRecord = { id: newRecordId, ...newRecordData };
+            
+            // Optimistically update the local state for immediate UI feedback
+            setAttendance(prevAttendance => 
+                [newRecord, ...prevAttendance]
+                .sort((a, b) => new Date(b.scanTime).getTime() - new Date(a.scanTime).getTime())
+            );
+
             setScanResult({ type: 'success', message: `Absensi berhasil: Kelas ${getClassName(classId)} (Jam ke-${lessonHour}).` });
-            await fetchData(); // Refresh data
         } catch (error: any) {
             setScanResult({ type: 'error', message: `Gagal menyimpan absensi: ${error.message}` });
         }
