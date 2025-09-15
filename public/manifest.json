@@ -12,44 +12,16 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/icon-192x192.png",
-      "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512x512.png",
-      "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any"
-    },
-    {
       "src": "/smpn-13-tasikmalaya.svg",
       "type": "image/svg+xml",
       "sizes": "any",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     },
     {
       "src": "/icon-monochrome.svg",
       "type": "image/svg+xml",
       "sizes": "any",
       "purpose": "monochrome"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshot-mobile.png",
-      "sizes": "540x720",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Tampilan Dashboard Guru"
-    },
-    {
-      "src": "/screenshot-desktop.png",
-      "sizes": "1080x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Tampilan Laporan Absensi"
     }
   ]
 }
