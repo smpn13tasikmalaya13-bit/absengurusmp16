@@ -1,5 +1,5 @@
 // Nama cache
-const CACHE_NAME = 'sabar-absensi-cache-v2';
+const CACHE_NAME = 'sabar-absensi-cache-v3';
 // Daftar file yang akan di-cache
 const urlsToCache = [
   '/',
