@@ -1,5 +1,5 @@
 // A more robust service worker to ensure proper PWA lifecycle and caching.
-const CACHE_NAME = 'sabar-absensi-cache-v4'; // Version bump is crucial
+const CACHE_NAME = 'sabar-absensi-cache-v5'; // Version bump is crucial
 const urlsToCache = [
   '/',
   '/index.html',
