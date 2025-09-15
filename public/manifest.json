@@ -10,30 +10,30 @@
   "background_color": "#f3f4f6",
   "icons": [
     {
-      "src": "/smpn-13-tasikmalaya.png",
-      "type": "image/png",
+      "src": "/smpn-13-tasikmalaya.svg",
+      "type": "image/svg+xml",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/smpn-13-tasikmalaya.png",
-      "type": "image/png",
+      "src": "/smpn-13-tasikmalaya.svg",
+      "type": "image/svg+xml",
       "sizes": "512x512",
       "purpose": "any maskable"
     }
   ],
   "screenshots": [
     {
-      "src": "/smpn-13-tasikmalaya.png",
+      "src": "/smpn-13-tasikmalaya.svg",
       "sizes": "540x720",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "form_factor": "narrow",
       "label": "Tampilan Dashboard Guru"
     },
     {
-      "src": "/smpn-13-tasikmalaya.png",
+      "src": "/smpn-13-tasikmalaya.svg",
       "sizes": "1080x720",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "form_factor": "wide",
       "label": "Tampilan Laporan Absensi"
     }
