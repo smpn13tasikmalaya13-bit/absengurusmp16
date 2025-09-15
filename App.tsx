@@ -2,6 +2,7 @@
 
 
 
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
@@ -39,6 +40,7 @@ const MessageIcon = ({ hasUnread }: { hasUnread?: boolean }) => (
         {hasUnread && <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"></span>}
     </div>
 );
+const DownloadIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>);
 
 
 // --- UI Components ---
@@ -1369,15 +1371,33 @@ const App: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [authView, setAuthView] = useState<'login' | 'register' | 'forgotPassword'>('login');
     const [authMessage, setAuthMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [installPromptEvent, setInstallPromptEvent] = useState<any | null>(null);
+    const [isAppInstalled, setIsAppInstalled] = useState(false);
 
     useEffect(() => {
+        // PWA install prompt logic
+        const handleBeforeInstallPrompt = (e: Event) => {
+            e.preventDefault();
+            setInstallPromptEvent(e);
+        };
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+        // Check if the app is already installed
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            setIsAppInstalled(true);
+        }
+
         const unsubscribe = api.onAuthStateChanged(firebaseUser => {
             setUser(firebaseUser);
             if (!firebaseUser) {
                 setLoading(false);
             }
         });
-        return () => unsubscribe();
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            unsubscribe();
+        };
     }, []);
 
     useEffect(() => {
@@ -1396,6 +1416,20 @@ const App: React.FC = () => {
             }
         };
     }, [user]);
+
+    const handleInstallClick = async () => {
+        if (installPromptEvent) {
+            installPromptEvent.prompt();
+            const { outcome } = await installPromptEvent.userChoice;
+            if (outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+                setIsAppInstalled(true);
+            } else {
+                console.log('User dismissed the install prompt');
+            }
+            setInstallPromptEvent(null);
+        }
+    };
 
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -1483,6 +1517,17 @@ const App: React.FC = () => {
                                 {authMessage && authMessage.type === 'error' && <p className="text-red-500 text-sm text-center">{authMessage.text}</p>}
                                 <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-md font-semibold hover:bg-blue-700 transition-colors">Login</button>
                             </form>
+                            {installPromptEvent && !isAppInstalled && (
+                                <button
+                                    type="button"
+                                    onClick={handleInstallClick}
+                                    className="w-full mt-4 bg-green-600 text-white py-2.5 rounded-md font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                                    aria-label="Install Aplikasi"
+                                >
+                                    <DownloadIcon />
+                                    Install Aplikasi
+                                </button>
+                            )}
                         </>
                     )}
 
