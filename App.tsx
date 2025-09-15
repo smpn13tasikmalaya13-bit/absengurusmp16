@@ -177,17 +177,14 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             return;
         }
 
-        // Now we have the active schedule, proceed with attendance recording
         const lessonHour = activeSchedule.lessonHour;
         
-        // Check if already scanned
         const hasScanned = await api.checkIfAlreadyScanned(user.id, classId, lessonHour);
         if (hasScanned) {
             setScanResult({ type: 'error', message: `Anda sudah absen untuk kelas ${getClassName(classId)} jam ke-${lessonHour} hari ini.` });
             return;
         }
 
-        // Record attendance
         try {
             const newRecordData: Omit<AttendanceRecord, 'id'> = {
                 teacherId: user.id,
@@ -195,15 +192,10 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                 lessonHour,
                 scanTime: now.toISOString(),
             };
-            const newRecordId = await api.addAttendanceRecord(newRecordData);
+            await api.addAttendanceRecord(newRecordData);
             
-            const newRecord: AttendanceRecord = { id: newRecordId, ...newRecordData };
-            
-            // Optimistically update the local state for immediate UI feedback
-            setAttendance(prevAttendance => 
-                [newRecord, ...prevAttendance]
-                .sort((a, b) => new Date(b.scanTime).getTime() - new Date(a.scanTime).getTime())
-            );
+            // Re-fetch data from the server to guarantee UI consistency.
+            await fetchData();
 
             setScanResult({ type: 'success', message: `Absensi berhasil: Kelas ${getClassName(classId)} (Jam ke-${lessonHour}).` });
         } catch (error: any) {
