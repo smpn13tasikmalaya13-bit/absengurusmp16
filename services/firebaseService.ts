@@ -235,26 +235,49 @@ export const getSchedules = async (): Promise<Schedule[]> => {
     return schedules;
 };
 
-const checkDuplicateSchedule = async (scheduleData: Omit<Schedule, 'id'>, existingId?: string): Promise<boolean> => {
-    const query = db.collection('schedules')
+const checkForTimeConflict = async (scheduleData: Omit<Schedule, 'id'>, existingId?: string): Promise<{ conflict: boolean; message: string }> => {
+    // 1. Check for teacher conflict
+    const teacherConflictQuery = db.collection('schedules')
         .where('teacherId', '==', scheduleData.teacherId)
+        .where('day', '==', scheduleData.day);
+        
+    const teacherSchedulesSnapshot = await teacherConflictQuery.get();
+    for (const doc of teacherSchedulesSnapshot.docs) {
+        if (existingId && doc.id === existingId) continue; // Skip self when updating
+
+        const existingSchedule = doc.data();
+        if (existingSchedule.startTime && existingSchedule.endTime) {
+            if (scheduleData.startTime < existingSchedule.endTime && scheduleData.endTime > existingSchedule.startTime) {
+                return {
+                    conflict: true,
+                    message: `Jadwal bentrok: Guru ini sudah memiliki jadwal lain (${existingSchedule.subject}) pada jam ${existingSchedule.startTime}-${existingSchedule.endTime}.`
+                };
+            }
+        }
+    }
+
+    // 2. Check for class conflict
+    const classConflictQuery = db.collection('schedules')
         .where('classId', '==', scheduleData.classId)
-        .where('day', '==', scheduleData.day)
-        .where('lessonHour', '==', scheduleData.lessonHour);
+        .where('day', '==', scheduleData.day);
 
-    const snapshot = await query.get();
-    
-    if (snapshot.empty) {
-        return false;
+    const classSchedulesSnapshot = await classConflictQuery.get();
+    for (const doc of classSchedulesSnapshot.docs) {
+        if (existingId && doc.id === existingId) continue; // Skip self when updating
+
+        const existingSchedule = doc.data();
+        if (existingSchedule.startTime && existingSchedule.endTime) {
+            if (scheduleData.startTime < existingSchedule.endTime && scheduleData.endTime > existingSchedule.startTime) {
+                return {
+                    conflict: true,
+                    message: `Jadwal bentrok: Kelas ini sudah memiliki jadwal pelajaran (${existingSchedule.subject}) pada jam ${existingSchedule.startTime}-${existingSchedule.endTime}.`
+                };
+            }
+        }
     }
 
-    // If we are updating, we need to make sure the found duplicate isn't the document we're currently editing.
-    if (existingId) {
-        return snapshot.docs.some((doc: any) => doc.id !== existingId);
-    }
-
-    return !snapshot.empty;
-}
+    return { conflict: false, message: '' };
+};
 
 export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
     // Basic time validation
@@ -262,9 +285,9 @@ export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{
         return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
     }
 
-    const isDuplicate = await checkDuplicateSchedule(scheduleData);
-    if (isDuplicate) {
-        return { success: false, message: "Jadwal yang sama persis sudah ada untuk guru, kelas, hari, dan jam ini." };
+    const timeConflict = await checkForTimeConflict(scheduleData);
+    if (timeConflict.conflict) {
+        return { success: false, message: timeConflict.message };
     }
 
     await db.collection('schedules').add(scheduleData);
@@ -277,9 +300,9 @@ export const updateSchedule = async (id: string, scheduleData: Omit<Schedule, 'i
         return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
     }
     
-    const isDuplicate = await checkDuplicateSchedule(scheduleData, id);
-    if (isDuplicate) {
-        return { success: false, message: "Jadwal yang sama persis sudah ada untuk guru, kelas, hari, dan jam ini." };
+    const timeConflict = await checkForTimeConflict(scheduleData, id);
+    if (timeConflict.conflict) {
+        return { success: false, message: timeConflict.message };
     }
 
     await db.collection('schedules').doc(id).update(scheduleData);
