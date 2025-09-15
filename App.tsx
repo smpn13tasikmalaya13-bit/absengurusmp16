@@ -159,7 +159,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
     const handleScanSuccess = async (qrData: string) => {
         setIsScanning(false); // Immediately close scanner and release camera
-
+    
         let classId;
         try {
             const parsedData = JSON.parse(qrData);
@@ -172,55 +172,66 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             setScanResult({ type: 'error', message: 'Format QR Code tidak dikenali.' });
             return;
         }
-
+    
         const now = new Date();
         const todayName = now.toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
-
-        // Find schedule that is currently active
-        const activeSchedule = userSchedules.find(s => {
+    
+        // Find ALL potentially active schedules for this class today
+        const activeSchedules = userSchedules.filter(s => {
             if (s.classId !== classId || s.day !== todayName || !s.startTime || !s.endTime) {
                 return false;
             }
-
+    
             const [startHour, startMinute] = s.startTime.split(':').map(Number);
             const startTime = new Date(now);
             startTime.setHours(startHour, startMinute, 0, 0);
-
+    
             const [endHour, endMinute] = s.endTime.split(':').map(Number);
             const endTime = new Date(now);
             endTime.setHours(endHour, endMinute, 0, 0);
             
             const leewayMilliseconds = 15 * 60 * 1000; // 15 minutes before start
-
+    
             return now.getTime() >= (startTime.getTime() - leewayMilliseconds) && now.getTime() <= endTime.getTime();
         });
-
-        if (!activeSchedule) {
+    
+        if (activeSchedules.length === 0) {
             setScanResult({ type: 'error', message: `Tidak ada jadwal mengajar yang aktif saat ini untuk kelas ${getClassName(classId)}.` });
             return;
         }
-
-        const lessonHour = activeSchedule.lessonHour;
-        
-        const hasScanned = await api.checkIfAlreadyScanned(user.id, classId, lessonHour);
-        if (hasScanned) {
-            setScanResult({ type: 'error', message: `Anda sudah absen untuk kelas ${getClassName(classId)} jam ke-${lessonHour} hari ini.` });
+    
+        // Get lesson hours for today's attendance records to check which ones are done
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayScannedLessonHours = new Set(
+            attendance
+                .filter(rec => new Date(rec.scanTime) >= today)
+                .map(rec => `${rec.classId}-${rec.lessonHour}`) // Use a composite key for accuracy
+        );
+    
+        // Find the first active schedule that has NOT been scanned yet
+        const scheduleToScan = activeSchedules.find(s => 
+            !todayScannedLessonHours.has(`${s.classId}-${s.lessonHour}`)
+        );
+    
+        if (!scheduleToScan) {
+            setScanResult({ type: 'error', message: `Anda sudah absen untuk semua jadwal aktif di kelas ${getClassName(classId)} hari ini.` });
             return;
         }
-
+    
         try {
             const newRecordData: Omit<AttendanceRecord, 'id'> = {
                 teacherId: user.id,
-                classId,
-                lessonHour,
+                classId: scheduleToScan.classId,
+                lessonHour: scheduleToScan.lessonHour,
                 scanTime: now.toISOString(),
             };
             await api.addAttendanceRecord(newRecordData);
             
             // Re-fetch data from the server to guarantee UI consistency.
             await fetchData();
-
-            setScanResult({ type: 'success', message: `Absensi berhasil: Kelas ${getClassName(classId)} (Jam ke-${lessonHour}).` });
+    
+            setScanResult({ type: 'success', message: `Absensi berhasil: Kelas ${getClassName(classId)} (Jam ke-${scheduleToScan.lessonHour}).` });
         } catch (error: any) {
             setScanResult({ type: 'error', message: `Gagal menyimpan absensi: ${error.message}` });
         }
@@ -718,33 +729,52 @@ const DashboardHome: React.FC = () => {
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
     const [teachers, setTeachers] = useState<User[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
+    const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [loading, setLoading] = useState(true);
     
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
-            const [att, tch, cls] = await Promise.all([
+            const [att, tch, cls, sch] = await Promise.all([
                 api.getAttendanceRecords(),
                 api.getUsersByRole(UserRoleEnum.TEACHER),
                 api.getClasses(),
+                api.getSchedules(),
             ]);
             setAttendance(att);
             setTeachers(tch);
             setClasses(cls);
+            setSchedules(sch);
             setLoading(false);
         };
         fetchData();
     }, [])
 
     const attendanceSummary = useMemo(() => {
-        const today = new Date().toISOString().slice(0, 10);
-        const todayAttendance = attendance.filter(rec => rec.scanTime.startsWith(today));
+        const today = new Date();
+        const todayISO = today.toISOString().slice(0, 10);
+        const todayName = today.toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
+
+        // Get unique teacher IDs scheduled for today
+        const scheduledTeacherIds = new Set(
+            schedules.filter(s => s.day === todayName).map(s => s.teacherId)
+        );
+
+        // Get unique teacher IDs who have attendance records today
+        const todayAttendance = attendance.filter(rec => rec.scanTime.startsWith(todayISO));
         const presentTeacherIds = new Set(todayAttendance.map(rec => rec.teacherId));
+        
+        // Teachers are absent if they were scheduled but are not in the present list.
+        const absentCount = [...scheduledTeacherIds].filter(id => !presentTeacherIds.has(id)).length;
+
+        // A teacher is present if they have a scan record. This implies they were scheduled.
+        const presentCount = presentTeacherIds.size;
+
         return {
-            present: presentTeacherIds.size,
-            absent: teachers.length - presentTeacherIds.size,
+            present: presentCount,
+            absent: absentCount,
         };
-    }, [attendance, teachers]);
+    }, [attendance, schedules]);
     
     const chartData = [
         { name: 'Hadir', value: attendanceSummary.present, fill: '#4ade80' },
