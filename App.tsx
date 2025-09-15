@@ -144,9 +144,16 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             await api.deleteSchedule(idToDelete);
             // After successful deletion, re-fetch data to ensure UI consistency.
             await fetchData();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Gagal menghapus jadwal:", error);
-            alert("Terjadi kesalahan saat menghapus jadwal.");
+            let errorMessage = "Terjadi kesalahan saat menghapus jadwal.";
+            // Check for Firebase permission error
+            if (error.code === 'permission-denied') {
+                errorMessage = "Akses ditolak. Anda mungkin tidak memiliki izin untuk menghapus jadwal ini. Masalah ini biasanya terkait dengan konfigurasi di server (Firebase Security Rules).";
+            } else if (error.message) {
+                errorMessage = `Terjadi kesalahan: ${error.message}`;
+            }
+            alert(errorMessage);
         }
     };
 
