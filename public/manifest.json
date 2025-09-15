@@ -1,6 +1,13 @@
 {
   "short_name": "SABAR",
   "name": "Sistem Absensi Guru",
+  "description": "Aplikasi web untuk absensi guru menggunakan kode QR, dengan peran terpisah untuk Admin dan Guru. Fitur termasuk manajemen pengguna, pembuatan kode QR, pemindaian terbatas geolokasi, dan pelaporan absensi.",
+  "id": "/?source=pwa",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#ffffff",
+  "background_color": "#f3f4f6",
   "icons": [
     {
       "src": "/smpn-13-tasikmalaya.png",
@@ -15,8 +22,20 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#ffffff",
-  "background_color": "#f3f4f6"
+  "screenshots": [
+    {
+      "src": "/smpn-13-tasikmalaya.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Tampilan Dashboard Guru"
+    },
+    {
+      "src": "/smpn-13-tasikmalaya.png",
+      "sizes": "1080x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Tampilan Laporan Absensi"
+    }
+  ]
 }
