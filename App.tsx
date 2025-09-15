@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
@@ -158,16 +154,25 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             return;
         }
 
-        // Validate if scan is within the allowed time
         const todayName = now.toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
+        
+        // --- START FIX: Stricter schedule validation ---
         const schedule = schedules.find(s => 
             s.teacherId === user.id && 
             s.classId === classId && 
             s.day === todayName && 
             s.lessonHour === lessonHour
         );
+        
+        if (!schedule) {
+            alert('Jadwal tidak ditemukan. Anda tidak dijadwalkan untuk mengajar kelas ini pada jam pelajaran yang dipilih saat ini.');
+            setView('dashboard');
+            setSelectedLessonHour(null);
+            return;
+        }
+        // --- END FIX ---
 
-        if (schedule && schedule.endTime) {
+        if (schedule.endTime) {
             const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
             const endTime = new Date(now);
             endTime.setHours(endHour, endMinute, 0, 0);
@@ -1391,22 +1396,32 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const handleBeforeInstallPrompt = (e: Event) => {
+            // Mencegah mini-infobar muncul di mobile
             e.preventDefault();
+            // Menyimpan event agar bisa dipicu nanti.
             setInstallPromptEvent(e);
+            console.log('beforeinstallprompt event has been fired and saved.');
         };
+
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        };
     }, []);
 
     const handleInstallClick = () => {
         if (installPromptEvent) {
+            // Menampilkan prompt instalasi
             installPromptEvent.prompt();
+            // Menunggu pilihan pengguna
             installPromptEvent.userChoice.then((choiceResult: any) => {
                 if (choiceResult.outcome === 'accepted') {
                     console.log('User accepted the A2HS prompt');
                 } else {
                     console.log('User dismissed the A2HS prompt');
                 }
+                // Prompt hanya bisa digunakan sekali, jadi kita hapus
                 setInstallPromptEvent(null);
             });
         }
