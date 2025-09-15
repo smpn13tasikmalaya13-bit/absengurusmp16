@@ -364,46 +364,59 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
 const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCancel: () => void; }> = ({ onScanSuccess, onCancel }) => {
     const scannerRef = useRef<any | null>(null);
+    const [scannerState, setScannerState] = useState<'initializing' | 'running' | 'error'>('initializing');
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     useEffect(() => {
+        const readerElement = document.getElementById("qr-reader");
+        if (!readerElement) return;
+
         const qrScanner = new Html5Qrcode("qr-reader");
         scannerRef.current = qrScanner;
 
         const startScanner = async () => {
+            setScannerState('initializing');
             try {
                 await qrScanner.start(
                     { facingMode: "environment" },
                     {
                         fps: 10,
-                         qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-                            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                            const qrboxSize = Math.floor(minEdge * 0.7);
-                            return { width: qrboxSize, height: qrboxSize };
-                        }
+                        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+                            const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7;
+                            return { width: size, height: size };
+                        },
+                        aspectRatio: 1.0
                     },
                     (decodedText: string, decodedResult: any) => {
+                        if (scannerRef.current?.isScanning) {
+                            scannerRef.current.stop();
+                        }
                         try {
                             const data = JSON.parse(decodedText);
                             if (data.type === 'attendance' && data.classId) {
                                 onScanSuccess(data.classId);
-                                if (scannerRef.current && scannerRef.current.isScanning) {
-                                    scannerRef.current.stop();
-                                }
                             } else {
-                                alert("QR Code tidak valid.");
+                                setErrorMessage("QR Code tidak valid.");
+                                setTimeout(() => onCancel(), 2000);
                             }
                         } catch (e) {
-                            alert("Format QR Code salah.");
+                            setErrorMessage("Format QR Code salah.");
+                            setTimeout(() => onCancel(), 2000);
                         }
                     },
                     (errorMessage: string) => {
-                        // handle scan error
+                        // Ignore "QR code not found" errors
                     }
                 );
-            } catch (err) {
-                console.error("Gagal memulai scanner", err);
-                alert("Tidak dapat mengakses kamera. Pastikan Anda telah memberikan izin.");
-                onCancel(); 
+                setScannerState('running');
+            } catch (err: any) {
+                console.error("Gagal memulai scanner:", err);
+                setScannerState('error');
+                let userFriendlyMessage = "Tidak dapat mengakses kamera. Pastikan Anda telah memberikan izin pada browser.";
+                if (typeof err === 'string' && err.includes('NotAllowedError')) {
+                    userFriendlyMessage = "Akses kamera ditolak. Harap izinkan akses kamera di pengaturan browser Anda.";
+                }
+                setErrorMessage(userFriendlyMessage);
             }
         };
 
@@ -411,19 +424,46 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
 
         return () => {
             if (scannerRef.current && scannerRef.current.isScanning) {
-                scannerRef.current.stop().catch((err: any) => console.error("Gagal menghentikan scanner", err));
+                scannerRef.current.stop().catch((err: any) => {
+                    console.error("Gagal menghentikan scanner:", err);
+                });
             }
         };
     }, [onScanSuccess, onCancel]);
 
     return (
-        <div className="fixed inset-0 bg-gray-100 flex items-center justify-center p-4 z-50">
-            <div className="w-full max-w-sm bg-white rounded-lg shadow-xl overflow-hidden">
-                <div className="p-6 space-y-4">
-                    <h2 className="text-center font-bold text-xl text-gray-800">Arahkan kamera ke QR Code Kelas</h2>
-                    <button onClick={onCancel} className="w-full bg-gray-200 text-gray-800 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors">Batal</button>
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-end justify-center z-50">
+            <div className="w-full bg-white rounded-t-2xl shadow-xl max-w-md mx-auto">
+                <div className="p-4 text-center space-y-3">
+                    <h2 className="font-bold text-lg text-gray-800">
+                        Arahkan kamera ke QR Code
+                        <br />
+                        Kelas
+                    </h2>
+                    <button 
+                        onClick={onCancel} 
+                        className="w-full bg-gray-200 text-gray-800 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                        disabled={scannerState === 'error'}
+                    >
+                        Batal
+                    </button>
                 </div>
-                <div id="qr-reader" className="w-full bg-black aspect-square border-t border-gray-200"></div>
+                <div className="w-full aspect-square bg-black relative">
+                    <div id="qr-reader" className="w-full h-full"></div>
+                    {scannerState === 'initializing' && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 text-white">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                            <p className="mt-2">Memulai kamera...</p>
+                        </div>
+                    )}
+                    {scannerState === 'error' && (
+                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 text-white p-4">
+                            <p className="text-red-400 text-center font-semibold">Gagal Memuat Kamera</p>
+                            <p className="text-center text-sm mt-2">{errorMessage}</p>
+                             <button onClick={onCancel} className="mt-4 bg-red-500 text-white px-4 py-2 rounded-lg">Tutup</button>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
