@@ -1,5 +1,8 @@
 
 
+
+
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
@@ -939,6 +942,7 @@ const ClassManagement: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newClassName, setNewClassName] = useState('');
     const [newClassGrade, setNewClassGrade] = useState<number | ''>('');
+    const [qrClass, setQrClass] = useState<Class | null>(null);
 
     const fetchClasses = async () => setClasses(await api.getClasses());
 
@@ -982,7 +986,8 @@ const ClassManagement: React.FC = () => {
                     <tr key={c.id} className="border-b hover:bg-gray-50">
                         <td className="p-3">{c.name}</td>
                         <td className="p-3">{c.grade}</td>
-                        <td className="p-3">
+                        <td className="p-3 space-x-4">
+                            <button onClick={() => setQrClass(c)} className="text-blue-600 hover:underline">QR Code</button>
                             <button onClick={() => handleDelete(c.id)} className="text-red-600 hover:underline">Hapus</button>
                         </td>
                     </tr>
@@ -1000,6 +1005,21 @@ const ClassManagement: React.FC = () => {
                     </div>
                     <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
                 </form>
+            </Modal>
+
+            <Modal isOpen={!!qrClass} onClose={() => setQrClass(null)} title={`QR Code Absensi - Kelas ${qrClass?.name}`}>
+                {qrClass && (
+                    <div className="text-center p-4">
+                        <QRCode
+                            value={JSON.stringify({ type: 'attendance', classId: qrClass.id })}
+                            size={256}
+                            level={"H"}
+                            includeMargin={true}
+                        />
+                        <p className="mt-4 text-gray-600">Pindai kode ini untuk melakukan absensi di kelas {qrClass.name}.</p>
+                        <p className="text-sm text-gray-500 mt-2">Pastikan guru memindai dari dalam radius sekolah.</p>
+                    </div>
+                )}
             </Modal>
         </>
     );
@@ -1358,14 +1378,6 @@ const AIAssistant: React.FC = () => {
     );
 };
 
-// --- Branding Component ---
-const SabarLogo = () => (
-    <div className="text-center">
-        <h1 className="text-5xl font-extrabold text-gray-900 tracking-tight">SABAR</h1>
-        <p className="text-md text-gray-500">Sistem Absensi Berbasis QR</p>
-    </div>
-);
-
 
 // --- Main App Component ---
 
@@ -1375,44 +1387,49 @@ const App: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [authView, setAuthView] = useState<'login' | 'register' | 'forgotPassword'>('login');
     const [authMessage, setAuthMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-    const [installPromptEvent, setInstallPromptEvent] = useState<any | null>(null);
-    const [isAppInstalled, setIsAppInstalled] = useState(false);
+    const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
 
     useEffect(() => {
-        // PWA install prompt logic
         const handleBeforeInstallPrompt = (e: Event) => {
             e.preventDefault();
             setInstallPromptEvent(e);
         };
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    }, []);
 
-        // Check if the app is already installed
-        if (window.matchMedia('(display-mode: standalone)').matches) {
-            setIsAppInstalled(true);
+    const handleInstallClick = () => {
+        if (installPromptEvent) {
+            installPromptEvent.prompt();
+            installPromptEvent.userChoice.then((choiceResult: any) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the A2HS prompt');
+                } else {
+                    console.log('User dismissed the A2HS prompt');
+                }
+                setInstallPromptEvent(null);
+            });
         }
+    };
 
-        const unsubscribe = api.onAuthStateChanged(firebaseUser => {
-            setUser(firebaseUser);
-            if (!firebaseUser) {
+    useEffect(() => {
+        const unsubscribeAuth = api.onAuthStateChanged(newUser => {
+            setUser(newUser);
+            if (!newUser) {
+                setUserProfile(null);
                 setLoading(false);
             }
         });
-
-        return () => {
-            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-            unsubscribe();
-        };
+        return () => unsubscribeAuth();
     }, []);
 
     useEffect(() => {
-        let unsubscribeProfile: (() => void) | undefined;
+        let unsubscribeProfile: (() => void) | null = null;
         if (user) {
             unsubscribeProfile = api.onUserProfileChange(user.uid, profile => {
                 setUserProfile(profile);
                 setLoading(false);
             });
-        } else {
-             setUserProfile(null);
         }
         return () => {
             if (unsubscribeProfile) {
@@ -1421,74 +1438,49 @@ const App: React.FC = () => {
         };
     }, [user]);
 
-    const handleInstallClick = async () => {
-        if (installPromptEvent) {
-            installPromptEvent.prompt();
-            const { outcome } = await installPromptEvent.userChoice;
-            if (outcome === 'accepted') {
-                console.log('User accepted the install prompt');
-                setIsAppInstalled(true);
-            } else {
-                console.log('User dismissed the install prompt');
-            }
-            setInstallPromptEvent(null);
-        }
-    };
-
     const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const { email, password } = e.currentTarget.elements as any;
-        setLoading(true);
         setAuthMessage(null);
         try {
             await api.signIn(email.value, password.value);
-            // onAuthStateChanged will handle the rest
+            // State change will handle UI update
         } catch (error: any) {
-            console.error("Login failed:", error.message);
-            setAuthMessage({ type: 'error', text: error.message || "Email atau password salah."});
-            setLoading(false);
+            setAuthMessage({ type: 'error', text: error.message || "Email atau password salah." });
         }
     };
     
     const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const { name, email, password, confirmPassword, role } = e.currentTarget.elements as any;
-        if (password.value !== confirmPassword.value) {
-            setAuthMessage({ type: 'error', text: "Password tidak cocok."});
-            return;
-        }
-        setLoading(true);
+        const { name, email, password, role } = e.currentTarget.elements as any;
         setAuthMessage(null);
         try {
-            await api.signUp(email.value, password.value, name.value, role.value as UserRole);
+            const result = await api.signUp(email.value, password.value, name.value, role.value as UserRole);
+            if (result.success) {
+                 setAuthMessage({ type: 'success', text: "Pendaftaran berhasil! Anda sekarang akan login." });
+                 setTimeout(() => setAuthView('login'), 2000);
+            } else {
+                 setAuthMessage({ type: 'error', text: result.message || "Pendaftaran gagal." });
+            }
         } catch (error: any) {
-             console.error("Registration failed:", error.message);
-            setAuthMessage({ type: 'error', text: error.message || "Gagal mendaftar."});
-            setLoading(false);
+            setAuthMessage({ type: 'error', text: error.message || "Pendaftaran gagal." });
         }
-    }
-
+    };
+    
     const handleForgotPassword = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const { email } = e.currentTarget.elements as any;
-        setLoading(true);
         setAuthMessage(null);
         try {
             await api.sendPasswordResetEmail(email.value);
-            setAuthMessage({ type: 'success', text: 'Email untuk reset password telah dikirim. Silakan cek inbox Anda.' });
-            setAuthView('login');
+            setAuthMessage({ type: 'success', text: "Email pemulihan password telah dikirim." });
         } catch (error: any) {
-            console.error("Forgot password failed:", error.message);
-            setAuthMessage({ type: 'error', text: error.message || "Gagal mengirim email reset." });
-        } finally {
-            setLoading(false);
+            setAuthMessage({ type: 'error', text: error.message || "Gagal mengirim email." });
         }
     };
 
     const handleLogout = async () => {
-        setLoading(true);
         await api.signOut();
-        // State will be cleared by onAuthStateChanged
     };
 
     if (loading) {
@@ -1497,132 +1489,102 @@ const App: React.FC = () => {
 
     if (!user || !userProfile) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-sans">
-                <div className="max-w-md w-full bg-white p-10 rounded-xl shadow-lg space-y-6">
-                     <SabarLogo />
-                    
-                    {authView === 'login' && (
-                        <>
-                            <h2 className="text-2xl font-bold text-center text-gray-800">Login</h2>
-                            <form onSubmit={handleLogin} className="space-y-5">
-                                <div>
-                                    <label className="block mb-1 text-sm font-medium text-gray-700">Email</label>
-                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
-                                </div>
-                                <div>
-                                    <div className="flex justify-between items-center mb-1">
-                                        <label className="text-sm font-medium text-gray-700">Password</label>
-                                        <button type="button" onClick={() => { setAuthView('forgotPassword'); setAuthMessage(null); }} className="text-sm text-blue-600 hover:underline focus:outline-none font-medium">
-                                            Lupa Password?
-                                        </button>
-                                    </div>
-                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
-                                </div>
-                                {authMessage && authMessage.type === 'error' && <p className="text-red-500 text-sm text-center">{authMessage.text}</p>}
-                                <div className="pt-2">
-                                  <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Login</button>
-                                </div>
-                                {installPromptEvent && !isAppInstalled && (
-                                    <button
-                                        type="button"
-                                        onClick={handleInstallClick}
-                                        className="w-full bg-green-600 text-white py-2.5 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                                        aria-label="Install Aplikasi"
-                                    >
-                                        <DownloadIcon />
-                                        Install Aplikasi
-                                    </button>
-                                )}
-                            </form>
-                        </>
-                    )}
+            <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+                <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8 space-y-6">
+                    <div className="text-center">
+                        <h1 className="text-4xl font-bold text-gray-800 tracking-wider">SABAR</h1>
+                        <p className="text-gray-500">Sistem Absensi Berbasis QR</p>
+                    </div>
 
+                    {authView === 'login' && (
+                        <div>
+                             <h2 className="text-2xl font-bold text-center text-gray-700 mb-6">Login</h2>
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-600 block mb-1">Email</label>
+                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                </div>
+                                <div>
+                                    <div className="flex justify-between items-baseline">
+                                        <label className="text-sm font-medium text-gray-600 block mb-1">Password</label>
+                                        <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('forgotPassword'); setAuthMessage(null); }} className="text-sm text-blue-600 hover:underline">Lupa Password?</a>
+                                    </div>
+                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                </div>
+                                <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Login</button>
+                            </form>
+                             {installPromptEvent && (
+                                <button onClick={handleInstallClick} className="w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition duration-300 flex items-center justify-center gap-2">
+                                    <DownloadIcon />
+                                    Install Aplikasi
+                                </button>
+                            )}
+                            <p className="text-center text-sm text-gray-600 mt-6">
+                                Belum punya akun? <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('register'); setAuthMessage(null); }} className="font-medium text-blue-600 hover:underline">Daftar</a>
+                            </p>
+                        </div>
+                    )}
+                    
                     {authView === 'register' && (
-                        <>
-                             <h2 className="text-2xl font-bold text-center text-gray-800">Daftar Akun</h2>
+                         <div>
+                            <h2 className="text-2xl font-bold text-center text-gray-700 mb-6">Daftar Akun Baru</h2>
                             <form onSubmit={handleRegister} className="space-y-4">
-                                <div>
-                                    <label className="block mb-1 text-sm font-medium text-gray-700">Nama Lengkap</label>
-                                    <input name="name" type="text" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
+                                 <div>
+                                    <label className="text-sm font-medium text-gray-600 block mb-1">Nama Lengkap</label>
+                                    <input name="name" type="text" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
                                 </div>
                                 <div>
-                                    <label className="block mb-1 text-sm font-medium text-gray-700">Email</label>
-                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
+                                    <label className="text-sm font-medium text-gray-600 block mb-1">Email</label>
+                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
                                 </div>
                                 <div>
-                                    <label className="block mb-1 text-sm font-medium text-gray-700">Password</label>
-                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
+                                    <label className="text-sm font-medium text-gray-600 block mb-1">Password</label>
+                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
                                 </div>
-                                <div>
-                                    <label className="block mb-1 text-sm font-medium text-gray-700">Konfirmasi Password</label>
-                                    <input name="confirmPassword" type="password" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
-                                </div>
-                                <div>
-                                    <label className="block mb-1 text-sm font-medium text-gray-700">Peran</label>
-                                    <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                                 <div>
+                                    <label className="text-sm font-medium text-gray-600 block mb-1">Daftar sebagai</label>
+                                    <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                                         <option value={UserRoleEnum.TEACHER}>Guru</option>
                                         <option value={UserRoleEnum.ADMIN}>Admin</option>
                                     </select>
                                 </div>
-                                {authMessage && authMessage.type === 'error' && <p className="text-red-500 text-sm text-center">{authMessage.text}</p>}
-                                <div className="pt-2">
-                                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Daftar</button>
-                                </div>
+                                <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Daftar</button>
                             </form>
-                        </>
-                    )}
-
-                    {authView === 'forgotPassword' && (
-                        <>
-                            <h2 className="text-2xl font-bold text-center text-gray-800">Lupa Password</h2>
-                            <p className="text-sm text-gray-600 text-center">Masukkan email Anda untuk menerima link reset password.</p>
-                             <form onSubmit={handleForgotPassword} className="space-y-5">
-                                <div>
-                                    <label className="block mb-1 text-sm font-medium text-gray-700">Email</label>
-                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
-                                </div>
-                                {authMessage && authMessage.type === 'error' && <p className="text-red-500 text-sm text-center">{authMessage.text}</p>}
-                                 <div className="pt-2">
-                                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Kirim Link Reset</button>
-                                </div>
-                            </form>
-                        </>
-                    )}
-
-                    {authMessage && authMessage.type === 'success' && (
-                        <p className="mt-4 text-green-600 bg-green-100 p-3 rounded-md text-sm text-center">{authMessage.text}</p>
+                             <p className="text-center text-sm text-gray-600 mt-6">
+                                Sudah punya akun? <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('login'); setAuthMessage(null); }} className="font-medium text-blue-600 hover:underline">Login</a>
+                            </p>
+                        </div>
                     )}
                     
-                    <div className="text-center text-sm text-gray-600 pt-4">
-                        {authView === 'login' && (
-                            <>
-                                Belum punya akun?
-                                <button onClick={() => { setAuthView('register'); setAuthMessage(null); }} className="font-semibold text-blue-600 hover:underline ml-1 focus:outline-none">Daftar</button>
-                            </>
-                        )}
-                        {authView === 'register' && (
-                            <>
-                                Sudah punya akun?
-                                <button onClick={() => { setAuthView('login'); setAuthMessage(null); }} className="font-semibold text-blue-600 hover:underline ml-1 focus:outline-none">Login</button>
-                            </>
-                        )}
-                        {authView === 'forgotPassword' && (
-                            <>
-                                Ingat password Anda?
-                                <button onClick={() => { setAuthView('login'); setAuthMessage(null); }} className="font-semibold text-blue-600 hover:underline ml-1 focus:outline-none">Kembali ke Login</button>
-                            </>
-                        )}
-                    </div>
+                    {authView === 'forgotPassword' && (
+                        <div>
+                            <h2 className="text-2xl font-bold text-center text-gray-700 mb-6">Reset Password</h2>
+                             <form onSubmit={handleForgotPassword} className="space-y-4">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-600 block mb-1">Email</label>
+                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                </div>
+                                <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Kirim Link Reset</button>
+                            </form>
+                            <p className="text-center text-sm text-gray-600 mt-6">
+                                Kembali ke <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('login'); setAuthMessage(null); }} className="font-medium text-blue-600 hover:underline">Login</a>
+                            </p>
+                        </div>
+                    )}
+
+                    {authMessage && (
+                        <div className={`mt-4 text-center p-3 rounded-lg ${authMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {authMessage.text}
+                        </div>
+                    )}
                 </div>
             </div>
-        )
+        );
     }
 
-    if (userProfile.role === UserRoleEnum.ADMIN) {
-        return <AdminDashboard user={userProfile} onLogout={handleLogout} />;
-    }
-
-    return <TeacherDashboard user={userProfile} onLogout={handleLogout} />;
+    return userProfile.role === UserRoleEnum.ADMIN ? 
+        <AdminDashboard user={userProfile} onLogout={handleLogout} /> : 
+        <TeacherDashboard user={userProfile} onLogout={handleLogout} />;
 };
 
 export default App;
