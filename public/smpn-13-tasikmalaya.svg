@@ -1,5 +1,5 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="512" height="512" rx="60" fill="#4A90E2"/>
-<path d="M256 96L128 176V384H192V256H320V384H384V176L256 96Z" fill="white"/>
-<path d="M224 384H288V416H224V384Z" fill="white"/>
+<svg width="342" height="64" viewBox="0 0 342 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M55.5 32C55.5 45.3125 45.3125 55.5 32 55.5H32C18.6875 55.5 8.5 45.3125 8.5 32V8.5H55.5V32Z" fill="#3A5BFD"/>
+<path d="M8.5 32C8.5 18.6875 18.6875 8.5 32 8.5H32C45.3125 8.5 55.5 18.6875 55.5 32V55.5H8.5V32Z" fill="#00D4B1"/>
+<text x="80" y="52" font-family="sans-serif" font-size="50" font-weight="bold" fill="#0F172A">SABAR</text>
 </svg>
