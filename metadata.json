@@ -1,6 +1,6 @@
 {
   "name": "Sistem Absensi Guru",
-  "description": "A web application for teacher attendance using QR codes, with separate roles for Admins and Teachers. Features include user management, QR code generation, geolocation-restricted scanning, and attendance reporting.",
+  "description": "Aplikasi web untuk absensi guru menggunakan kode QR, dengan peran terpisah untuk Admin dan Guru. Fitur termasuk manajemen pengguna, pembuatan kode QR, pemindaian terbatas geolokasi, dan pelaporan absensi.",
   "requestFramePermissions": [
     "camera",
     "geolocation"

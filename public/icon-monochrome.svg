@@ -1,11 +1,11 @@
-<svg width="512" height="512" viewBox="0 0 380 120" fill="black" xmlns="http://www.w3.org/2000/svg">
-  <g transform="translate(10, 12)">
+<svg width="512" height="512" viewBox="0 0 512 512" fill="black" xmlns="http://www.w3.org/2000/svg">
+   <g transform="translate(71, 206)">
     <!-- S Logo -->
     <g>
-        <path d="M96 48 C96 73.46 74.46 96 48 96 C21.54 96 0 73.46 0 48 V0 H96 V48 Z"/>
-        <path d="M0 48 C0 22.54 21.54 0 48 0 C74.46 0 96 22.54 96 48 V96 H0 V48 Z"/>
+      <path d="M64.63 21.05 V0 h-41.5 C 10.34 0 0 10.34 0 23.1 v 25.1 C0 60.99 10.34 71.33 23.13 71.33 h 41.5 V50.28 H24.87 c-1.4 0 -2.54 -1.14 -2.54 -2.54 v-19.4 C22.33 22.19 23.47 21.05 24.87 21.05 h39.76 Z"/>
+      <path d="M23.13 78.95 v 21.05 h 41.5 c 12.79 0 23.13 -10.34 23.13 -23.1 v -25.1 C 87.76 39.01 77.42 28.67 64.63 28.67 H23.13 v 21.05 h 39.76 c 1.4 0 2.54 1.14 2.54 2.54 v 19.4 c0 1.4 -1.14 2.54 -2.54 2.54 H23.13 Z"/>
     </g>
     <!-- Text -->
-    <text x="115" y="72" font-family="Verdana, Geneva, sans-serif" font-size="60" font-weight="bold">SABAR</text>
+    <text x="100" y="70" font-family="sans-serif" font-size="60" font-weight="bold">SABAR</text>
   </g>
 </svg>

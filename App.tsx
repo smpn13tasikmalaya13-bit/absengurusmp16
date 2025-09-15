@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
@@ -278,7 +279,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                     </button>
                     <button onClick={onLogout} className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-4 py-2 rounded-md border border-gray-300 hover:border-gray-400">
                         <LogoutIcon />
-                        <span>Logout</span>
+                        <span>Keluar</span>
                     </button>
                 </div>
             </header>
@@ -665,6 +666,16 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
             setIsSidebarOpen(false);
         }
     };
+    
+    const viewTitles: { [key: string]: string } = {
+        dashboard: 'Dashboard',
+        teachers: 'Data Guru',
+        admins: 'Data Admin',
+        classes: 'Data Kelas',
+        schedules: 'Jadwal Pelajaran',
+        reports: 'Laporan Absensi',
+        'ai-assistant': 'Asisten AI'
+    };
 
     return (
         <div className="relative min-h-screen md:flex">
@@ -679,7 +690,7 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
             {/* Sidebar */}
             <aside className={`bg-gray-800 text-white w-64 flex-shrink-0 flex flex-col fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <div className="p-4 text-xl font-bold border-b border-gray-700 flex justify-between items-center">
-                    <span>Admin Panel</span>
+                    <span>Panel Admin</span>
                     <button className="md:hidden text-gray-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
@@ -691,11 +702,11 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                     <a onClick={() => handleSetView('classes')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Kelas</a>
                     <a onClick={() => handleSetView('schedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Pelajaran</a>
                     <a onClick={() => handleSetView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi</a>
-                    <a onClick={() => handleSetView('ai-assistant')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">AI Assistant</a>
+                    <a onClick={() => handleSetView('ai-assistant')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Asisten AI</a>
                 </nav>
                 <div className="p-4 border-t border-gray-700">
                     <p>{user.name}</p>
-                    <button onClick={onLogout} className="text-sm text-red-400 hover:text-red-300">Logout</button>
+                    <button onClick={onLogout} className="text-sm text-red-400 hover:text-red-300">Keluar</button>
                 </div>
             </aside>
 
@@ -708,7 +719,7 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                             <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
                         </svg>
                     </button>
-                    <h1 className="text-xl font-semibold capitalize">{view.replace(/([A-Z])/g, ' $1')}</h1>
+                    <h1 className="text-xl font-semibold">{viewTitles[view] || 'Halaman'}</h1>
                 </header>
 
                 {/* Page Content */}
@@ -1370,8 +1381,8 @@ const AttendanceReport: React.FC = () => {
             
             {/* Export Buttons */}
             <div className="flex justify-end gap-2 mb-4">
-                <button onClick={exportToPDF} className="bg-red-500 text-white px-4 py-2 rounded-lg">Export PDF</button>
-                <button onClick={exportToExcel} className="bg-green-500 text-white px-4 py-2 rounded-lg">Export Excel</button>
+                <button onClick={exportToPDF} className="bg-red-500 text-white px-4 py-2 rounded-lg">Ekspor PDF</button>
+                <button onClick={exportToExcel} className="bg-green-500 text-white px-4 py-2 rounded-lg">Ekspor Excel</button>
             </div>
 
             {/* Table */}
@@ -1431,7 +1442,7 @@ const AIAssistant: React.FC = () => {
 
     return (
         <div className="bg-white p-6 rounded-lg shadow max-w-4xl mx-auto">
-            <h2 className="text-2xl font-bold mb-4">AI Assistant Analisis Absensi</h2>
+            <h2 className="text-2xl font-bold mb-4">Asisten AI Analisis Absensi</h2>
             <p className="text-gray-600 mb-6">Ajukan pertanyaan tentang data absensi, jadwal, atau guru, dan AI akan membantu Anda menganalisisnya. Contoh: "Siapa guru yang paling sering hadir minggu ini?", "Buat ringkasan absensi untuk kelas VII A hari ini", atau "Berapa total jam mengajar Budi?".</p>
             
             <form onSubmit={handleQuery}>
@@ -1597,7 +1608,7 @@ const App: React.FC = () => {
             <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
                 <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8 space-y-6">
                     <div className="text-center">
-                        <h1 className="text-4xl font-bold text-gray-800 tracking-wider">SABAR</h1>
+                        <h1 className="text-5xl font-extrabold text-blue-600 mb-2">SABAR</h1>
                         <p className="text-gray-500">Sistem Absensi Berbasis QR</p>
                     </div>
 
@@ -1622,7 +1633,7 @@ const App: React.FC = () => {
                             {installPromptEvent && (
                                 <div className="mt-6 text-center bg-green-50 p-4 rounded-lg border border-green-200 space-y-3">
                                     <p className="text-sm font-medium text-green-800">
-                                        Install Aplikasi untuk Pengalaman Terbaik
+                                        Instal Aplikasi untuk Pengalaman Terbaik
                                     </p>
                                     <p className="text-xs text-green-700">
                                         Akses lebih cepat dan fitur offline dengan menambahkan aplikasi ini ke layar utama (home screen) Anda.
@@ -1632,7 +1643,7 @@ const App: React.FC = () => {
                                         className="w-full bg-green-500 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-600 transition duration-300 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
                                     >
                                         <DownloadIcon />
-                                        <span>Install Aplikasi</span>
+                                        <span>Instal Aplikasi</span>
                                     </button>
                                 </div>
                             )}
