@@ -368,68 +368,74 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     useEffect(() => {
-        const readerElement = document.getElementById("qr-reader");
-        if (!readerElement) return;
+        const scannerInstance = new Html5Qrcode("qr-reader");
+        scannerRef.current = scannerInstance;
 
-        const qrScanner = new Html5Qrcode("qr-reader");
-        scannerRef.current = qrScanner;
-
-        const startScanner = async () => {
+        const startScanner = () => {
             setScannerState('initializing');
-            try {
-                await qrScanner.start(
-                    { facingMode: "environment" },
-                    {
-                        fps: 10,
-                        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-                            const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7;
-                            return { width: size, height: size };
-                        },
-                        aspectRatio: 1.0
+            scannerInstance.start(
+                { facingMode: "environment" },
+                {
+                    fps: 10,
+                    qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+                        const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7;
+                        return { width: size, height: size };
                     },
-                    (decodedText: string, decodedResult: any) => {
-                        if (scannerRef.current?.isScanning) {
-                            scannerRef.current.stop();
-                        }
-                        try {
-                            const data = JSON.parse(decodedText);
-                            if (data.type === 'attendance' && data.classId) {
-                                onScanSuccess(data.classId);
-                            } else {
-                                setErrorMessage("QR Code tidak valid.");
-                                setTimeout(() => onCancel(), 2000);
+                    aspectRatio: 1.0
+                },
+                (decodedText: string) => {
+                    // This success callback might be called multiple times.
+                    // Stop the scanner immediately to prevent this.
+                    if (scannerInstance.isScanning) {
+                        scannerInstance.stop().then(() => {
+                            try {
+                                const data = JSON.parse(decodedText);
+                                if (data.type === 'attendance' && data.classId) {
+                                    onScanSuccess(data.classId);
+                                } else {
+                                    // Invalid QR content, but technically a successful scan
+                                    onCancel(); // Parent will show notification
+                                }
+                            } catch (e) {
+                                // QR content is not valid JSON
+                                onCancel(); // Parent will show notification
                             }
-                        } catch (e) {
-                            setErrorMessage("Format QR Code salah.");
-                            setTimeout(() => onCancel(), 2000);
-                        }
-                    },
-                    (errorMessage: string) => {
-                        // Ignore "QR code not found" errors
+                        }).catch(err => {
+                            console.error("Failed to stop scanner after success", err);
+                            // Still try to process the scan
+                            onScanSuccess(JSON.parse(decodedText).classId);
+                        });
                     }
-                );
+                },
+                (errorMessage: string) => {
+                    // ignore "QR code not found" errors
+                }
+            ).then(() => {
                 setScannerState('running');
-            } catch (err: any) {
-                console.error("Gagal memulai scanner:", err);
+            }).catch((err: any) => {
                 setScannerState('error');
-                let userFriendlyMessage = "Tidak dapat mengakses kamera. Pastikan Anda telah memberikan izin pada browser.";
+                let userFriendlyMessage = "Tidak dapat mengakses kamera. Pastikan Anda telah memberikan izin.";
                 if (typeof err === 'string' && err.includes('NotAllowedError')) {
                     userFriendlyMessage = "Akses kamera ditolak. Harap izinkan akses kamera di pengaturan browser Anda.";
                 }
+                 else if (err.name === 'NotReadableError') {
+                    userFriendlyMessage = "Kamera mungkin sedang digunakan oleh aplikasi lain. Tutup aplikasi lain dan coba lagi.";
+                }
                 setErrorMessage(userFriendlyMessage);
-            }
+            });
         };
 
         startScanner();
 
+        // Cleanup function for when the component unmounts
         return () => {
             if (scannerRef.current && scannerRef.current.isScanning) {
                 scannerRef.current.stop().catch((err: any) => {
-                    console.error("Gagal menghentikan scanner:", err);
+                    console.error("Gagal menghentikan scanner saat cleanup:", err);
                 });
             }
         };
-    }, [onScanSuccess, onCancel]);
+    }, []); // Empty dependency array ensures this effect runs only once on mount and cleans up on unmount.
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-end justify-center z-50">
@@ -443,7 +449,6 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
                     <button 
                         onClick={onCancel} 
                         className="w-full bg-gray-200 text-gray-800 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
-                        disabled={scannerState === 'error'}
                     >
                         Batal
                     </button>
