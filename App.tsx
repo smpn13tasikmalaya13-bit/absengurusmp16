@@ -154,36 +154,44 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             .sort((a,b) => (a.startTime || '').localeCompare(b.startTime || ''));
     }, [userSchedules]);
 
-    const recordAttendance = async (classId: string) => {
+    const recordAttendance = async (classId: string, lessonHour: number) => {
         const now = new Date();
         const todayName = now.toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
 
-        const activeSchedule = schedules.find(s => {
-            if (s.teacherId !== user.id || s.classId !== classId || s.day !== todayName) {
-                return false;
-            }
-            if (!s.startTime || !s.endTime) return false;
+        const matchingSchedule = schedules.find(s => 
+            s.teacherId === user.id &&
+            s.classId === classId &&
+            s.day === todayName &&
+            s.lessonHour === lessonHour
+        );
 
-            const [startHour, startMinute] = s.startTime.split(':').map(Number);
-            const startTime = new Date(now);
-            startTime.setHours(startHour, startMinute, 0, 0);
-
-            const [endHour, endMinute] = s.endTime.split(':').map(Number);
-            const endTime = new Date(now);
-            endTime.setHours(endHour, endMinute, 0, 0);
-            
-            const leewayMilliseconds = 15 * 60 * 1000;
-
-            return now.getTime() >= (startTime.getTime() - leewayMilliseconds) && now.getTime() <= endTime.getTime();
-        });
-
-        if (!activeSchedule) {
-            setScanResult({ type: 'error', message: 'Tidak ada jadwal mengajar yang aktif untuk kelas ini pada waktu sekarang. Pastikan Anda scan pada waktu yang tepat.' });
+        if (!matchingSchedule) {
+            setScanResult({ type: 'error', message: `Jadwal tidak ditemukan untuk kelas ini pada jam ke-${lessonHour}.` });
             setView('dashboard');
             return;
         }
 
-        const { lessonHour } = activeSchedule;
+        if (!matchingSchedule.startTime || !matchingSchedule.endTime) {
+            setScanResult({ type: 'error', message: 'Jadwal tidak memiliki waktu mulai/selesai yang valid.' });
+            setView('dashboard');
+            return;
+        }
+
+        const [startHour, startMinute] = matchingSchedule.startTime.split(':').map(Number);
+        const startTime = new Date(now);
+        startTime.setHours(startHour, startMinute, 0, 0);
+
+        const [endHour, endMinute] = matchingSchedule.endTime.split(':').map(Number);
+        const endTime = new Date(now);
+        endTime.setHours(endHour, endMinute, 0, 0);
+        
+        const leewayMilliseconds = 15 * 60 * 1000; // 15 minutes leeway
+
+        if (!(now.getTime() >= (startTime.getTime() - leewayMilliseconds) && now.getTime() <= endTime.getTime())) {
+            setScanResult({ type: 'error', message: `Absensi untuk jam ke-${lessonHour} (${matchingSchedule.startTime}-${matchingSchedule.endTime}) hanya bisa dilakukan pada rentang waktu yang sesuai.` });
+            setView('dashboard');
+            return;
+        }
 
         const hasScanned = await api.checkIfAlreadyScanned(user.id, classId, lessonHour);
         if (hasScanned) {
@@ -202,7 +210,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
         try {
             await api.addAttendanceRecord(newRecord);
             setScanResult({ type: 'success', message: `Absensi untuk kelas ${getClassName(classId)} (Jam ke-${lessonHour}) berhasil dicatat.` });
-            await fetchData(); // Refresh data
+            await fetchData();
         } catch (error: any) {
             setScanResult({ type: 'error', message: `Terjadi kesalahan saat menyimpan data: ${error.message}` });
         } finally {
@@ -210,12 +218,13 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
         }
     };
 
+
     if (loadingData) {
         return <FullPageSpinner />;
     }
     
     if (view === 'scan') {
-        return <QRScanner onScanSuccess={recordAttendance} onCancel={() => setView('dashboard')} />;
+        return <AttendanceScanner onScan={recordAttendance} onCancel={() => setView('dashboard')} schedules={userSchedules} />;
     }
     
     return (
@@ -368,7 +377,14 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     useEffect(() => {
-        const scannerInstance = new Html5Qrcode("qr-reader");
+        const scannerId = "qr-reader-element";
+        const scannerElement = document.getElementById(scannerId);
+        if (!scannerElement) {
+            console.error("QR Reader element not found");
+            return;
+        }
+
+        const scannerInstance = new Html5Qrcode(scannerId);
         scannerRef.current = scannerInstance;
 
         const startScanner = () => {
@@ -384,26 +400,22 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
                     aspectRatio: 1.0
                 },
                 (decodedText: string) => {
-                    // This success callback might be called multiple times.
-                    // Stop the scanner immediately to prevent this.
-                    if (scannerInstance.isScanning) {
-                        scannerInstance.stop().then(() => {
+                    if (scannerRef.current?.isScanning) {
+                        scannerRef.current.stop().then(() => {
                             try {
                                 const data = JSON.parse(decodedText);
                                 if (data.type === 'attendance' && data.classId) {
                                     onScanSuccess(data.classId);
                                 } else {
-                                    // Invalid QR content, but technically a successful scan
-                                    onCancel(); // Parent will show notification
+                                     // Let parent handle invalid QR data
+                                    onScanSuccess('{"error":"invalid_qr"}');
                                 }
                             } catch (e) {
-                                // QR content is not valid JSON
-                                onCancel(); // Parent will show notification
+                                // Let parent handle non-JSON QR
+                                onScanSuccess('{"error":"invalid_json"}');
                             }
-                        }).catch(err => {
+                        }).catch((err: any) => {
                             console.error("Failed to stop scanner after success", err);
-                            // Still try to process the scan
-                            onScanSuccess(JSON.parse(decodedText).classId);
                         });
                     }
                 },
@@ -427,15 +439,15 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
 
         startScanner();
 
-        // Cleanup function for when the component unmounts
         return () => {
             if (scannerRef.current && scannerRef.current.isScanning) {
                 scannerRef.current.stop().catch((err: any) => {
-                    console.error("Gagal menghentikan scanner saat cleanup:", err);
+                    // This error can happen if the component unmounts quickly, it's usually safe to ignore.
+                    console.log("Scanner cleanup stop error:", err);
                 });
             }
         };
-    }, []); // Empty dependency array ensures this effect runs only once on mount and cleans up on unmount.
+    }, [onScanSuccess]);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-end justify-center z-50">
@@ -454,7 +466,7 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
                     </button>
                 </div>
                 <div className="w-full aspect-square bg-black relative">
-                    <div id="qr-reader" className="w-full h-full"></div>
+                    <div id="qr-reader-element" className="w-full h-full"></div>
                     {scannerState === 'initializing' && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 text-white">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -468,6 +480,90 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
                              <button onClick={onCancel} className="mt-4 bg-red-500 text-white px-4 py-2 rounded-lg">Tutup</button>
                         </div>
                     )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AttendanceScanner: React.FC<{
+    onScan: (classId: string, lessonHour: number) => void;
+    onCancel: () => void;
+    schedules: Schedule[];
+}> = ({ onScan, onCancel, schedules }) => {
+    const [lessonHour, setLessonHour] = useState<number | ''>('');
+    const [isScanning, setIsScanning] = useState(false);
+
+    const todayName = useMemo(() => new Date().toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'], []);
+    
+    const todayLessonHours = useMemo(() => {
+        const hours = schedules
+            .filter(s => s.day === todayName)
+            .map(s => s.lessonHour)
+            .sort((a, b) => a - b);
+        return [...new Set(hours)]; // Unique sorted hours
+    }, [schedules, todayName]);
+
+    if (isScanning) {
+        return (
+            <QRScanner
+                onScanSuccess={(classId) => {
+                    if (lessonHour) {
+                        onScan(classId, lessonHour);
+                    }
+                    // The onScan function will navigate back, unmounting this component.
+                }}
+                onCancel={() => setIsScanning(false)}
+            />
+        );
+    }
+
+    return (
+        <div className="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+            <div className="w-full max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 space-y-6">
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Absensi QR Code</h2>
+                    <p className="text-gray-500">Pilih jam pelajaran, lalu scan QR code kelas.</p>
+                </div>
+                
+                <div className="space-y-4">
+                    <div>
+                        <label htmlFor="lessonHourSelect" className="block text-sm font-medium text-gray-700 mb-1">
+                            Pilih Jam Pelajaran Hari Ini
+                        </label>
+                        <select
+                            id="lessonHourSelect"
+                            value={lessonHour}
+                            onChange={(e) => setLessonHour(e.target.value ? parseInt(e.target.value, 10) : '')}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-lg"
+                        >
+                            <option value="">-- Pilih Jam --</option>
+                            {todayLessonHours.length > 0 ? (
+                                todayLessonHours.map(hour => (
+                                    <option key={hour} value={hour}>
+                                        Jam ke-{hour}
+                                    </option>
+                                ))
+                            ) : (
+                                <option disabled>Tidak ada jadwal hari ini</option>
+                            )}
+                        </select>
+                    </div>
+                
+                    <button
+                        onClick={() => setIsScanning(true)}
+                        disabled={!lessonHour}
+                        className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg>
+                        Buka Kamera & Scan
+                    </button>
+                    <button
+                        onClick={onCancel}
+                        className="w-full bg-gray-100 text-gray-700 font-semibold py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                        Kembali ke Dashboard
+                    </button>
                 </div>
             </div>
         </div>
