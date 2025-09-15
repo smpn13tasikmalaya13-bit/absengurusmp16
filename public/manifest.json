@@ -30,14 +30,14 @@
   ],
   "screenshots": [
     {
-      "src": "/icon-512x512.png",
+      "src": "/screenshot-mobile.png",
       "sizes": "540x720",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Tampilan Dashboard Guru"
     },
     {
-      "src": "/icon-512x512.png",
+      "src": "/screenshot-desktop.png",
       "sizes": "1080x720",
       "type": "image/png",
       "form_factor": "wide",
