@@ -134,6 +134,16 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
         }
     };
 
+    const handleScheduleDelete = async (idToDelete: string) => {
+        try {
+            await api.deleteSchedule(idToDelete);
+            setSchedules(prevSchedules => prevSchedules.filter(s => s.id !== idToDelete));
+        } catch (error) {
+            console.error("Gagal menghapus jadwal:", error);
+            alert("Terjadi kesalahan saat menghapus jadwal.");
+        }
+    };
+
     const handleScanSuccess = async (qrData: string) => {
         setIsScanning(false); // Immediately close scanner and release camera
 
@@ -256,6 +266,26 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                         <p className="text-sm">{scanResult.message}</p>
                     </div>
                 )}
+                
+                {/* Action Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <button onClick={() => setIsScanning(true)} disabled={!isWithinRadius} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-sm group flex flex-col items-center justify-center gap-4 border border-gray-200">
+                        <QrScanIcon />
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-800 group-disabled:text-gray-500">Scan QR Code</h3>
+                            <p className="text-gray-500 text-sm mt-1">Scan QR Code kelas untuk absensi</p>
+                            {!isWithinRadius && <p className="text-xs text-red-500 mt-1">Anda berada di luar radius sekolah.</p>}
+                        </div>
+                    </button>
+                     <button onClick={() => setIsScheduleModalOpen(true)} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow flex flex-col items-center justify-center gap-4 border border-gray-200">
+                        <ScheduleIcon />
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-800">Jadwal Mengajar</h3>
+                            <p className="text-gray-500 text-sm mt-1">Lihat dan kelola jadwal mengajar Anda</p>
+                        </div>
+                    </button>
+                </div>
+                
                 {/* Top Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
@@ -282,25 +312,6 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                         <p className="text-3xl font-bold text-gray-800">{attendanceStats.total}</p>
                         <p className="text-xs text-gray-400">Semua absensi Anda</p>
                     </div>
-                </div>
-
-                {/* Action Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <button onClick={() => setIsScanning(true)} disabled={!isWithinRadius} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-sm group flex flex-col items-center justify-center gap-4 border border-gray-200">
-                        <QrScanIcon />
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-800 group-disabled:text-gray-500">Scan QR Code</h3>
-                            <p className="text-gray-500 text-sm mt-1">Scan QR Code kelas untuk absensi</p>
-                            {!isWithinRadius && <p className="text-xs text-red-500 mt-1">Anda berada di luar radius sekolah.</p>}
-                        </div>
-                    </button>
-                     <button onClick={() => setIsScheduleModalOpen(true)} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow flex flex-col items-center justify-center gap-4 border border-gray-200">
-                        <ScheduleIcon />
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-800">Jadwal Mengajar</h3>
-                            <p className="text-gray-500 text-sm mt-1">Lihat dan kelola jadwal mengajar Anda</p>
-                        </div>
-                    </button>
                 </div>
 
                 {/* Data Display Cards */}
@@ -352,7 +363,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             </main>
             
             <Modal isOpen={isScheduleModalOpen} onClose={() => setIsScheduleModalOpen(false)} title="Kelola Jadwal Mengajar">
-                <TeacherScheduleManager user={user} schedules={userSchedules} onScheduleUpdate={fetchData} classes={classes}/>
+                <TeacherScheduleManager user={user} schedules={userSchedules} onScheduleUpdate={fetchData} classes={classes} onScheduleDelete={handleScheduleDelete} />
             </Modal>
             
             <Modal isOpen={isMessageModalOpen} onClose={() => setIsMessageModalOpen(false)} title="Pesan Masuk">
@@ -442,20 +453,12 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
     }, [onScanSuccess]);
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-end justify-center z-50">
-            <div className="w-full bg-white rounded-t-2xl shadow-xl max-w-md mx-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="w-full bg-white rounded-2xl shadow-xl max-w-sm mx-auto overflow-hidden">
                 <div className="p-4 text-center space-y-3">
                     <h2 className="font-bold text-lg text-gray-800">
-                        Arahkan kamera ke QR Code
-                        <br />
-                        Kelas
+                        Arahkan kamera ke QR Code Kelas
                     </h2>
-                    <button 
-                        onClick={onCancel} 
-                        className="w-full bg-gray-200 text-gray-800 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
-                    >
-                        Batal
-                    </button>
                 </div>
                 <div className="w-full aspect-square bg-black relative">
                     <div id="qr-reader-element" className="w-full h-full"></div>
@@ -473,12 +476,20 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
                         </div>
                     )}
                 </div>
+                 <div className="p-4">
+                    <button 
+                        onClick={onCancel} 
+                        className="w-full bg-gray-200 text-gray-800 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                        Batal
+                    </button>
+                </div>
             </div>
         </div>
     );
 };
 
-const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onScheduleUpdate: () => Promise<void>, classes: Class[]}> = ({ user, schedules, onScheduleUpdate, classes }) => {
+const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onScheduleUpdate: () => Promise<void>, classes: Class[], onScheduleDelete: (id: string) => Promise<void>}> = ({ user, schedules, onScheduleUpdate, classes, onScheduleDelete }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<Partial<Schedule> | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -522,8 +533,7 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
     
     const handleDelete = async (id: string) => {
         if(window.confirm("Yakin ingin menghapus jadwal ini?")){
-            await api.deleteSchedule(id);
-            await onScheduleUpdate();
+            await onScheduleDelete(id);
         }
     }
 
