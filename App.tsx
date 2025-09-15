@@ -1588,12 +1588,22 @@ const App: React.FC = () => {
                                 </div>
                                 <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Login</button>
                             </form>
-                             {installPromptEvent && (
-                                <button onClick={handleInstallClick} className="w-full mt-4 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition duration-300 flex items-center justify-center gap-2">
-                                    <DownloadIcon />
-                                    Install Aplikasi
-                                </button>
+                             
+                            {installPromptEvent && (
+                                <div className="mt-6 text-center border-t pt-4 space-y-3">
+                                    <p className="text-sm text-gray-600">
+                                        Untuk pengalaman terbaik, install aplikasi ini di perangkat Anda untuk akses lebih cepat dan fitur offline.
+                                    </p>
+                                    <button
+                                        onClick={handleInstallClick}
+                                        className="w-full bg-green-500 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-600 transition duration-300 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+                                    >
+                                        <DownloadIcon />
+                                        <span>Install Aplikasi</span>
+                                    </button>
+                                </div>
                             )}
+
                             <p className="text-center text-sm text-gray-600 mt-6">
                                 Belum punya akun? <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('register'); setAuthMessage(null); }} className="font-medium text-blue-600 hover:underline">Daftar</a>
                             </p>
