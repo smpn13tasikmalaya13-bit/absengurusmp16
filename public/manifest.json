@@ -27,6 +27,12 @@
       "src": "/icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
       "purpose": "maskable"
     },
     {
@@ -50,6 +56,20 @@
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Dasbor Guru"
+    },
+    {
+      "src": "/screenshot1.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Halaman Login (Desktop)"
+    },
+    {
+      "src": "/screenshot2.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Dasbor Guru (Desktop)"
     }
   ]
 }
