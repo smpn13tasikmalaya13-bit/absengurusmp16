@@ -1,19 +1,12 @@
 // Nama cache
-const CACHE_NAME = 'sabar-absensi-cache-v1';
+const CACHE_NAME = 'sabar-absensi-cache-v2';
 // Daftar file yang akan di-cache
 const urlsToCache = [
   '/',
   '/index.html',
-  '/index.tsx',
-  '/smpn-13-tasikmalaya.png',
-  // Tambahkan aset penting lainnya di sini jika ada
-  'https://cdn.tailwindcss.com',
-  'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
-  'https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js',
-  'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js',
-  'https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js'
+  '/smpn-13-tasikmalaya.png'
+  // Aset-aset penting lainnya yang bersifat lokal bisa ditambahkan di sini.
+  // URL eksternal (seperti dari CDN) lebih baik di-cache oleh browser secara standar.
 ];
 
 // Event 'install': menyimpan aset ke cache

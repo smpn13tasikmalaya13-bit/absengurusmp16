@@ -148,26 +148,50 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
     const getClassName = useCallback((classId: string) => classes.find(c => c.id === classId)?.name || 'N/A', [classes]);
 
     const recordAttendance = async (classId: string, lessonHour: number) => {
-      const now = new Date();
-      if (!lessonHour) {
-          alert("Jam pelajaran tidak valid.");
-          return;
-      }
-      const hasScanned = await api.checkIfAlreadyScanned(user.id, classId, lessonHour);
-      if (hasScanned) {
-          alert('Anda sudah absen untuk jam pelajaran ini.');
-          setView('dashboard');
-          setSelectedLessonHour(null);
-          return;
-      }
-      const newRecord: Omit<AttendanceRecord, 'id'> = {
-          teacherId: user.id, classId, lessonHour, scanTime: now.toISOString(),
-      };
-      await api.addAttendanceRecord(newRecord);
-      alert('Absensi berhasil!');
-      await fetchData();
-      setView('dashboard');
-      setSelectedLessonHour(null);
+        const now = new Date();
+        if (!lessonHour) {
+            alert("Jam pelajaran tidak valid.");
+            return;
+        }
+
+        // Validate if scan is within the allowed time
+        const todayName = now.toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
+        const schedule = schedules.find(s => 
+            s.teacherId === user.id && 
+            s.classId === classId && 
+            s.day === todayName && 
+            s.lessonHour === lessonHour
+        );
+
+        if (schedule && schedule.endTime) {
+            const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
+            const endTime = new Date(now);
+            endTime.setHours(endHour, endMinute, 0, 0);
+
+            if (now > endTime) {
+                alert('Waktu untuk absensi jam pelajaran ini sudah berakhir.');
+                setView('dashboard');
+                setSelectedLessonHour(null);
+                return;
+            }
+        }
+
+        const hasScanned = await api.checkIfAlreadyScanned(user.id, classId, lessonHour);
+        if (hasScanned) {
+            alert('Anda sudah absen untuk jam pelajaran ini.');
+            setView('dashboard');
+            setSelectedLessonHour(null);
+            return;
+        }
+
+        const newRecord: Omit<AttendanceRecord, 'id'> = {
+            teacherId: user.id, classId, lessonHour, scanTime: now.toISOString(),
+        };
+        await api.addAttendanceRecord(newRecord);
+        alert('Absensi berhasil!');
+        await fetchData();
+        setView('dashboard');
+        setSelectedLessonHour(null);
     };
 
     const handleProceedToScan = () => {
@@ -1344,6 +1368,35 @@ const App: React.FC = () => {
     const [authView, setAuthView] = useState<'login' | 'register' | 'forgotPassword'>('login');
     const [authMessage, setAuthMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+    const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+    useEffect(() => {
+        const handleBeforeInstallPrompt = (e: Event) => {
+            e.preventDefault();
+            setInstallPrompt(e);
+        };
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        };
+    }, []);
+
+    const handleInstallClick = async () => {
+        if (!installPrompt) return;
+        installPrompt.prompt();
+        const { outcome } = await installPrompt.userChoice;
+        if (outcome === 'accepted') {
+            console.log('User accepted the A2HS prompt');
+        } else {
+            console.log('User dismissed the A2HS prompt');
+        }
+        setInstallPrompt(null);
+    };
+
+    const isAppInstalled = useMemo(() => {
+        return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    }, []);
+
     useEffect(() => {
         const unsubscribe = api.onAuthStateChanged(firebaseUser => {
             setUser(firebaseUser);
@@ -1510,6 +1563,17 @@ const App: React.FC = () => {
 
                     {authMessage && authMessage.type === 'success' && (
                         <p className="mt-4 text-green-600 bg-green-100 p-3 rounded-md text-sm text-center">{authMessage.text}</p>
+                    )}
+                    
+                    {installPrompt && !isAppInstalled && (
+                        <div className="mt-4">
+                            <button onClick={handleInstallClick} className="w-full bg-green-600 text-white py-2.5 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                </svg>
+                                <span>Install Aplikasi</span>
+                            </button>
+                        </div>
                     )}
                     
                     <div className="text-center mt-6 text-sm text-gray-600">
