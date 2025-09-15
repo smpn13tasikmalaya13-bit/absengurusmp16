@@ -1520,18 +1520,19 @@ const App: React.FC = () => {
                                 </div>
                                 {authMessage && authMessage.type === 'error' && <p className="text-red-500 text-sm text-center">{authMessage.text}</p>}
                                 <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-md font-semibold hover:bg-blue-700 transition-colors">Login</button>
+                                
+                                {installPromptEvent && !isAppInstalled && (
+                                    <button
+                                        type="button"
+                                        onClick={handleInstallClick}
+                                        className="w-full mt-4 bg-green-600 text-white py-2.5 rounded-md font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                                        aria-label="Install Aplikasi"
+                                    >
+                                        <DownloadIcon />
+                                        Install Aplikasi
+                                    </button>
+                                )}
                             </form>
-                            {installPromptEvent && !isAppInstalled && (
-                                <button
-                                    type="button"
-                                    onClick={handleInstallClick}
-                                    className="w-full mt-4 bg-green-600 text-white py-2.5 rounded-md font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                                    aria-label="Install Aplikasi"
-                                >
-                                    <DownloadIcon />
-                                    Install Aplikasi
-                                </button>
-                            )}
                         </>
                     )}
 
