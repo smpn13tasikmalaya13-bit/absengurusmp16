@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
@@ -156,7 +157,6 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
         const todayName = now.toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
         
-        // --- START FIX: Stricter schedule validation ---
         const schedule = schedules.find(s => 
             s.teacherId === user.id && 
             s.classId === classId && 
@@ -169,6 +169,22 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             setView('dashboard');
             setSelectedLessonHour(null);
             return;
+        }
+
+        // --- START FIX: Add startTime validation with leeway ---
+        if (schedule.startTime) {
+            const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
+            const startTime = new Date(now);
+            startTime.setHours(startHour, startMinute, 0, 0);
+
+            // Allow scanning up to 15 minutes before class starts
+            const leewayMilliseconds = 15 * 60 * 1000; 
+            if (now.getTime() < startTime.getTime() - leewayMilliseconds) {
+                alert(`Absensi untuk jam pelajaran ini baru bisa dilakukan paling cepat 15 menit sebelum kelas dimulai (pukul ${schedule.startTime}).`);
+                setView('dashboard');
+                setSelectedLessonHour(null);
+                return;
+            }
         }
         // --- END FIX ---
 
