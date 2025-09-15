@@ -1360,9 +1360,9 @@ const AIAssistant: React.FC = () => {
 
 // --- Branding Component ---
 const SabarLogo = () => (
-    <div className="text-center mb-4">
-        <h1 className="text-5xl font-bold text-gray-800 tracking-wider">SABAR</h1>
-        <p className="text-base text-gray-500 mt-1">Sistem Absensi Berbasis QR</p>
+    <div className="text-center">
+        <h1 className="text-5xl font-extrabold text-gray-900 tracking-tight">SABAR</h1>
+        <p className="text-md text-gray-500">Sistem Absensi Berbasis QR</p>
     </div>
 );
 
@@ -1497,35 +1497,36 @@ const App: React.FC = () => {
 
     if (!user || !userProfile) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-                <div className="max-w-sm w-full bg-white p-8 rounded-lg shadow-md">
+            <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-sans">
+                <div className="max-w-md w-full bg-white p-10 rounded-xl shadow-lg space-y-6">
                      <SabarLogo />
                     
                     {authView === 'login' && (
                         <>
-                            <h2 className="text-2xl font-bold text-center mb-8 text-gray-800">Login</h2>
+                            <h2 className="text-2xl font-bold text-center text-gray-800">Login</h2>
                             <form onSubmit={handleLogin} className="space-y-5">
                                 <div>
-                                    <label className="block mb-2 text-sm font-medium text-gray-600">Email</label>
-                                    <input name="email" type="email" required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"/>
+                                    <label className="block mb-1 text-sm font-medium text-gray-700">Email</label>
+                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                                 </div>
                                 <div>
-                                    <div className="flex justify-between items-center mb-2">
-                                        <label className="block text-sm font-medium text-gray-600">Password</label>
-                                        <button type="button" onClick={() => { setAuthView('forgotPassword'); setAuthMessage(null); }} className="text-sm text-blue-600 hover:underline focus:outline-none">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="text-sm font-medium text-gray-700">Password</label>
+                                        <button type="button" onClick={() => { setAuthView('forgotPassword'); setAuthMessage(null); }} className="text-sm text-blue-600 hover:underline focus:outline-none font-medium">
                                             Lupa Password?
                                         </button>
                                     </div>
-                                    <input name="password" type="password" required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"/>
+                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                                 </div>
                                 {authMessage && authMessage.type === 'error' && <p className="text-red-500 text-sm text-center">{authMessage.text}</p>}
-                                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-md font-semibold hover:bg-blue-700 transition-colors">Login</button>
-                                
+                                <div className="pt-2">
+                                  <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Login</button>
+                                </div>
                                 {installPromptEvent && !isAppInstalled && (
                                     <button
                                         type="button"
                                         onClick={handleInstallClick}
-                                        className="w-full mt-4 bg-green-600 text-white py-2.5 rounded-md font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                                        className="w-full bg-green-600 text-white py-2.5 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                                         aria-label="Install Aplikasi"
                                     >
                                         <DownloadIcon />
@@ -1538,48 +1539,52 @@ const App: React.FC = () => {
 
                     {authView === 'register' && (
                         <>
-                             <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">Daftar Akun Baru</h2>
+                             <h2 className="text-2xl font-bold text-center text-gray-800">Daftar Akun</h2>
                             <form onSubmit={handleRegister} className="space-y-4">
                                 <div>
-                                    <label className="block mb-2 text-sm font-medium text-gray-600">Nama Lengkap</label>
-                                    <input name="name" type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"/>
+                                    <label className="block mb-1 text-sm font-medium text-gray-700">Nama Lengkap</label>
+                                    <input name="name" type="text" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                                 </div>
                                 <div>
-                                    <label className="block mb-2 text-sm font-medium text-gray-600">Email</label>
-                                    <input name="email" type="email" required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"/>
+                                    <label className="block mb-1 text-sm font-medium text-gray-700">Email</label>
+                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                                 </div>
                                 <div>
-                                    <label className="block mb-2 text-sm font-medium text-gray-600">Password</label>
-                                    <input name="password" type="password" required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"/>
+                                    <label className="block mb-1 text-sm font-medium text-gray-700">Password</label>
+                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                                 </div>
                                 <div>
-                                    <label className="block mb-2 text-sm font-medium text-gray-600">Konfirmasi Password</label>
-                                    <input name="confirmPassword" type="password" required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"/>
+                                    <label className="block mb-1 text-sm font-medium text-gray-700">Konfirmasi Password</label>
+                                    <input name="confirmPassword" type="password" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                                 </div>
                                 <div>
-                                    <label className="block mb-2 text-sm font-medium text-gray-600">Peran</label>
-                                    <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                    <label className="block mb-1 text-sm font-medium text-gray-700">Peran</label>
+                                    <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
                                         <option value={UserRoleEnum.TEACHER}>Guru</option>
                                         <option value={UserRoleEnum.ADMIN}>Admin</option>
                                     </select>
                                 </div>
                                 {authMessage && authMessage.type === 'error' && <p className="text-red-500 text-sm text-center">{authMessage.text}</p>}
-                                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-md font-semibold hover:bg-blue-700 transition-colors">Daftar</button>
+                                <div className="pt-2">
+                                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Daftar</button>
+                                </div>
                             </form>
                         </>
                     )}
 
                     {authView === 'forgotPassword' && (
                         <>
-                            <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">Lupa Password</h2>
-                            <p className="text-sm text-gray-600 text-center mb-6">Masukkan email Anda untuk menerima link reset password.</p>
-                             <form onSubmit={handleForgotPassword} className="space-y-4">
+                            <h2 className="text-2xl font-bold text-center text-gray-800">Lupa Password</h2>
+                            <p className="text-sm text-gray-600 text-center">Masukkan email Anda untuk menerima link reset password.</p>
+                             <form onSubmit={handleForgotPassword} className="space-y-5">
                                 <div>
-                                    <label className="block mb-2 text-sm font-medium text-gray-600">Email</label>
-                                    <input name="email" type="email" required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"/>
+                                    <label className="block mb-1 text-sm font-medium text-gray-700">Email</label>
+                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                                 </div>
                                 {authMessage && authMessage.type === 'error' && <p className="text-red-500 text-sm text-center">{authMessage.text}</p>}
-                                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-md font-semibold hover:bg-blue-700 transition-colors">Kirim Link Reset</button>
+                                 <div className="pt-2">
+                                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Kirim Link Reset</button>
+                                </div>
                             </form>
                         </>
                     )}
@@ -1588,7 +1593,7 @@ const App: React.FC = () => {
                         <p className="mt-4 text-green-600 bg-green-100 p-3 rounded-md text-sm text-center">{authMessage.text}</p>
                     )}
                     
-                    <div className="text-center mt-8 text-sm text-gray-600">
+                    <div className="text-center text-sm text-gray-600 pt-4">
                         {authView === 'login' && (
                             <>
                                 Belum punya akun?
