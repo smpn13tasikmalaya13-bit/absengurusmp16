@@ -1,14 +1,10 @@
 // A more robust service worker to ensure proper PWA lifecycle and caching.
-const CACHE_NAME = 'sabar-absensi-cache-v11'; // Version bump is crucial
+const CACHE_NAME = 'sabar-absensi-cache-v12'; // Version bump is crucial
 const urlsToCache = [
   '/',
   '/index.html',
   '/smpn-13-tasikmalaya.svg',
-  '/icon-monochrome.svg',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/screenshot1.png',
-  '/screenshot2.png'
+  '/icon-monochrome.svg'
 ];
 
 // --- INSTALL: Cache critical assets and activate immediately ---
