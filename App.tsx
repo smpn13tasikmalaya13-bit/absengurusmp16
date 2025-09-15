@@ -76,7 +76,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 
 // --- Teacher Dashboard Components ---
 const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, onLogout }) => {
-    const [view, setView] = useState<'dashboard' | 'scan'>('dashboard');
+    const [isScanning, setIsScanning] = useState(false);
     const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -123,6 +123,8 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             return () => clearTimeout(timer);
         }
     }, [scanResult]);
+    
+    const userSchedules = useMemo(() => schedules.filter(s => s.teacherId === user.id), [schedules, user.id]);
 
     const handleOpenMessageModal = () => {
         setIsMessageModalOpen(true);
@@ -132,7 +134,74 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
         }
     };
 
-    const userSchedules = useMemo(() => schedules.filter(s => s.teacherId === user.id), [schedules, user.id]);
+    const handleScanSuccess = async (qrData: string) => {
+        setIsScanning(false); // Immediately close scanner and release camera
+
+        let classId;
+        try {
+            const parsedData = JSON.parse(qrData);
+            if (parsedData.type !== 'attendance' || !parsedData.classId) {
+                setScanResult({ type: 'error', message: 'QR Code tidak valid untuk absensi.' });
+                return;
+            }
+            classId = parsedData.classId;
+        } catch (e) {
+            setScanResult({ type: 'error', message: 'Format QR Code tidak dikenali.' });
+            return;
+        }
+
+        const now = new Date();
+        const todayName = now.toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
+
+        // Find schedule that is currently active
+        const activeSchedule = userSchedules.find(s => {
+            if (s.classId !== classId || s.day !== todayName || !s.startTime || !s.endTime) {
+                return false;
+            }
+
+            const [startHour, startMinute] = s.startTime.split(':').map(Number);
+            const startTime = new Date(now);
+            startTime.setHours(startHour, startMinute, 0, 0);
+
+            const [endHour, endMinute] = s.endTime.split(':').map(Number);
+            const endTime = new Date(now);
+            endTime.setHours(endHour, endMinute, 0, 0);
+            
+            const leewayMilliseconds = 15 * 60 * 1000; // 15 minutes before start
+
+            return now.getTime() >= (startTime.getTime() - leewayMilliseconds) && now.getTime() <= endTime.getTime();
+        });
+
+        if (!activeSchedule) {
+            setScanResult({ type: 'error', message: `Tidak ada jadwal mengajar yang aktif saat ini untuk kelas ${getClassName(classId)}.` });
+            return;
+        }
+
+        // Now we have the active schedule, proceed with attendance recording
+        const lessonHour = activeSchedule.lessonHour;
+        
+        // Check if already scanned
+        const hasScanned = await api.checkIfAlreadyScanned(user.id, classId, lessonHour);
+        if (hasScanned) {
+            setScanResult({ type: 'error', message: `Anda sudah absen untuk kelas ${getClassName(classId)} jam ke-${lessonHour} hari ini.` });
+            return;
+        }
+
+        // Record attendance
+        try {
+            const newRecord: Omit<AttendanceRecord, 'id'> = {
+                teacherId: user.id,
+                classId,
+                lessonHour,
+                scanTime: now.toISOString(),
+            };
+            await api.addAttendanceRecord(newRecord);
+            setScanResult({ type: 'success', message: `Absensi berhasil: Kelas ${getClassName(classId)} (Jam ke-${lessonHour}).` });
+            await fetchData(); // Refresh data
+        } catch (error: any) {
+            setScanResult({ type: 'error', message: `Gagal menyimpan absensi: ${error.message}` });
+        }
+    };
 
     const attendanceStats = useMemo(() => {
         const now = new Date();
@@ -154,77 +223,12 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             .sort((a,b) => (a.startTime || '').localeCompare(b.startTime || ''));
     }, [userSchedules]);
 
-    const recordAttendance = async (classId: string, lessonHour: number) => {
-        const now = new Date();
-        const todayName = now.toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
-
-        const matchingSchedule = schedules.find(s => 
-            s.teacherId === user.id &&
-            s.classId === classId &&
-            s.day === todayName &&
-            s.lessonHour === lessonHour
-        );
-
-        if (!matchingSchedule) {
-            setScanResult({ type: 'error', message: `Jadwal tidak ditemukan untuk kelas ini pada jam ke-${lessonHour}.` });
-            setView('dashboard');
-            return;
-        }
-
-        if (!matchingSchedule.startTime || !matchingSchedule.endTime) {
-            setScanResult({ type: 'error', message: 'Jadwal tidak memiliki waktu mulai/selesai yang valid.' });
-            setView('dashboard');
-            return;
-        }
-
-        const [startHour, startMinute] = matchingSchedule.startTime.split(':').map(Number);
-        const startTime = new Date(now);
-        startTime.setHours(startHour, startMinute, 0, 0);
-
-        const [endHour, endMinute] = matchingSchedule.endTime.split(':').map(Number);
-        const endTime = new Date(now);
-        endTime.setHours(endHour, endMinute, 0, 0);
-        
-        const leewayMilliseconds = 15 * 60 * 1000; // 15 minutes leeway
-
-        if (!(now.getTime() >= (startTime.getTime() - leewayMilliseconds) && now.getTime() <= endTime.getTime())) {
-            setScanResult({ type: 'error', message: `Absensi untuk jam ke-${lessonHour} (${matchingSchedule.startTime}-${matchingSchedule.endTime}) hanya bisa dilakukan pada rentang waktu yang sesuai.` });
-            setView('dashboard');
-            return;
-        }
-
-        const hasScanned = await api.checkIfAlreadyScanned(user.id, classId, lessonHour);
-        if (hasScanned) {
-            setScanResult({ type: 'error', message: `Anda sudah melakukan absensi untuk kelas ${getClassName(classId)} pada jam ke-${lessonHour}.` });
-            setView('dashboard');
-            return;
-        }
-
-        const newRecord: Omit<AttendanceRecord, 'id'> = {
-            teacherId: user.id,
-            classId,
-            lessonHour,
-            scanTime: now.toISOString(),
-        };
-
-        try {
-            await api.addAttendanceRecord(newRecord);
-            setScanResult({ type: 'success', message: `Absensi untuk kelas ${getClassName(classId)} (Jam ke-${lessonHour}) berhasil dicatat.` });
-            await fetchData();
-        } catch (error: any) {
-            setScanResult({ type: 'error', message: `Terjadi kesalahan saat menyimpan data: ${error.message}` });
-        } finally {
-            setView('dashboard');
-        }
-    };
-
-
     if (loadingData) {
         return <FullPageSpinner />;
     }
     
-    if (view === 'scan') {
-        return <AttendanceScanner onScan={recordAttendance} onCancel={() => setView('dashboard')} schedules={userSchedules} />;
+    if (isScanning) {
+        return <QRScanner onScanSuccess={handleScanSuccess} onCancel={() => setIsScanning(false)} />;
     }
     
     return (
@@ -282,7 +286,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
                 {/* Action Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <button onClick={() => setView('scan')} disabled={!isWithinRadius} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-sm group flex flex-col items-center justify-center gap-4 border border-gray-200">
+                     <button onClick={() => setIsScanning(true)} disabled={!isWithinRadius} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-sm group flex flex-col items-center justify-center gap-4 border border-gray-200">
                         <QrScanIcon />
                         <div>
                             <h3 className="text-lg font-bold text-gray-800 group-disabled:text-gray-500">Scan QR Code</h3>
@@ -378,74 +382,62 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
 
     useEffect(() => {
         const scannerId = "qr-reader-element";
-        const scannerElement = document.getElementById(scannerId);
-        if (!scannerElement) {
-            console.error("QR Reader element not found");
-            return;
+        
+        // Ensure the scanner is only initialized once.
+        if (!scannerRef.current) {
+            scannerRef.current = new Html5Qrcode(scannerId);
         }
+        const scannerInstance = scannerRef.current;
 
-        const scannerInstance = new Html5Qrcode(scannerId);
-        scannerRef.current = scannerInstance;
-
-        const startScanner = () => {
-            setScannerState('initializing');
-            scannerInstance.start(
-                { facingMode: "environment" },
-                {
-                    fps: 10,
-                    qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-                        const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7;
-                        return { width: size, height: size };
+        // Cleanup function to stop the scanner
+        const cleanupScanner = () => {
+            if (scannerInstance && scannerInstance.isScanning) {
+                scannerInstance.stop().catch((err: any) => {
+                    // This error can happen if the camera is already stopped, it's safe to ignore.
+                    console.warn("Scanner stop error on cleanup, likely already stopped:", err);
+                });
+            }
+        };
+        
+        const startScanner = async () => {
+            try {
+                await scannerInstance.start(
+                    { facingMode: "environment" },
+                    {
+                        fps: 10,
+                        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+                            const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7;
+                            return { width: size, height: size };
+                        },
+                        aspectRatio: 1.0
                     },
-                    aspectRatio: 1.0
-                },
-                (decodedText: string) => {
-                    if (scannerRef.current?.isScanning) {
-                        scannerRef.current.stop().then(() => {
-                            try {
-                                const data = JSON.parse(decodedText);
-                                if (data.type === 'attendance' && data.classId) {
-                                    onScanSuccess(data.classId);
-                                } else {
-                                     // Let parent handle invalid QR data
-                                    onScanSuccess('{"error":"invalid_qr"}');
-                                }
-                            } catch (e) {
-                                // Let parent handle non-JSON QR
-                                onScanSuccess('{"error":"invalid_json"}');
-                            }
-                        }).catch((err: any) => {
-                            console.error("Failed to stop scanner after success", err);
-                        });
+                    (decodedText: string) => {
+                        // Success callback
+                        cleanupScanner();
+                        onScanSuccess(decodedText);
+                    },
+                    (errorMessage: string) => {
+                        // Error callback (ignore 'QR code not found')
                     }
-                },
-                (errorMessage: string) => {
-                    // ignore "QR code not found" errors
-                }
-            ).then(() => {
+                );
                 setScannerState('running');
-            }).catch((err: any) => {
+            } catch (err: any) {
                 setScannerState('error');
                 let userFriendlyMessage = "Tidak dapat mengakses kamera. Pastikan Anda telah memberikan izin.";
                 if (typeof err === 'string' && err.includes('NotAllowedError')) {
                     userFriendlyMessage = "Akses kamera ditolak. Harap izinkan akses kamera di pengaturan browser Anda.";
-                }
-                 else if (err.name === 'NotReadableError') {
+                } else if (err.name === 'NotReadableError') {
                     userFriendlyMessage = "Kamera mungkin sedang digunakan oleh aplikasi lain. Tutup aplikasi lain dan coba lagi.";
                 }
                 setErrorMessage(userFriendlyMessage);
-            });
+            }
         };
 
         startScanner();
 
+        // This is the key cleanup function that runs when the component unmounts.
         return () => {
-            if (scannerRef.current && scannerRef.current.isScanning) {
-                scannerRef.current.stop().catch((err: any) => {
-                    // This error can happen if the component unmounts quickly, it's usually safe to ignore.
-                    console.log("Scanner cleanup stop error:", err);
-                });
-            }
+            cleanupScanner();
         };
     }, [onScanSuccess]);
 
@@ -485,91 +477,6 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
         </div>
     );
 };
-
-const AttendanceScanner: React.FC<{
-    onScan: (classId: string, lessonHour: number) => void;
-    onCancel: () => void;
-    schedules: Schedule[];
-}> = ({ onScan, onCancel, schedules }) => {
-    const [lessonHour, setLessonHour] = useState<number | ''>('');
-    const [isScanning, setIsScanning] = useState(false);
-
-    const todayName = useMemo(() => new Date().toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'], []);
-    
-    const todayLessonHours = useMemo(() => {
-        const hours = schedules
-            .filter(s => s.day === todayName)
-            .map(s => s.lessonHour)
-            .sort((a, b) => a - b);
-        return [...new Set(hours)]; // Unique sorted hours
-    }, [schedules, todayName]);
-
-    if (isScanning) {
-        return (
-            <QRScanner
-                onScanSuccess={(classId) => {
-                    if (lessonHour) {
-                        onScan(classId, lessonHour);
-                    }
-                    // The onScan function will navigate back, unmounting this component.
-                }}
-                onCancel={() => setIsScanning(false)}
-            />
-        );
-    }
-
-    return (
-        <div className="bg-gray-50 min-h-screen flex items-center justify-center p-4">
-            <div className="w-full max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 space-y-6">
-                <div className="text-center">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Absensi QR Code</h2>
-                    <p className="text-gray-500">Pilih jam pelajaran, lalu scan QR code kelas.</p>
-                </div>
-                
-                <div className="space-y-4">
-                    <div>
-                        <label htmlFor="lessonHourSelect" className="block text-sm font-medium text-gray-700 mb-1">
-                            Pilih Jam Pelajaran Hari Ini
-                        </label>
-                        <select
-                            id="lessonHourSelect"
-                            value={lessonHour}
-                            onChange={(e) => setLessonHour(e.target.value ? parseInt(e.target.value, 10) : '')}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-lg"
-                        >
-                            <option value="">-- Pilih Jam --</option>
-                            {todayLessonHours.length > 0 ? (
-                                todayLessonHours.map(hour => (
-                                    <option key={hour} value={hour}>
-                                        Jam ke-{hour}
-                                    </option>
-                                ))
-                            ) : (
-                                <option disabled>Tidak ada jadwal hari ini</option>
-                            )}
-                        </select>
-                    </div>
-                
-                    <button
-                        onClick={() => setIsScanning(true)}
-                        disabled={!lessonHour}
-                        className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg>
-                        Buka Kamera & Scan
-                    </button>
-                    <button
-                        onClick={onCancel}
-                        className="w-full bg-gray-100 text-gray-700 font-semibold py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                        Kembali ke Dashboard
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
 
 const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onScheduleUpdate: () => Promise<void>, classes: Class[]}> = ({ user, schedules, onScheduleUpdate, classes }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
