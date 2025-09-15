@@ -1,8 +1,5 @@
 
 
-
-
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
@@ -951,8 +948,15 @@ const ClassManagement: React.FC = () => {
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (newClassName && newClassGrade) {
-            await api.addClass({ name: newClassName, grade: newClassGrade as number });
+        const trimmedClassName = newClassName.trim();
+        if (trimmedClassName && newClassGrade) {
+            const isDuplicate = classes.some(c => c.name.toLowerCase() === trimmedClassName.toLowerCase());
+            if (isDuplicate) {
+                alert(`Kelas dengan nama "${trimmedClassName}" sudah ada.`);
+                return;
+            }
+
+            await api.addClass({ name: trimmedClassName, grade: newClassGrade as number });
             setNewClassName('');
             setNewClassGrade('');
             setIsModalOpen(false);
