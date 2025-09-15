@@ -1620,9 +1620,12 @@ const App: React.FC = () => {
                             </form>
                              
                             {installPromptEvent && (
-                                <div className="mt-6 text-center border-t pt-4 space-y-3">
-                                    <p className="text-sm text-gray-600">
-                                        Untuk pengalaman terbaik, install aplikasi ini di perangkat Anda untuk akses lebih cepat dan fitur offline.
+                                <div className="mt-6 text-center bg-green-50 p-4 rounded-lg border border-green-200 space-y-3">
+                                    <p className="text-sm font-medium text-green-800">
+                                        Install Aplikasi untuk Pengalaman Terbaik
+                                    </p>
+                                    <p className="text-xs text-green-700">
+                                        Akses lebih cepat dan fitur offline dengan menambahkan aplikasi ini ke layar utama (home screen) Anda.
                                     </p>
                                     <button
                                         onClick={handleInstallClick}
