@@ -1,4 +1,3 @@
-
 import type { User, Class, Schedule, AttendanceRecord, UserRole, Message } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
@@ -100,15 +99,13 @@ export const sendPasswordResetEmail = async (email: string): Promise<void> => {
 };
 
 export const signUp = async (email: string, password: string, name: string, role: UserRole): Promise<void> => {
-    // We get the auth instance directly from the firebase object.
     const authInstance = firebase.auth();
 
     // Create user in Auth. This also signs them in.
-    await authInstance.createUserWithEmailAndPassword(email, password);
+    const userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
     
-    // Explicitly get the current user from the auth instance to ensure the session is fully established.
-    // This can help prevent race conditions where Firestore rules might not recognize the new user's permissions immediately.
-    const user = authInstance.currentUser;
+    // Get the user from the credential, which is more reliable than currentUser right after creation.
+    const user = userCredential.user;
 
     if (!user) {
         // This is an unlikely but important safeguard.
@@ -117,6 +114,10 @@ export const signUp = async (email: string, password: string, name: string, role
     
     // Attempt to create the corresponding user profile document in Firestore.
     try {
+        // IMPORTANT: Force a token refresh. This is the key fix for the race condition.
+        // It ensures the auth state is propagated and the token sent to Firestore is valid for security rules.
+        await user.getIdToken(true);
+
         const deviceId = getDeviceId();
         await db.collection('users').doc(user.uid).set({
             name,
