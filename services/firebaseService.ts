@@ -406,16 +406,26 @@ export const addMessage = async (messageData: Omit<Message, 'id'>): Promise<void
 
 // Gunakan onSnapshot untuk pembaruan real-time
 export const onMessagesReceived = (userId: string, callback: (messages: Message[]) => void): (() => void) => {
-    // The previous guard was too strict and could cause race conditions.
-    // The query itself is secure because it's based on the userId passed from the authenticated component.
-    // Firestore security rules provide the necessary backend enforcement.
+    // The query for messages likely fails silently due to a missing composite index
+    // for `where('recipientId', '==', ...)` and `orderBy('timestamp', ...)`.
+    // Re-adding the `orderBy` clause is crucial because Firestore will then log an error
+    // in the developer console with a direct link to CREATE the required index.
     return db.collection('messages')
         .where('recipientId', '==', userId)
-        .orderBy('timestamp', 'desc')
+        .orderBy('timestamp', 'desc') // This is critical for triggering the index creation link in the console.
         .onSnapshot((snapshot: any) => {
-            callback(collectionToData<Message>(snapshot));
+            const messages = collectionToData<Message>(snapshot);
+            // Although the server should sort, a robust client-side sort is a good fallback.
+            messages.sort((a, b) => {
+                const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                return timeB - timeA;
+            });
+            callback(messages);
         }, (error: any) => {
             console.error("Error listening to messages:", error);
+            // If there's an error (e.g., missing index, permissions), return an empty array.
+            // Check the browser's developer console for a detailed error message from Firebase.
             callback([]);
         });
 };
