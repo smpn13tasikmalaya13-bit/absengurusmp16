@@ -379,11 +379,18 @@ export const getAttendanceRecords = async (): Promise<AttendanceRecord[]> => {
 };
 
 export const getAttendanceRecordsForTeacher = async (teacherId: string): Promise<AttendanceRecord[]> => {
+    // Remove orderBy to prevent needing a composite index. Sorting will be done client-side.
     const snapshot = await db.collection('attendance')
         .where('teacherId', '==', teacherId)
-        .orderBy('scanTime', 'desc')
         .get();
-    return collectionToData<AttendanceRecord>(snapshot);
+    const records = collectionToData<AttendanceRecord>(snapshot);
+    // Sort records client-side in descending order of scan time.
+    records.sort((a, b) => {
+        const timeA = a.scanTime ? new Date(a.scanTime).getTime() : 0;
+        const timeB = b.scanTime ? new Date(b.scanTime).getTime() : 0;
+        return timeB - timeA;
+    });
+    return records;
 };
 
 export const addAttendanceRecord = async (recordData: Omit<AttendanceRecord, 'id'>): Promise<string> => {
