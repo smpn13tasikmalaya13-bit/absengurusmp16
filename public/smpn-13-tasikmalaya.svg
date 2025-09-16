@@ -1,19 +1,17 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
-        <linearGradient id="pinGradient" x1="256" y1="0" x2="256" y2="512" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#22D3EE"/>
-            <stop offset="1" stop-color="#2563EB"/>
+        <linearGradient id="modernGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#38BDF8"/>
+            <stop offset="1" stop-color="#3B82F6"/>
         </linearGradient>
     </defs>
-    <g transform="translate(0, 50) scale(0.9)">
-        <!-- Icon Group -->
-        <g transform="translate(20, -50)">
-            <!-- Location Pin Shape -->
-            <path d="M256 0C167.6 0 96 71.6 96 160C96 248.4 256 512 256 512C256 512 416 248.4 416 160C416 71.6 344.4 0 256 0ZM256 224C220.7 224 192 195.3 192 160C192 124.7 220.7 96 256 96C291.3 96 320 124.7 320 160C320 195.3 291.3 224 256 224Z" fill="url(#pinGradient)"/>
-            <!-- Checkmark -->
-            <path d="M208 256L128 176L160 144L208 192L304 96L336 128L208 256Z" fill="white" transform="translate(20, -40) scale(1.2)" />
-        </g>
-        <!-- Text "HadirKu" -->
-        <text x="50%" y="480" text-anchor="middle" font-family="sans-serif" font-size="90" font-weight="bold" fill="#0F172A">HadirKu</text>
-    </g>
+    <!-- Outer Circle / Clock Body -->
+    <circle cx="256" cy="256" r="224" fill="url(#modernGradient)" stroke="#FFFFFF" stroke-width="16"/>
+    
+    <!-- Clock Hands -->
+    <path d="M256 128 V 256 H 352" stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    
+    <!-- Checkmark -->
+    <path d="M176 256 L 240 320 L 352 208" stroke="#10B981" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" fill="none" transform="translate(0, 20)"/>
+     <path d="M176 256 L 240 320 L 352 208" stroke="white" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none" transform="translate(0, 20)"/>
 </svg>
