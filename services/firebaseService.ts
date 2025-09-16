@@ -566,18 +566,24 @@ export const getAllEskulAttendanceRecords = async (): Promise<EskulAttendanceRec
 };
 
 export const findEskulAttendanceForToday = async (pembinaId: string, eskulScheduleId: string, date: string): Promise<EskulAttendanceRecord | null> => {
+    // FIX: Use a simpler query to avoid requiring a complex composite index.
+    // This query is more robust and less likely to fail silently.
     const snapshot = await db.collection('eskulAttendance')
         .where('pembinaId', '==', pembinaId)
-        .where('eskulScheduleId', '==', eskulScheduleId)
         .where('date', '==', date)
-        .limit(1)
         .get();
 
     if (snapshot.empty) {
         return null;
     }
-    return docToData<EskulAttendanceRecord>(snapshot.docs[0]);
+    
+    // Filter the results on the client side to find the specific schedule record.
+    const records = collectionToData<EskulAttendanceRecord>(snapshot);
+    const todaysRecord = records.find((rec: EskulAttendanceRecord) => rec.eskulScheduleId === eskulScheduleId);
+    
+    return todaysRecord || null;
 };
+
 
 export const addEskulAttendanceRecord = async (recordData: Omit<EskulAttendanceRecord, 'id'>): Promise<{success: boolean, message: string, id?: string}> => {
     try {
