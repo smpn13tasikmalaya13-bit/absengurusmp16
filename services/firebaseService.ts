@@ -98,28 +98,44 @@ export const sendPasswordResetEmail = async (email: string): Promise<void> => {
     await auth.sendPasswordResetEmail(email);
 };
 
+const getFirebaseAuthErrorMessage = (error: any): string => {
+    switch (error.code) {
+        case 'auth/email-already-in-use':
+            return 'Email ini sudah terdaftar. Silakan gunakan email lain atau login.';
+        case 'auth/invalid-email':
+            return 'Format email tidak valid. Harap periksa kembali.';
+        case 'auth/weak-password':
+            return 'Password terlalu lemah. Harap gunakan minimal 6 karakter.';
+        case 'auth/operation-not-allowed':
+            return 'Pendaftaran dengan email dan password tidak diaktifkan. Hubungi admin.';
+        default:
+            return error.message || 'Terjadi kesalahan pendaftaran yang tidak diketahui.';
+    }
+};
+
 export const signUp = async (email: string, password: string, name: string, role: UserRole): Promise<void> => {
     const authInstance = firebase.auth();
+    let userCredential;
 
-    // Create user in Auth. This also signs them in.
-    const userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
-    
-    // Get the user from the credential, which is more reliable than currentUser right after creation.
-    const user = userCredential.user;
-
-    if (!user) {
-        // This is an unlikely but important safeguard.
-        throw new Error("Gagal memverifikasi pengguna setelah pendaftaran. Silakan coba lagi.");
+    // Step 1: Handle Auth User Creation and provide specific, user-friendly error messages.
+    try {
+        userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
+    } catch (authError: any) {
+        console.error("Firebase Auth creation failed:", authError);
+        // Throw a user-friendly message immediately. This is the main fix.
+        throw new Error(getFirebaseAuthErrorMessage(authError));
     }
     
-    // Attempt to create the corresponding user profile document in Firestore.
+    const user = userCredential.user;
+    if (!user) {
+        // This is an unlikely safeguard.
+        throw new Error("Gagal memverifikasi pengguna setelah pendaftaran.");
+    }
+    
+    // Step 2: Handle Firestore Profile Creation with robust cleanup logic.
     try {
-        // 1. Force a token refresh to ensure the auth state is propagated client-side.
+        // The previous fixes for the race condition are still important here.
         await user.getIdToken(true);
-
-        // 2. Add a small delay. This is the crucial fix. It gives Firebase backend services
-        // time to sync the new user's auth state, preventing a race condition where
-        // the Firestore write is denied due to "insufficient permissions".
         await new Promise(resolve => setTimeout(resolve, 500));
 
         const deviceId = getDeviceId();
@@ -129,23 +145,19 @@ export const signUp = async (email: string, password: string, name: string, role
             userId: email,
             boundDeviceId: deviceId, 
         });
-        // Success: The user is now fully registered and logged in.
-        // The onAuthStateChanged listener in App.tsx will handle updating the UI.
-
+        // Success: User is fully registered and logged in.
     } catch (firestoreError: any) {
-        // If writing to Firestore fails, we must clean up the Auth user to prevent an orphaned account
-        // where a user exists in Auth but has no profile, making them unable to log in or re-register.
-        console.error("Error creating user profile in Firestore. Attempting to clean up auth user...", firestoreError);
+        console.error("Firestore profile creation failed, cleaning up auth user...", firestoreError);
+        // If Firestore fails, we MUST delete the Auth user to prevent an orphaned account.
         try {
             await user.delete();
         } catch (deleteError) {
-            // This is a critical failure state. The user is stuck. They must contact an admin.
             console.error("CRITICAL: Failed to clean up auth user after profile creation failure:", deleteError);
-            throw new Error("Pendaftaran gagal dan akun tidak dapat dibersihkan secara otomatis. Harap hubungi admin.");
+            // This is a critical state. The user needs to contact an admin.
+            throw new Error("Pendaftaran gagal kritis. Akun Anda mungkin dalam keadaan tidak konsisten. Harap hubungi admin.");
         }
-        
-        // Rethrow a more informative error to the UI.
-        throw new Error(`Gagal menyimpan profil pengguna. Silakan coba lagi. (Pesan: ${firestoreError.message})`);
+        // Throw a user-friendly message for the Firestore failure.
+        throw new Error(`Gagal menyimpan profil pengguna. Silakan coba lagi.`);
     }
 };
 
