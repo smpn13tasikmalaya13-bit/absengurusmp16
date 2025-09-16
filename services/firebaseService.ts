@@ -114,9 +114,13 @@ export const signUp = async (email: string, password: string, name: string, role
     
     // Attempt to create the corresponding user profile document in Firestore.
     try {
-        // IMPORTANT: Force a token refresh. This is the key fix for the race condition.
-        // It ensures the auth state is propagated and the token sent to Firestore is valid for security rules.
+        // 1. Force a token refresh to ensure the auth state is propagated client-side.
         await user.getIdToken(true);
+
+        // 2. Add a small delay. This is the crucial fix. It gives Firebase backend services
+        // time to sync the new user's auth state, preventing a race condition where
+        // the Firestore write is denied due to "insufficient permissions".
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         const deviceId = getDeviceId();
         await db.collection('users').doc(user.uid).set({
