@@ -113,6 +113,47 @@ const getFirebaseAuthErrorMessage = (error: any): string => {
     }
 };
 
+/**
+ * Attempts to create a user profile in Firestore with a retry mechanism.
+ * This is crucial for handling race conditions where Firestore's auth state
+ * hasn't updated immediately after a user is created in Firebase Auth.
+ * @param user The Firebase Auth user object.
+ * @param profileData The user profile data to save.
+ */
+const createUserProfileWithRetry = async (user: any, profileData: any): Promise<void> => {
+    const maxRetries = 3;
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            await db.collection('users').doc(user.uid).set(profileData);
+            console.log(`Profile created successfully on attempt ${attempt}.`);
+            return; // Success! Exit the function.
+        } catch (error: any) {
+            lastError = error;
+            console.warn(`Attempt ${attempt} to create profile failed:`, error.code);
+
+            // Only retry on permission-denied/unauthenticated, which is the signature of our race condition.
+            // For other errors (like 'invalid-argument'), retrying won't help.
+            const isRetryableError = error.code === 'permission-denied' || error.code === 'unauthenticated';
+            if (!isRetryableError) {
+                throw error; // Not a retryable error, fail immediately.
+            }
+
+            if (attempt < maxRetries) {
+                // Exponential backoff with a bit of jitter for robustness
+                const delay = 750 * Math.pow(2, attempt - 1) + Math.random() * 250;
+                console.log(`Retrying profile creation in ${Math.round(delay)}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+    // If the loop finishes without returning, all retries have failed.
+    console.error("All retry attempts to create profile failed.");
+    throw lastError;
+};
+
+
 export const signUp = async (email: string, password: string, name: string, role: UserRole): Promise<void> => {
     const authInstance = firebase.auth();
     let userCredential;
@@ -122,38 +163,37 @@ export const signUp = async (email: string, password: string, name: string, role
         userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
     } catch (authError: any) {
         console.error("Firebase Auth creation failed:", authError);
-        // Throw a user-friendly message immediately. This is the main fix.
         throw new Error(getFirebaseAuthErrorMessage(authError));
     }
     
     const user = userCredential.user;
     if (!user) {
-        // This is an unlikely safeguard.
         throw new Error("Gagal memverifikasi pengguna setelah pendaftaran.");
     }
     
-    // Step 2: Handle Firestore Profile Creation with robust cleanup logic.
+    // Step 2: Handle Firestore Profile Creation with a robust retry and cleanup logic.
     try {
-        // The previous fixes for the race condition are still important here.
+        // Refresh token before the first attempt to ensure it's as fresh as possible.
         await user.getIdToken(true);
-        await new Promise(resolve => setTimeout(resolve, 500));
 
         const deviceId = getDeviceId();
-        await db.collection('users').doc(user.uid).set({
+        const profileData = {
             name,
             role,
             userId: email,
             boundDeviceId: deviceId, 
-        });
-        // Success: User is fully registered and logged in.
+        };
+        
+        // Use the new, robust retry mechanism
+        await createUserProfileWithRetry(user, profileData);
+
     } catch (firestoreError: any) {
-        console.error("Firestore profile creation failed, cleaning up auth user...", firestoreError);
+        console.error("Firestore profile creation failed after all retries, cleaning up auth user...", firestoreError);
         // If Firestore fails, we MUST delete the Auth user to prevent an orphaned account.
         try {
             await user.delete();
         } catch (deleteError) {
             console.error("CRITICAL: Failed to clean up auth user after profile creation failure:", deleteError);
-            // This is a critical state. The user needs to contact an admin.
             throw new Error("Pendaftaran gagal kritis. Akun Anda mungkin dalam keadaan tidak konsisten. Harap hubungi admin.");
         }
         // Throw a user-friendly message for the Firestore failure.
