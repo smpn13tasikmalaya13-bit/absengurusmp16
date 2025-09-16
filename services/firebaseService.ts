@@ -1,5 +1,6 @@
 
 
+
 import type { User, Class, Schedule, AttendanceRecord, UserRole, Message } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
@@ -108,16 +109,37 @@ export const signUp = async (email: string, password: string, name: string, role
         throw new Error("Gagal membuat pengguna.");
     }
     
-    const deviceId = getDeviceId();
-    // Store user profile and bind device immediately on registration
-    await db.collection('users').doc(user.uid).set({
-        name,
-        role,
-        userId: email,
-        boundDeviceId: deviceId, 
-    });
+    try {
+        const deviceId = getDeviceId();
+        // Store user profile and bind device immediately on registration
+        await db.collection('users').doc(user.uid).set({
+            name,
+            role,
+            userId: email,
+            boundDeviceId: deviceId, 
+        });
 
-    return { success: true };
+        // Sign the user out to ensure they go through the proper login flow,
+        // which validates device binding and ensures the profile is loaded correctly.
+        await auth.signOut();
+
+        return { success: true };
+
+    } catch (error) {
+        // If creating the profile fails, we should delete the auth user to avoid an inconsistent state.
+        console.error("Error creating user profile in Firestore, attempting to clean up auth user...", error);
+        try {
+            await user.delete();
+        } catch (deleteError) {
+            console.error("CRITICAL: Failed to clean up auth user after profile creation failure:", deleteError);
+            // This is a bad state. The user exists in Auth but not in Firestore.
+            // The message should guide them to contact support.
+            throw new Error("Pendaftaran gagal dan pengguna tidak dapat dihapus secara otomatis. Harap hubungi admin.");
+        }
+        
+        // Let the UI know the profile creation failed.
+        throw new Error("Gagal menyimpan profil pengguna. Silakan coba lagi.");
+    }
 };
 
 // --- User Functions ---
