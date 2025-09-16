@@ -1,17 +1,16 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background shape, typical for app icons -->
+    <rect width="512" height="512" rx="90" fill="url(#backgroundGradient)"/>
     <defs>
-        <linearGradient id="modernGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#38BDF8"/>
-            <stop offset="1" stop-color="#3B82F6"/>
+        <linearGradient id="backgroundGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#3B82F6"/>
+            <stop offset="1" stop-color="#2563EB"/>
         </linearGradient>
     </defs>
-    <!-- Outer Circle / Clock Body -->
-    <circle cx="256" cy="256" r="224" fill="url(#modernGradient)" stroke="#FFFFFF" stroke-width="16"/>
-    
-    <!-- Clock Hands -->
-    <path d="M256 128 V 256 H 352" stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    
-    <!-- Checkmark -->
-    <path d="M176 256 L 240 320 L 352 208" stroke="#10B981" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" fill="none" transform="translate(0, 20)"/>
-     <path d="M176 256 L 240 320 L 352 208" stroke="white" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" fill="none" transform="translate(0, 20)"/>
+    <!-- Stylized Letter 'H' for HadirKu -->
+    <path d="M128 112 V 400 M 384 112 V 400 M 128 256 H 384" 
+          stroke="white" 
+          stroke-width="56" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"/>
 </svg>
