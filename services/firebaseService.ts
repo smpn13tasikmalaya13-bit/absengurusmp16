@@ -1,4 +1,3 @@
-
 import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
@@ -323,33 +322,49 @@ const checkForTimeConflict = async (scheduleData: Omit<Schedule, 'id'>, existing
 };
 
 export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
-    // Validasi waktu dasar
-    if (scheduleData.startTime >= scheduleData.endTime) {
-        return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
-    }
+    try {
+        // Validasi waktu dasar
+        if (scheduleData.startTime >= scheduleData.endTime) {
+            return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
+        }
 
-    const timeConflict = await checkForTimeConflict(scheduleData);
-    if (timeConflict.conflict) {
-        return { success: false, message: timeConflict.message };
-    }
+        const timeConflict = await checkForTimeConflict(scheduleData);
+        if (timeConflict.conflict) {
+            return { success: false, message: timeConflict.message };
+        }
 
-    await db.collection('schedules').add(scheduleData);
-    return { success: true, message: "Jadwal berhasil ditambahkan." };
+        await db.collection('schedules').add(scheduleData);
+        return { success: true, message: "Jadwal berhasil ditambahkan." };
+    } catch (error: any) {
+        console.error("Error adding schedule:", error);
+        const message = error.code === 'permission-denied'
+            ? "Akses ditolak. Anda tidak memiliki izin untuk menambahkan jadwal ini. Periksa aturan keamanan Firestore."
+            : `Gagal menambahkan jadwal: ${error.message}`;
+        return { success: false, message };
+    }
 };
 
 export const updateSchedule = async (id: string, scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
-     // Validasi waktu dasar
-    if (scheduleData.startTime >= scheduleData.endTime) {
-        return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
-    }
-    
-    const timeConflict = await checkForTimeConflict(scheduleData, id);
-    if (timeConflict.conflict) {
-        return { success: false, message: timeConflict.message };
-    }
+    try {
+        // Validasi waktu dasar
+        if (scheduleData.startTime >= scheduleData.endTime) {
+            return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
+        }
+        
+        const timeConflict = await checkForTimeConflict(scheduleData, id);
+        if (timeConflict.conflict) {
+            return { success: false, message: timeConflict.message };
+        }
 
-    await db.collection('schedules').doc(id).update(scheduleData);
-    return { success: true, message: "Jadwal berhasil diperbarui." };
+        await db.collection('schedules').doc(id).update(scheduleData);
+        return { success: true, message: "Jadwal berhasil diperbarui." };
+    } catch (error: any) {
+        console.error("Error updating schedule:", error);
+        const message = error.code === 'permission-denied'
+            ? "Akses ditolak. Anda tidak memiliki izin untuk mengubah jadwal ini. Periksa aturan keamanan Firestore."
+            : `Gagal mengubah jadwal: ${error.message}`;
+        return { success: false, message };
+    }
 };
 
 
