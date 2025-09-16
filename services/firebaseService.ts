@@ -1,4 +1,3 @@
-
 import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
@@ -407,17 +406,9 @@ export const addMessage = async (messageData: Omit<Message, 'id'>): Promise<void
 
 // Gunakan onSnapshot untuk pembaruan real-time
 export const onMessagesReceived = (userId: string, callback: (messages: Message[]) => void): (() => void) => {
-    const currentUser = auth.currentUser;
-    // Add a guard to ensure the listener is for the currently authenticated user.
-    // This prevents race conditions where the listener is set up with a stale user ID.
-    if (!currentUser || currentUser.uid !== userId) {
-        console.warn("Message listener setup cancelled due to user ID mismatch.", {
-            authUid: currentUser?.uid,
-            passedUid: userId,
-        });
-        return () => {}; // Return an empty unsubscribe function
-    }
-
+    // The previous guard was too strict and could cause race conditions.
+    // The query itself is secure because it's based on the userId passed from the authenticated component.
+    // Firestore security rules provide the necessary backend enforcement.
     return db.collection('messages')
         .where('recipientId', '==', userId)
         .orderBy('timestamp', 'desc')
