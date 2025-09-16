@@ -670,39 +670,37 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
 
     const fetchData = useCallback(async () => {
         setLoadingData(true);
-        // Reset states to prevent displaying stale data during refetch
-        setEskuls([]);
-        setSchedules([]);
-        setAttendance([]);
+    
+        // Fetch eskul list (critical for dropdown).
         try {
-            // Fetch eskuls list first, as it's critical for the schedule manager dropdown.
             const eskulsData = await api.getEskuls();
             setEskuls(eskulsData);
-
-            // Fetch other data. If these fail, the eskul list is still available.
-            try {
-                const schedulesData = await api.getEskulSchedules(user.id);
-                setSchedules(schedulesData);
-            } catch (scheduleError: any) {
-                console.error("Gagal memuat jadwal eskul:", scheduleError);
-                alert(`Gagal memuat jadwal eskul Anda. Fitur mungkin tidak bekerja dengan benar. Kesalahan: ${scheduleError.message}`);
-            }
-
-            try {
-                const attendanceData = await api.getEskulAttendanceRecords(user.id);
-                setAttendance(attendanceData);
-            } catch (attendanceError: any) {
-                 console.error("Gagal memuat riwayat absensi eskul:", attendanceError);
-                 alert(`Gagal memuat riwayat absensi eskul Anda. Kesalahan: ${attendanceError.message}`);
-            }
-
         } catch (error: any) {
             console.error("Gagal memuat daftar eskul:", error);
-            alert(`Gagal memuat daftar eskul. Fitur mungkin tidak bekerja dengan benar. Kesalahan: ${error.message}`);
-        } finally {
-            setLoadingData(false);
+            alert(`Gagal memuat daftar eskul. Anda tidak akan bisa menambah jadwal baru. Error: ${error.message}`);
         }
+    
+        // Fetch schedules (less critical).
+        try {
+            const schedulesData = await api.getEskulSchedules(user.id);
+            setSchedules(schedulesData);
+        } catch (error: any) {
+            console.error("Gagal memuat jadwal eskul:", error);
+            alert(`Gagal memuat daftar jadwal eskul yang ada.`);
+        }
+    
+        // Fetch attendance (less critical).
+        try {
+            const attendanceData = await api.getEskulAttendanceRecords(user.id);
+            setAttendance(attendanceData);
+        } catch (error: any) {
+             console.error("Gagal memuat riwayat absensi eskul:", error);
+             alert(`Gagal memuat riwayat absensi eskul Anda.`);
+        }
+    
+        setLoadingData(false);
     }, [user.id]);
+
 
     useEffect(() => {
         fetchData();
@@ -1598,21 +1596,40 @@ const ScheduleManagement: React.FC = () => {
     const [teachers, setTeachers] = useState<User[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<Partial<Schedule> | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const fetchData = async () => {
-        const [s, c, t] = await Promise.all([
-            api.getSchedules(),
-            api.getClasses(),
-            api.getUsersByRole(UserRoleEnum.TEACHER)
-        ]);
-        setSchedules(s);
-        setClasses(c);
-        setTeachers(t);
-    };
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+
+        // Fetch dropdown data first, it's critical.
+        try {
+            const [classesData, teachersData] = await Promise.all([
+                api.getClasses(),
+                api.getUsersByRole(UserRoleEnum.TEACHER)
+            ]);
+            setClasses(classesData);
+            setTeachers(teachersData);
+        } catch (error: any) {
+            console.error("Gagal memuat data dropdown (kelas/guru):", error);
+            alert(`Gagal memuat data penting untuk dropdown. Harap muat ulang halaman. Error: ${error.message}`);
+        }
+        
+        // Fetch table data separately.
+        try {
+            const schedulesData = await api.getSchedules();
+            setSchedules(schedulesData);
+        } catch (error: any) {
+             console.error("Gagal memuat data jadwal:", error);
+             alert(`Gagal memuat daftar jadwal yang ada. Menambah jadwal baru masih dimungkinkan.`);
+        }
+        
+        setLoading(false);
+    }, []);
+
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [fetchData]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1658,6 +1675,15 @@ const ScheduleManagement: React.FC = () => {
 
     const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
     const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
+
+    if (loading) {
+        return (
+            <div className="bg-white p-6 rounded-lg shadow">
+                <h2 className="text-2xl font-bold mb-4">Manajemen Jadwal Pelajaran</h2>
+                <Spinner />
+            </div>
+        );
+    }
 
     return (
         <>
