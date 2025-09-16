@@ -670,18 +670,35 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
 
     const fetchData = useCallback(async () => {
         setLoadingData(true);
+        // Reset states to prevent displaying stale data during refetch
+        setEskuls([]);
+        setSchedules([]);
+        setAttendance([]);
         try {
-            const [eskulsData, schedulesData, attendanceData] = await Promise.all([
-                api.getEskuls(),
-                api.getEskulSchedules(user.id),
-                api.getEskulAttendanceRecords(user.id),
-            ]);
+            // Fetch eskuls list first, as it's critical for the schedule manager dropdown.
+            const eskulsData = await api.getEskuls();
             setEskuls(eskulsData);
-            setSchedules(schedulesData);
-            setAttendance(attendanceData);
+
+            // Fetch other data. If these fail, the eskul list is still available.
+            try {
+                const schedulesData = await api.getEskulSchedules(user.id);
+                setSchedules(schedulesData);
+            } catch (scheduleError: any) {
+                console.error("Gagal memuat jadwal eskul:", scheduleError);
+                alert(`Gagal memuat jadwal eskul Anda. Fitur mungkin tidak bekerja dengan benar. Kesalahan: ${scheduleError.message}`);
+            }
+
+            try {
+                const attendanceData = await api.getEskulAttendanceRecords(user.id);
+                setAttendance(attendanceData);
+            } catch (attendanceError: any) {
+                 console.error("Gagal memuat riwayat absensi eskul:", attendanceError);
+                 alert(`Gagal memuat riwayat absensi eskul Anda. Kesalahan: ${attendanceError.message}`);
+            }
+
         } catch (error: any) {
-            console.error("Gagal memuat data ekstrakurikuler:", error);
-            alert(`Gagal memuat data eskul Anda. Fitur mungkin tidak bekerja dengan benar. Kesalahan: ${error.message}`);
+            console.error("Gagal memuat daftar eskul:", error);
+            alert(`Gagal memuat daftar eskul. Fitur mungkin tidak bekerja dengan benar. Kesalahan: ${error.message}`);
         } finally {
             setLoadingData(false);
         }
