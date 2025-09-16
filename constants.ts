@@ -11,7 +11,7 @@ export const DAYS_OF_WEEK: ('Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'F
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
 ];
 
-export const LESSON_HOURS = Array.from({ length: 8 }, (_, i) => i + 1);
+export const LESSON_HOURS = Array.from({ length: 9 }, (_, i) => i + 1);
 
 export const HARI_TRANSLATION: { [key in typeof DAYS_OF_WEEK[number]]: string } = {
     'Monday': 'Senin',
