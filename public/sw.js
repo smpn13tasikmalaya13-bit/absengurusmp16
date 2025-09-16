@@ -1,5 +1,5 @@
 // A more robust service worker to ensure proper PWA lifecycle and caching.
-const CACHE_NAME = 'hadirku-cache-v16'; // Version bump is crucial for updates
+const CACHE_NAME = 'hadirku-cache-v17'; // Version bump is crucial for updates
 const urlsToCache = [
   '/',
   '/index.html',

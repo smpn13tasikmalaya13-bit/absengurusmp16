@@ -23,17 +23,17 @@ declare global {
 const CalendarIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>);
 const ClockIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>);
 const UserIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>);
-const QrScanIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg></div>);
-const ScheduleIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>);
-const QrCodeEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg>);
-const CalendarEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>);
+const QrScanIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-green-900 bg-opacity-50 text-green-400"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg></div>);
+const ScheduleIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-900 bg-opacity-50 text-blue-400"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>);
+const QrCodeEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg>);
+const CalendarEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>);
 const LogoutIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>);
 const MessageIcon = ({ hasUnread }: { hasUnread?: boolean }) => (
     <div className="relative">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
-        {hasUnread && <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"></span>}
+        {hasUnread && <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-gray-800"></span>}
     </div>
 );
 const DownloadIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>);
@@ -42,11 +42,11 @@ const DownloadIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h
 // --- UI Components ---
 
 const Spinner = () => (
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto"></div>
 );
 
 const FullPageSpinner = () => (
-    <div className="fixed inset-0 bg-gray-100 flex justify-center items-center z-50">
+    <div className="fixed inset-0 bg-gray-900 flex justify-center items-center z-50">
         <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
     </div>
 );
@@ -61,11 +61,11 @@ interface ModalProps {
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-                <div className="p-4 border-b flex justify-between items-center">
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
+            <div className="bg-gray-800 text-white rounded-lg shadow-xl w-full max-w-md border border-gray-700">
+                <div className="p-4 border-b border-gray-700 flex justify-between items-center">
                     <h3 className="text-xl font-semibold">{title}</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl leading-none">&times;</button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
                 </div>
                 <div className="p-4">{children}</div>
             </div>
@@ -279,17 +279,17 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
     }
     
     return (
-      <div className="bg-gray-50 min-h-screen font-sans">
-            <header className="bg-white p-4 flex justify-between items-center shadow-sm">
+      <div className="bg-gray-900 text-white min-h-screen font-sans">
+            <header className="bg-gray-800 p-4 flex justify-between items-center shadow-md">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Dashboard Guru</h1>
-                    <p className="text-sm text-gray-500">Selamat datang, {user.name}</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-white">Dashboard Guru</h1>
+                    <p className="text-sm text-gray-400">Selamat datang, {user.name}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <button onClick={handleOpenMessageModal} className="text-gray-600 hover:text-gray-900 transition-colors">
+                    <button onClick={handleOpenMessageModal} className="text-gray-300 hover:text-white transition-colors">
                         <MessageIcon hasUnread={unreadMessagesCount > 0} />
                     </button>
-                    <button onClick={onLogout} className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-4 py-2 rounded-md border border-gray-300 hover:border-gray-400">
+                    <button onClick={onLogout} className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white transition-colors px-4 py-2 rounded-md border border-gray-600 hover:border-gray-500">
                         <LogoutIcon />
                         <span>Keluar</span>
                     </button>
@@ -298,7 +298,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
             <main className="p-4 md:p-6 space-y-6">
                 {scanResult && (
-                    <div className={`p-4 rounded-md mb-6 shadow ${scanResult.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    <div className={`p-4 rounded-md mb-6 shadow-lg ${scanResult.type === 'success' ? 'bg-green-900 bg-opacity-50 text-green-300 border border-green-700' : 'bg-red-900 bg-opacity-50 text-red-300 border border-red-700'}`}>
                         <p className="font-medium">{scanResult.type === 'success' ? 'Berhasil!' : 'Gagal'}</p>
                         <p className="text-sm">{scanResult.message}</p>
                     </div>
@@ -306,91 +306,91 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                 
                 {/* Action Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <button onClick={() => setIsScanning(true)} disabled={!isWithinRadius} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-sm group flex flex-col items-center justify-center gap-4 border border-gray-200">
+                     <button onClick={() => setIsScanning(true)} disabled={!isWithinRadius} className="bg-gray-800 p-8 rounded-lg shadow-md text-center hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-gray-800 group flex flex-col items-center justify-center gap-4 border border-gray-700">
                         <QrScanIcon />
                         <div>
-                            <h3 className="text-lg font-bold text-gray-800 group-disabled:text-gray-500">Scan QR Code</h3>
-                            <p className="text-gray-500 text-sm mt-1">Scan QR Code kelas untuk absensi</p>
+                            <h3 className="text-lg font-bold text-white group-disabled:text-gray-500">Scan QR Code</h3>
+                            <p className="text-gray-400 text-sm mt-1">Scan QR Code kelas untuk absensi</p>
                             {!isWithinRadius && <p className="text-xs text-red-500 mt-1">Anda berada di luar radius sekolah.</p>}
                         </div>
                     </button>
-                     <button onClick={() => setIsScheduleModalOpen(true)} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow flex flex-col items-center justify-center gap-4 border border-gray-200">
+                     <button onClick={() => setIsScheduleModalOpen(true)} className="bg-gray-800 p-8 rounded-lg shadow-md text-center hover:bg-gray-700 transition-colors flex flex-col items-center justify-center gap-4 border border-gray-700">
                         <ScheduleIcon />
                         <div>
-                            <h3 className="text-lg font-bold text-gray-800">Jadwal Mengajar</h3>
-                            <p className="text-gray-500 text-sm mt-1">Lihat dan kelola jadwal mengajar Anda</p>
+                            <h3 className="text-lg font-bold text-white">Jadwal Mengajar</h3>
+                            <p className="text-gray-400 text-sm mt-1">Lihat dan kelola jadwal mengajar Anda</p>
                         </div>
                     </button>
                 </div>
                 
                 {/* Top Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
                         <div className="flex justify-between items-center mb-1">
-                             <p className="font-semibold text-gray-700">Absensi Hari Ini</p>
-                            <div className="text-gray-400"><CalendarIcon /></div>
+                             <p className="font-semibold text-gray-300">Absensi Hari Ini</p>
+                            <div className="text-gray-500"><CalendarIcon /></div>
                         </div>
-                        <p className="text-3xl font-bold text-gray-800">{attendanceStats.today}</p>
+                        <p className="text-3xl font-bold text-white">{attendanceStats.today}</p>
                         <p className="text-xs text-gray-400">Jam pelajaran yang sudah diabsen</p>
                     </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
                          <div className="flex justify-between items-center mb-1">
-                            <p className="font-semibold text-gray-700">Minggu Ini</p>
-                            <div className="text-gray-400"><ClockIcon /></div>
+                            <p className="font-semibold text-gray-300">Minggu Ini</p>
+                            <div className="text-gray-500"><ClockIcon /></div>
                         </div>
-                        <p className="text-3xl font-bold text-gray-800">{attendanceStats.week}</p>
+                        <p className="text-3xl font-bold text-white">{attendanceStats.week}</p>
                         <p className="text-xs text-gray-400">Total absensi minggu ini</p>
                     </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
                         <div className="flex justify-between items-center mb-1">
-                            <p className="font-semibold text-gray-700">Total Absensi</p>
-                            <div className="text-gray-400"><UserIcon /></div>
+                            <p className="font-semibold text-gray-300">Total Absensi</p>
+                            <div className="text-gray-500"><UserIcon /></div>
                         </div>
-                        <p className="text-3xl font-bold text-gray-800">{attendanceStats.total}</p>
+                        <p className="text-3xl font-bold text-white">{attendanceStats.total}</p>
                         <p className="text-xs text-gray-400">Semua absensi Anda</p>
                     </div>
                 </div>
 
                 {/* Data Display Cards */}
                 <div className="grid grid-cols-1 gap-6">
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
                         <h3 className="font-bold text-lg">Riwayat Absensi Terbaru</h3>
-                        <p className="text-sm text-gray-500 mb-4">10 absensi terakhir Anda</p>
+                        <p className="text-sm text-gray-400 mb-4">10 absensi terakhir Anda</p>
                         <div className="space-y-3">
                             {attendance.length === 0 ? (
-                                <div className="text-center py-10 text-gray-400">
+                                <div className="text-center py-10 text-gray-500">
                                     <QrCodeEmptyIcon />
-                                    <p className="font-semibold mt-2 text-gray-600">Belum ada riwayat absensi</p>
+                                    <p className="font-semibold mt-2 text-gray-300">Belum ada riwayat absensi</p>
                                     <p className="text-sm">Scan QR Code kelas untuk mulai absensi</p>
                                 </div>
                             ) : (
                                 attendance.slice(0, 10).map(rec => (
-                                    <div key={rec.id} className="border-b last:border-b-0 pb-3 pt-2">
+                                    <div key={rec.id} className="border-b border-gray-700 last:border-b-0 pb-3 pt-2">
                                         <p className="font-semibold">Kelas {getClassName(rec.classId)} - Jam ke-{rec.lessonHour}</p>
-                                        <p className="text-sm text-gray-500">{new Date(rec.scanTime).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}</p>
+                                        <p className="text-sm text-gray-400">{new Date(rec.scanTime).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}</p>
                                     </div>
                                 ))
                             )}
                         </div>
                     </div>
-                     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                     <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
                         <h3 className="font-bold text-lg">Jadwal Hari Ini</h3>
-                        <p className="text-sm text-gray-500 mb-4">Jadwal mengajar Anda hari ini</p>
+                        <p className="text-sm text-gray-400 mb-4">Jadwal mengajar Anda hari ini</p>
                          <div className="space-y-3">
                             {todaySchedules.length === 0 ? (
-                                <div className="text-center py-10 text-gray-400">
+                                <div className="text-center py-10 text-gray-500">
                                     <CalendarEmptyIcon />
-                                    <p className="font-semibold mt-2 text-gray-600">Belum ada jadwal mengajar</p>
+                                    <p className="font-semibold mt-2 text-gray-300">Belum ada jadwal mengajar</p>
                                     <p className="text-sm">Hubungi admin untuk mengatur jadwal</p>
                                 </div>
                             ) : (
                                 todaySchedules.map(s => (
-                                    <div key={s.id} className="bg-gray-50 p-4 rounded-lg flex justify-between items-center">
+                                    <div key={s.id} className="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
                                         <div>
-                                            <p className="font-semibold text-gray-800">{s.subject}</p>
-                                            <p className="text-sm text-gray-500">{getClassName(s.classId)}</p>
+                                            <p className="font-semibold text-white">{s.subject}</p>
+                                            <p className="text-sm text-gray-400">{getClassName(s.classId)}</p>
                                         </div>
-                                        <span className="text-sm font-medium text-gray-500">{s.startTime} - {s.endTime}</span>
+                                        <span className="text-sm font-medium text-gray-300">{s.startTime} - {s.endTime}</span>
                                     </div>
                                 ))
                             )}
@@ -406,12 +406,12 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             <Modal isOpen={isMessageModalOpen} onClose={() => setIsMessageModalOpen(false)} title="Pesan Masuk">
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                     {messages.length === 0 ? (
-                        <p className="text-gray-500 text-center py-4">Tidak ada pesan.</p>
+                        <p className="text-gray-400 text-center py-4">Tidak ada pesan.</p>
                     ) : (
                         messages.map(msg => (
-                            <div key={msg.id} className={`p-3 rounded-lg ${msg.isRead ? 'bg-gray-100' : 'bg-blue-50 border border-blue-200'}`}>
-                                <p className="text-sm text-gray-800">{msg.content}</p>
-                                <p className="text-xs text-gray-500 mt-2 text-right">
+                            <div key={msg.id} className={`p-3 rounded-lg ${msg.isRead ? 'bg-gray-700' : 'bg-blue-900 bg-opacity-40 border border-blue-800'}`}>
+                                <p className="text-sm text-gray-200">{msg.content}</p>
+                                <p className="text-xs text-gray-400 mt-2 text-right">
                                     Dari: {msg.senderName} - {new Date(msg.timestamp).toLocaleString('id-ID')}
                                 </p>
                             </div>
@@ -494,9 +494,9 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <div className="w-full bg-white rounded-2xl shadow-xl max-w-sm mx-auto overflow-hidden">
+            <div className="w-full bg-gray-800 rounded-2xl shadow-xl max-w-sm mx-auto overflow-hidden">
                 <div className="p-4 text-center space-y-3">
-                    <h2 className="font-bold text-lg text-gray-800">
+                    <h2 className="font-bold text-lg text-white">
                         Arahkan kamera ke QR Code
                     </h2>
                 </div>
@@ -519,7 +519,7 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
                  <div className="p-4">
                     <button 
                         onClick={onCancel} 
-                        className="w-full bg-gray-200 text-gray-800 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                        className="w-full bg-gray-600 text-white font-semibold py-3 rounded-lg hover:bg-gray-500 transition-colors"
                     >
                         Batal
                     </button>
@@ -590,22 +590,22 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
     const getClassName = (classId: string) => classes.find(c => c.id === classId)?.name || 'N/A';
     
     return (
-        <div className="bg-white p-4 rounded-lg">
+        <div className="bg-gray-800 p-4 rounded-lg">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Jadwal Mengajar Saya</h2>
-                <button onClick={() => handleOpenModal()} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Tambah Jadwal</button>
+                <h2 className="text-xl font-bold text-white">Jadwal Mengajar Saya</h2>
+                <button onClick={() => handleOpenModal()} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Tambah Jadwal</button>
             </div>
             <div className="space-y-4 max-h-96 overflow-y-auto">
-                {schedules.length === 0 ? <p>Anda belum memiliki jadwal.</p> : schedules.map(s => (
-                    <div key={s.id} className="border p-3 rounded-lg flex justify-between items-center">
+                {schedules.length === 0 ? <p className="text-gray-400">Anda belum memiliki jadwal.</p> : schedules.map(s => (
+                    <div key={s.id} className="border border-gray-700 p-3 rounded-lg flex justify-between items-center">
                         <div>
-                            <p className="font-semibold">{s.subject}</p>
-                            <p className="text-gray-600">Kelas: {getClassName(s.classId)} ({HARI_TRANSLATION[s.day]}, Jam ke-{s.lessonHour})</p>
-                             <p className="text-sm text-gray-500">Waktu: {s.startTime} - {s.endTime}</p>
+                            <p className="font-semibold text-white">{s.subject}</p>
+                            <p className="text-gray-300">Kelas: {getClassName(s.classId)} ({HARI_TRANSLATION[s.day]}, Jam ke-{s.lessonHour})</p>
+                             <p className="text-sm text-gray-400">Waktu: {s.startTime} - {s.endTime}</p>
                         </div>
                         <div className="flex items-center space-x-2">
-                            <button onClick={() => handleOpenModal(s)} className="text-blue-600 hover:underline text-sm font-medium">Ubah</button>
-                            <button onClick={() => handleDelete(s.id)} className="text-red-600 hover:underline text-sm font-medium">Hapus</button>
+                            <button onClick={() => handleOpenModal(s)} className="text-blue-400 hover:underline text-sm font-medium">Ubah</button>
+                            <button onClick={() => handleDelete(s.id)} className="text-red-400 hover:underline text-sm font-medium">Hapus</button>
                         </div>
                     </div>
                 ))}
@@ -613,32 +613,32 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
              <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingSchedule?.id ? 'Ubah Jadwal' : 'Tambah Jadwal'}>
                 <form onSubmit={handleSave} className="space-y-4">
                     <div>
-                        <label className="block mb-1">Mata Pelajaran</label>
-                        <input type="text" value={editingSchedule?.subject || ''} onChange={e => setEditingSchedule({...editingSchedule, subject: e.target.value})} className="w-full p-2 border rounded" placeholder="Contoh: Matematika"/>
+                        <label className="block mb-1 text-gray-300">Mata Pelajaran</label>
+                        <input type="text" value={editingSchedule?.subject || ''} onChange={e => setEditingSchedule({...editingSchedule, subject: e.target.value})} className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white" placeholder="Contoh: Matematika"/>
                     </div>
                      <div>
-                        <label className="block mb-1">Kelas</label>
-                        <select value={editingSchedule?.classId || ''} onChange={e => setEditingSchedule({...editingSchedule, classId: e.target.value})} className="w-full p-2 border rounded">
+                        <label className="block mb-1 text-gray-300">Kelas</label>
+                        <select value={editingSchedule?.classId || ''} onChange={e => setEditingSchedule({...editingSchedule, classId: e.target.value})} className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white">
                             <option value="">Pilih Kelas</option>
                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block mb-1">Hari</label>
-                        <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as Schedule['day']})} className="w-full p-2 border rounded">
+                        <label className="block mb-1 text-gray-300">Hari</label>
+                        <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as Schedule['day']})} className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white">
                             <option value="">Pilih Hari</option>
                             {DAYS_OF_WEEK.map(day => <option key={day} value={day}>{HARI_TRANSLATION[day]}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block mb-1">Jam Ke</label>
+                        <label className="block mb-1 text-gray-300">Jam Ke</label>
                         <select 
                             value={editingSchedule?.lessonHour || ''} 
                             onChange={e => {
                                 const value = parseInt(e.target.value, 10);
                                 setEditingSchedule({...editingSchedule, lessonHour: isNaN(value) ? undefined : value });
                             }} 
-                            className="w-full p-2 border rounded"
+                            className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white"
                         >
                             <option value="">Pilih Jam</option>
                             {LESSON_HOURS.map(hour => <option key={hour} value={hour}>{hour}</option>)}
@@ -646,16 +646,16 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
                     </div>
                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block mb-1">Waktu Mulai</label>
-                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded" />
+                            <label className="block mb-1 text-gray-300">Waktu Mulai</label>
+                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white" />
                         </div>
                         <div>
-                            <label className="block mb-1">Waktu Selesai</label>
-                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded" />
+                            <label className="block mb-1 text-gray-300">Waktu Selesai</label>
+                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white" />
                         </div>
                     </div>
                     
-                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg flex justify-center items-center transition duration-150 disabled:bg-blue-400" disabled={isSaving}>
+                    <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg flex justify-center items-center transition duration-150 disabled:bg-blue-800 hover:bg-blue-700" disabled={isSaving}>
                         {isSaving ? (
                             <>
                                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
@@ -818,77 +818,77 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
     const todaySchedules = schedules.filter(s => s.day === new Date().toLocaleDateString('en-US', { weekday: 'long' }));
 
     return (
-        <div className="bg-gray-50 min-h-screen font-sans">
-            <header className="bg-white p-4 flex justify-between items-center shadow-sm">
+        <div className="bg-gray-900 text-white min-h-screen font-sans">
+            <header className="bg-gray-800 p-4 flex justify-between items-center shadow-md">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Dashboard Pembina Eskul</h1>
-                    <p className="text-sm text-gray-500">Selamat datang, {user.name}</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-white">Dashboard Pembina Eskul</h1>
+                    <p className="text-sm text-gray-400">Selamat datang, {user.name}</p>
                 </div>
-                <button onClick={onLogout} className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-4 py-2 rounded-md border border-gray-300 hover:border-gray-400">
+                <button onClick={onLogout} className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white transition-colors px-4 py-2 rounded-md border border-gray-600 hover:border-gray-500">
                     <LogoutIcon />
                     <span>Keluar</span>
                 </button>
             </header>
             <main className="p-4 md:p-6 space-y-6">
                 {scanResult && (
-                    <div className={`p-4 rounded-md mb-6 shadow ${scanResult.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    <div className={`p-4 rounded-md mb-6 shadow-lg ${scanResult.type === 'success' ? 'bg-green-900 bg-opacity-50 text-green-300 border border-green-700' : 'bg-red-900 bg-opacity-50 text-red-300 border border-red-700'}`}>
                         <p className="font-medium">{scanResult.type === 'success' ? 'Berhasil!' : 'Gagal'}</p>
                         <p className="text-sm">{scanResult.message}</p>
                     </div>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <button onClick={() => setIsScanning(true)} disabled={!isWithinRadius} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-sm group flex flex-col items-center justify-center gap-4 border border-gray-200">
+                    <button onClick={() => setIsScanning(true)} disabled={!isWithinRadius} className="bg-gray-800 p-8 rounded-lg shadow-md text-center hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-gray-800 group flex flex-col items-center justify-center gap-4 border border-gray-700">
                         <QrScanIcon />
                         <div>
-                            <h3 className="text-lg font-bold text-gray-800 group-disabled:text-gray-500">Scan Absensi Eskul</h3>
-                            <p className="text-gray-500 text-sm mt-1">Pindai QR untuk absensi datang & pulang</p>
+                            <h3 className="text-lg font-bold text-white group-disabled:text-gray-500">Scan Absensi Eskul</h3>
+                            <p className="text-gray-400 text-sm mt-1">Pindai QR untuk absensi datang & pulang</p>
                             {!isWithinRadius && <p className="text-xs text-red-500 mt-1">Anda berada di luar radius sekolah.</p>}
                         </div>
                     </button>
-                    <button onClick={() => setIsScheduleModalOpen(true)} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow flex flex-col items-center justify-center gap-4 border border-gray-200">
+                    <button onClick={() => setIsScheduleModalOpen(true)} className="bg-gray-800 p-8 rounded-lg shadow-md text-center hover:bg-gray-700 transition-colors flex flex-col items-center justify-center gap-4 border border-gray-700">
                         <ScheduleIcon />
                         <div>
-                            <h3 className="text-lg font-bold text-gray-800">Jadwal Eskul</h3>
-                            <p className="text-gray-500 text-sm mt-1">Lihat dan kelola jadwal eskul Anda</p>
+                            <h3 className="text-lg font-bold text-white">Jadwal Eskul</h3>
+                            <p className="text-gray-400 text-sm mt-1">Lihat dan kelola jadwal eskul Anda</p>
                         </div>
                     </button>
                 </div>
                  <div className="grid grid-cols-1 gap-6">
-                     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                     <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
                         <h3 className="font-bold text-lg">Jadwal Hari Ini</h3>
                          <div className="space-y-3 mt-4">
                             {todaySchedules.length === 0 ? (
-                                <div className="text-center py-10 text-gray-400">
+                                <div className="text-center py-10 text-gray-500">
                                     <CalendarEmptyIcon />
-                                    <p className="font-semibold mt-2 text-gray-600">Tidak ada jadwal eskul hari ini</p>
+                                    <p className="font-semibold mt-2 text-gray-300">Tidak ada jadwal eskul hari ini</p>
                                 </div>
                             ) : (
                                 todaySchedules.map(s => (
-                                    <div key={s.id} className="bg-gray-50 p-4 rounded-lg flex justify-between items-center">
-                                        <p className="font-semibold text-gray-800">{getEskulName(s.eskulId)}</p>
-                                        <span className="text-sm font-medium text-gray-500">{s.startTime} - {s.endTime}</span>
+                                    <div key={s.id} className="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
+                                        <p className="font-semibold text-white">{getEskulName(s.eskulId)}</p>
+                                        <span className="text-sm font-medium text-gray-300">{s.startTime} - {s.endTime}</span>
                                     </div>
                                 ))
                             )}
                         </div>
                     </div>
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
                         <h3 className="font-bold text-lg">Riwayat Absensi Eskul Terbaru</h3>
                         <div className="space-y-3 mt-4">
                             {attendance.length === 0 ? (
-                                <div className="text-center py-10 text-gray-400">
+                                <div className="text-center py-10 text-gray-500">
                                     <QrCodeEmptyIcon />
-                                    <p className="font-semibold mt-2 text-gray-600">Belum ada riwayat absensi</p>
+                                    <p className="font-semibold mt-2 text-gray-300">Belum ada riwayat absensi</p>
                                 </div>
                             ) : (
                                 attendance.slice(0, 5).map(rec => {
                                     const schedule = schedules.find(s => s.id === rec.eskulScheduleId);
                                     return (
-                                        <div key={rec.id} className="border-b last:border-b-0 pb-3 pt-2">
+                                        <div key={rec.id} className="border-b border-gray-700 last:border-b-0 pb-3 pt-2">
                                             <p className="font-semibold">{schedule ? getEskulName(schedule.eskulId) : 'Kegiatan Dihapus'}</p>
-                                            <p className="text-sm text-gray-500">Tanggal: {new Date(rec.checkInTime).toLocaleDateString('id-ID')}</p>
-                                            <p className="text-sm text-gray-500">Datang: {new Date(rec.checkInTime).toLocaleTimeString('id-ID')}</p>
-                                            {rec.checkOutTime && <p className="text-sm text-gray-500">Pulang: {new Date(rec.checkOutTime).toLocaleTimeString('id-ID')}</p>}
+                                            <p className="text-sm text-gray-400">Tanggal: {new Date(rec.checkInTime).toLocaleDateString('id-ID')}</p>
+                                            <p className="text-sm text-gray-400">Datang: {new Date(rec.checkInTime).toLocaleTimeString('id-ID')}</p>
+                                            {rec.checkOutTime && <p className="text-sm text-gray-400">Pulang: {new Date(rec.checkOutTime).toLocaleTimeString('id-ID')}</p>}
                                         </div>
                                     );
                                 })
@@ -969,21 +969,21 @@ const EskulScheduleManager: React.FC<{user: User, schedules: EskulSchedule[], es
     const getEskulName = (eskulId: string) => eskuls.find(e => e.id === eskulId)?.name || 'N/A';
     
     return (
-        <div className="bg-white p-4 rounded-lg">
+        <div className="bg-gray-800 p-4 rounded-lg">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Jadwal Eskul Saya</h2>
-                <button onClick={() => handleOpenModal()} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Tambah</button>
+                <h2 className="text-xl font-bold text-white">Jadwal Eskul Saya</h2>
+                <button onClick={() => handleOpenModal()} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Tambah</button>
             </div>
             <div className="space-y-4 max-h-96 overflow-y-auto">
                 {schedules.map(s => (
-                    <div key={s.id} className="border p-3 rounded-lg flex justify-between items-center">
+                    <div key={s.id} className="border border-gray-700 p-3 rounded-lg flex justify-between items-center">
                         <div>
-                            <p className="font-semibold">{getEskulName(s.eskulId)}</p>
-                            <p className="text-gray-600">{HARI_TRANSLATION[s.day]}, {s.startTime} - {s.endTime}</p>
+                            <p className="font-semibold text-white">{getEskulName(s.eskulId)}</p>
+                            <p className="text-gray-300">{HARI_TRANSLATION[s.day]}, {s.startTime} - {s.endTime}</p>
                         </div>
                         <div>
-                            <button onClick={() => handleOpenModal(s)} className="text-blue-600 hover:underline text-sm font-medium">Ubah</button>
-                            <button onClick={() => handleDelete(s.id)} className="text-red-600 hover:underline text-sm font-medium ml-2">Hapus</button>
+                            <button onClick={() => handleOpenModal(s)} className="text-blue-400 hover:underline text-sm font-medium">Ubah</button>
+                            <button onClick={() => handleDelete(s.id)} className="text-red-400 hover:underline text-sm font-medium ml-2">Hapus</button>
                         </div>
                     </div>
                 ))}
@@ -991,30 +991,30 @@ const EskulScheduleManager: React.FC<{user: User, schedules: EskulSchedule[], es
              <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingSchedule?.id ? 'Ubah Jadwal' : 'Tambah Jadwal'}>
                 <form onSubmit={handleSave} className="space-y-4">
                      <div>
-                        <label className="block mb-1">Kegiatan Eskul</label>
-                        <select value={editingSchedule?.eskulId || ''} onChange={e => setEditingSchedule({...editingSchedule, eskulId: e.target.value})} className="w-full p-2 border rounded">
+                        <label className="block mb-1 text-gray-300">Kegiatan Eskul</label>
+                        <select value={editingSchedule?.eskulId || ''} onChange={e => setEditingSchedule({...editingSchedule, eskulId: e.target.value})} className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white">
                             <option value="">Pilih Eskul</option>
                             {eskuls.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block mb-1">Hari</label>
-                        <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as EskulSchedule['day']})} className="w-full p-2 border rounded">
+                        <label className="block mb-1 text-gray-300">Hari</label>
+                        <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as EskulSchedule['day']})} className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white">
                             <option value="">Pilih Hari</option>
                             {DAYS_OF_WEEK.map(day => <option key={day} value={day}>{HARI_TRANSLATION[day]}</option>)}
                         </select>
                     </div>
                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block mb-1">Waktu Mulai</label>
-                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded" />
+                            <label className="block mb-1 text-gray-300">Waktu Mulai</label>
+                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white" />
                         </div>
                         <div>
-                            <label className="block mb-1">Waktu Selesai</label>
-                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded" />
+                            <label className="block mb-1 text-gray-300">Waktu Selesai</label>
+                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white" />
                         </div>
                     </div>
-                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
+                    <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Simpan</button>
                 </form>
             </Modal>
         </div>
@@ -1074,21 +1074,21 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                     <a onClick={() => handleSetView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi</a>
                 </nav>
                 <div className="p-4 border-t border-gray-700">
-                    <p>{user.name}</p>
+                    <p className="text-white">{user.name}</p>
                     <button onClick={onLogout} className="text-sm text-red-400 hover:text-red-300">Keluar</button>
                 </div>
             </aside>
 
             {/* Main content */}
-            <main className="flex-1 p-6 bg-gray-100 overflow-auto">
+            <main className="flex-1 p-6 bg-gray-900 overflow-auto">
                 {/* Header with hamburger button for mobile */}
                 <header className="flex items-center justify-between mb-6 md:hidden">
-                    <button onClick={() => setIsSidebarOpen(true)} className="text-gray-500 focus:outline-none">
+                    <button onClick={() => setIsSidebarOpen(true)} className="text-gray-400 focus:outline-none">
                         <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
                         </svg>
                     </button>
-                    <h1 className="text-xl font-semibold">{viewTitles[view] || 'Halaman'}</h1>
+                    <h1 className="text-xl font-semibold text-white">{viewTitles[view] || 'Halaman'}</h1>
                 </header>
 
                 {/* Page Content */}
@@ -1171,50 +1171,50 @@ const DashboardHome: React.FC = () => {
     if (loading) return <Spinner />;
 
     return (
-        <div>
+        <div className="text-white">
             <h1 className="text-3xl font-bold mb-6 hidden md:block">Dashboard</h1>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div className="bg-white p-4 rounded-lg shadow">
-                    <h3 className="font-semibold text-gray-500">Total Guru</h3>
-                    <p className="text-3xl font-bold">{teachers.length}</p>
+                <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
+                    <h3 className="font-semibold text-gray-400">Total Guru</h3>
+                    <p className="text-3xl font-bold text-white">{teachers.length}</p>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow">
-                    <h3 className="font-semibold text-gray-500">Guru Hadir Hari Ini</h3>
+                <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
+                    <h3 className="font-semibold text-gray-400">Guru Hadir Hari Ini</h3>
                     <p className="text-3xl font-bold text-green-500">{attendanceSummary.present}</p>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow">
-                    <h3 className="font-semibold text-gray-500">Guru Absen Hari Ini</h3>
+                <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
+                    <h3 className="font-semibold text-gray-400">Guru Absen Hari Ini</h3>
                     <p className="text-3xl font-bold text-red-500">{attendanceSummary.absent}</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 <div className="bg-white p-4 rounded-lg shadow">
+                 <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
                     <h2 className="text-xl font-bold mb-4">Ringkasan Absensi Hari Ini</h2>
                      <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
-                            <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                            <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label fill="#8884d8">
                                 {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
                             </Pie>
-                            <Tooltip />
-                            <Legend />
+                            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }} />
+                            <Legend wrapperStyle={{ color: '#d1d5db' }} />
                         </PieChart>
                     </ResponsiveContainer>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow">
+                <div className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700">
                     <h2 className="text-xl font-bold mb-4">Aktivitas Absensi Terbaru</h2>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                            <thead>
-                               <tr>
-                                   <th className="p-2 border-b">Guru</th>
-                                   <th className="p-2 border-b">Kelas</th>
-                                   <th className="p-2 border-b">Waktu</th>
+                               <tr className="border-b border-gray-700">
+                                   <th className="p-2">Guru</th>
+                                   <th className="p-2">Kelas</th>
+                                   <th className="p-2">Waktu</th>
                                </tr>
                            </thead>
                             <tbody>
                                 {attendance.slice(-5).reverse().map(rec => (
-                                    <tr key={rec.id}>
+                                    <tr key={rec.id} className="border-b border-gray-700 last:border-none">
                                         <td className="p-2">{getTeacherName(rec.teacherId)}</td>
                                         <td className="p-2">{getClassName(rec.classId)}</td>
                                         <td className="p-2">{new Date(rec.scanTime).toLocaleString('id-ID')}</td>
@@ -1236,18 +1236,18 @@ const CrudTable: React.FC<{
     renderRow: (item: any) => React.ReactNode;
     onAdd?: () => void;
 }> = ({ title, columns, data, renderRow, onAdd }) => (
-    <div className="bg-white p-6 rounded-lg shadow">
+    <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
         <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">{title}</h2>
+            <h2 className="text-2xl font-bold text-white">{title}</h2>
             {onAdd && (
-                <button onClick={onAdd} className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">Tambah</button>
+                <button onClick={onAdd} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Tambah</button>
             )}
         </div>
         <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left text-gray-300">
                 <thead>
-                    <tr className="bg-gray-50">
-                        {columns.map(col => <th key={col} className="p-3 font-semibold text-gray-600">{col}</th>)}
+                    <tr className="bg-gray-700">
+                        {columns.map(col => <th key={col} className="p-3 font-semibold text-gray-200">{col}</th>)}
                     </tr>
                 </thead>
                 <tbody>
@@ -1296,12 +1296,12 @@ const SendMessageModal: React.FC<{ staff: User; adminUser: User; onClose: () => 
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     rows={5}
-                    className="w-full p-2 border rounded-md"
+                    className="w-full p-2 border rounded-md bg-gray-700 border-gray-600 text-white"
                     placeholder="Ketik pesan Anda..."
                     required
                 ></textarea>
                 <div className="flex justify-end mt-4">
-                    <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 disabled:bg-blue-300" disabled={isSending}>
+                    <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-blue-800" disabled={isSending}>
                         {isSending ? 'Mengirim...' : 'Kirim'}
                     </button>
                 </div>
@@ -1355,23 +1355,23 @@ const StaffManagement: React.FC<{ adminUser: User }> = ({ adminUser }) => {
                 columns={['Nama', 'User ID (Email)', 'Peran', 'Aksi']}
                 data={staff}
                 renderRow={(member: User) => (
-                    <tr key={member.id} className="border-b hover:bg-gray-50">
+                    <tr key={member.id} className="border-b border-gray-700 hover:bg-gray-700">
                         <td className="p-3">{member.name}</td>
                         <td className="p-3">{member.userId}</td>
                         <td className="p-3">
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${member.role === UserRoleEnum.TEACHER ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${member.role === UserRoleEnum.TEACHER ? 'bg-blue-900 text-blue-300' : 'bg-green-900 text-green-300'}`}>
                                 {roleTranslation[member.role] || member.role}
                             </span>
                         </td>
                         <td className="p-3 space-x-4">
-                            <button onClick={() => setMessagingStaff(member)} className="text-green-600 hover:underline">Kirim Pesan</button>
-                            <button onClick={() => handleResetDevice(member.id, member.name)} className="text-blue-600 hover:underline">Reset Perangkat</button>
-                            <button onClick={() => handleDelete(member.id)} className="text-red-600 hover:underline">Hapus</button>
+                            <button onClick={() => setMessagingStaff(member)} className="text-green-400 hover:underline">Kirim Pesan</button>
+                            <button onClick={() => handleResetDevice(member.id, member.name)} className="text-blue-400 hover:underline">Reset Perangkat</button>
+                            <button onClick={() => handleDelete(member.id)} className="text-red-400 hover:underline">Hapus</button>
                         </td>
                     </tr>
                 )}
             />
-            <div className="mt-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-lg">
+            <div className="mt-6 p-4 bg-yellow-900 bg-opacity-50 border-l-4 border-yellow-600 text-yellow-300 rounded-lg">
                 <p className="font-bold">Informasi Pendaftaran</p>
                 <p>Untuk menambahkan guru atau pembina baru, mereka harus mendaftar melalui halaman login dengan memilih opsi 'Daftar' dan peran yang sesuai.</p>
             </div>
@@ -1415,11 +1415,11 @@ const AdminManagement: React.FC = () => {
             columns={['Nama', 'User ID (Email)', 'Aksi']}
             data={admins}
             renderRow={(admin: User) => (
-                <tr key={admin.id} className="border-b hover:bg-gray-50">
+                <tr key={admin.id} className="border-b border-gray-700 hover:bg-gray-700">
                     <td className="p-3">{admin.name}</td>
                     <td className="p-3">{admin.userId}</td>
                     <td className="p-3">
-                        <button onClick={() => handleResetDevice(admin.id, admin.name)} className="text-blue-600 hover:underline">Reset Perangkat</button>
+                        <button onClick={() => handleResetDevice(admin.id, admin.name)} className="text-blue-400 hover:underline">Reset Perangkat</button>
                     </td>
                 </tr>
             )}
@@ -1474,12 +1474,12 @@ const ClassManagement: React.FC = () => {
                 data={classes}
                 onAdd={() => setIsModalOpen(true)}
                 renderRow={(c: Class) => (
-                    <tr key={c.id} className="border-b hover:bg-gray-50">
+                    <tr key={c.id} className="border-b border-gray-700 hover:bg-gray-700">
                         <td className="p-3">{c.name}</td>
                         <td className="p-3">{c.grade}</td>
                         <td className="p-3 space-x-4">
-                            <button onClick={() => setQrClass(c)} className="text-blue-600 hover:underline">QR Code</button>
-                            <button onClick={() => handleDelete(c.id)} className="text-red-600 hover:underline">Hapus</button>
+                            <button onClick={() => setQrClass(c)} className="text-blue-400 hover:underline">QR Code</button>
+                            <button onClick={() => handleDelete(c.id)} className="text-red-400 hover:underline">Hapus</button>
                         </td>
                     </tr>
                 )}
@@ -1487,28 +1487,30 @@ const ClassManagement: React.FC = () => {
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Tambah Kelas Baru">
                 <form onSubmit={handleAdd}>
                     <div className="mb-4">
-                        <label className="block mb-2">Nama Kelas (Contoh: X-A)</label>
-                        <input value={newClassName} onChange={e => setNewClassName(e.target.value)} className="w-full p-2 border rounded"/>
+                        <label className="block mb-2 text-gray-300">Nama Kelas (Contoh: X-A)</label>
+                        <input value={newClassName} onChange={e => setNewClassName(e.target.value)} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white"/>
                     </div>
                      <div className="mb-4">
-                        <label className="block mb-2">Tingkat (Contoh: 10)</label>
-                        <input type="number" value={newClassGrade} onChange={e => setNewClassGrade(e.target.value ? parseInt(e.target.value, 10) : '')} className="w-full p-2 border rounded"/>
+                        <label className="block mb-2 text-gray-300">Tingkat (Contoh: 10)</label>
+                        <input type="number" value={newClassGrade} onChange={e => setNewClassGrade(e.target.value ? parseInt(e.target.value, 10) : '')} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white"/>
                     </div>
-                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
+                    <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Simpan</button>
                 </form>
             </Modal>
 
             <Modal isOpen={!!qrClass} onClose={() => setQrClass(null)} title={`QR Code Absensi - Kelas ${qrClass?.name}`}>
                 {qrClass && (
                     <div className="text-center p-4">
-                        <QRCode
-                            value={JSON.stringify({ type: 'attendance', classId: qrClass.id })}
-                            size={256}
-                            level={"H"}
-                            includeMargin={true}
-                        />
-                        <p className="mt-4 text-gray-600">Pindai kode ini untuk melakukan absensi di kelas {qrClass.name}.</p>
-                        <p className="text-sm text-gray-500 mt-2">Pastikan guru memindai dari dalam radius sekolah.</p>
+                        <div className="bg-white p-4 inline-block rounded-lg">
+                            <QRCode
+                                value={JSON.stringify({ type: 'attendance', classId: qrClass.id })}
+                                size={256}
+                                level={"H"}
+                                includeMargin={true}
+                            />
+                        </div>
+                        <p className="mt-4 text-gray-300">Pindai kode ini untuk melakukan absensi di kelas {qrClass.name}.</p>
+                        <p className="text-sm text-gray-400 mt-2">Pastikan guru memindai dari dalam radius sekolah.</p>
                     </div>
                 )}
             </Modal>
@@ -1573,11 +1575,11 @@ const EskulManagement: React.FC = () => {
                 data={eskuls}
                 onAdd={() => setIsModalOpen(true)}
                 renderRow={(e: Eskul) => (
-                    <tr key={e.id} className="border-b hover:bg-gray-50">
+                    <tr key={e.id} className="border-b border-gray-700 hover:bg-gray-700">
                         <td className="p-3">{e.name}</td>
                         <td className="p-3 space-x-4">
-                            <button onClick={() => setQrEskul(e)} className="text-blue-600 hover:underline">QR Code</button>
-                            <button onClick={() => handleDelete(e.id)} className="text-red-600 hover:underline">Hapus</button>
+                            <button onClick={() => setQrEskul(e)} className="text-blue-400 hover:underline">QR Code</button>
+                            <button onClick={() => handleDelete(e.id)} className="text-red-400 hover:underline">Hapus</button>
                         </td>
                     </tr>
                 )}
@@ -1585,23 +1587,25 @@ const EskulManagement: React.FC = () => {
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Tambah Eskul Baru">
                 <form onSubmit={handleAdd}>
                     <div className="mb-4">
-                        <label className="block mb-2">Nama Eskul (Contoh: Pramuka)</label>
-                        <input value={newEskulName} onChange={e => setNewEskulName(e.target.value)} className="w-full p-2 border rounded"/>
+                        <label className="block mb-2 text-gray-300">Nama Eskul (Contoh: Pramuka)</label>
+                        <input value={newEskulName} onChange={e => setNewEskulName(e.target.value)} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white"/>
                     </div>
-                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
+                    <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Simpan</button>
                 </form>
             </Modal>
 
             <Modal isOpen={!!qrEskul} onClose={() => setQrEskul(null)} title={`QR Code Absensi - ${qrEskul?.name}`}>
                 {qrEskul && (
                     <div className="text-center p-4">
-                        <QRCode
-                            value={JSON.stringify({ type: 'eskul_attendance', eskulId: qrEskul.id })}
-                            size={256}
-                            level={"H"}
-                            includeMargin={true}
-                        />
-                        <p className="mt-4 text-gray-600">Pindai kode ini untuk absensi kegiatan {qrEskul.name}.</p>
+                         <div className="bg-white p-4 inline-block rounded-lg">
+                            <QRCode
+                                value={JSON.stringify({ type: 'eskul_attendance', eskulId: qrEskul.id })}
+                                size={256}
+                                level={"H"}
+                                includeMargin={true}
+                            />
+                        </div>
+                        <p className="mt-4 text-gray-300">Pindai kode ini untuk absensi kegiatan {qrEskul.name}.</p>
                     </div>
                 )}
             </Modal>
@@ -1710,8 +1714,8 @@ const ScheduleManagement: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="bg-white p-6 rounded-lg shadow">
-                <h2 className="text-2xl font-bold mb-4">Manajemen Jadwal Pelajaran</h2>
+            <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                <h2 className="text-2xl font-bold mb-4 text-white">Manajemen Jadwal Pelajaran</h2>
                 <Spinner />
             </div>
         );
@@ -1725,7 +1729,7 @@ const ScheduleManagement: React.FC = () => {
                 data={schedules}
                 onAdd={() => handleOpenModal()}
                 renderRow={(s: Schedule) => (
-                    <tr key={s.id} className="border-b hover:bg-gray-50">
+                    <tr key={s.id} className="border-b border-gray-700 hover:bg-gray-700">
                         <td className="p-3">{HARI_TRANSLATION[s.day]}</td>
                         <td className="p-3">{s.startTime} - {s.endTime}</td>
                         <td className="p-3">{getTeacherName(s.teacherId)}</td>
@@ -1733,8 +1737,8 @@ const ScheduleManagement: React.FC = () => {
                         <td className="p-3">{getClassName(s.classId)}</td>
                         <td className="p-3">{s.lessonHour}</td>
                         <td className="p-3 space-x-2">
-                            <button onClick={() => handleOpenModal(s)} className="text-blue-600 hover:underline">Ubah</button>
-                            <button onClick={() => handleDelete(s.id)} className="text-red-600 hover:underline">Hapus</button>
+                            <button onClick={() => handleOpenModal(s)} className="text-blue-400 hover:underline">Ubah</button>
+                            <button onClick={() => handleDelete(s.id)} className="text-red-400 hover:underline">Hapus</button>
                         </td>
                     </tr>
                 )}
@@ -1742,48 +1746,48 @@ const ScheduleManagement: React.FC = () => {
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingSchedule?.id ? 'Ubah Jadwal' : 'Tambah Jadwal'}>
                 <form onSubmit={handleSave} className="space-y-4">
                     <div>
-                        <label className="block mb-1">Guru</label>
-                        <select value={editingSchedule?.teacherId || ''} onChange={e => setEditingSchedule({...editingSchedule, teacherId: e.target.value})} className="w-full p-2 border rounded">
+                        <label className="block mb-1 text-gray-300">Guru</label>
+                        <select value={editingSchedule?.teacherId || ''} onChange={e => setEditingSchedule({...editingSchedule, teacherId: e.target.value})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white">
                             <option value="">Pilih Guru</option>
                             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
                     </div>
                      <div>
-                        <label className="block mb-1">Mata Pelajaran</label>
-                        <input type="text" value={editingSchedule?.subject || ''} onChange={e => setEditingSchedule({...editingSchedule, subject: e.target.value})} className="w-full p-2 border rounded" placeholder="Contoh: Sejarah Indonesia"/>
+                        <label className="block mb-1 text-gray-300">Mata Pelajaran</label>
+                        <input type="text" value={editingSchedule?.subject || ''} onChange={e => setEditingSchedule({...editingSchedule, subject: e.target.value})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white" placeholder="Contoh: Sejarah Indonesia"/>
                     </div>
                      <div>
-                        <label className="block mb-1">Kelas</label>
-                        <select value={editingSchedule?.classId || ''} onChange={e => setEditingSchedule({...editingSchedule, classId: e.target.value})} className="w-full p-2 border rounded">
+                        <label className="block mb-1 text-gray-300">Kelas</label>
+                        <select value={editingSchedule?.classId || ''} onChange={e => setEditingSchedule({...editingSchedule, classId: e.target.value})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white">
                             <option value="">Pilih Kelas</option>
                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block mb-1">Hari</label>
-                        <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as Schedule['day']})} className="w-full p-2 border rounded">
+                        <label className="block mb-1 text-gray-300">Hari</label>
+                        <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as Schedule['day']})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white">
                             <option value="">Pilih Hari</option>
                             {DAYS_OF_WEEK.map(day => <option key={day} value={day}>{HARI_TRANSLATION[day]}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block mb-1">Jam Ke</label>
-                         <select value={editingSchedule?.lessonHour || ''} onChange={e => setEditingSchedule({...editingSchedule, lessonHour: parseInt(e.target.value, 10)})} className="w-full p-2 border rounded">
+                        <label className="block mb-1 text-gray-300">Jam Ke</label>
+                         <select value={editingSchedule?.lessonHour || ''} onChange={e => setEditingSchedule({...editingSchedule, lessonHour: parseInt(e.target.value, 10)})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white">
                             <option value="">Pilih Jam</option>
                             {LESSON_HOURS.map(hour => <option key={hour} value={hour}>{hour}</option>)}
                         </select>
                     </div>
                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block mb-1">Waktu Mulai</label>
-                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded" />
+                            <label className="block mb-1 text-gray-300">Waktu Mulai</label>
+                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white" />
                         </div>
                         <div>
-                            <label className="block mb-1">Waktu Selesai</label>
-                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded" />
+                            <label className="block mb-1 text-gray-300">Waktu Selesai</label>
+                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white" />
                         </div>
                     </div>
-                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
+                    <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Simpan</button>
                 </form>
             </Modal>
         </>
@@ -1892,8 +1896,8 @@ const AdminEskulScheduleManagement: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="bg-white p-6 rounded-lg shadow">
-                <h2 className="text-2xl font-bold mb-4">Manajemen Jadwal Ekstrakurikuler</h2>
+            <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                <h2 className="text-2xl font-bold mb-4 text-white">Manajemen Jadwal Ekstrakurikuler</h2>
                 <Spinner />
             </div>
         );
@@ -1907,14 +1911,14 @@ const AdminEskulScheduleManagement: React.FC = () => {
                 data={schedules}
                 onAdd={() => handleOpenModal()}
                 renderRow={(s: EskulSchedule) => (
-                    <tr key={s.id} className="border-b hover:bg-gray-50">
+                    <tr key={s.id} className="border-b border-gray-700 hover:bg-gray-700">
                         <td className="p-3">{HARI_TRANSLATION[s.day]}</td>
                         <td className="p-3">{s.startTime} - {s.endTime}</td>
                         <td className="p-3">{getPembinaName(s.pembinaId)}</td>
                         <td className="p-3">{getEskulName(s.eskulId)}</td>
                         <td className="p-3 space-x-2">
-                            <button onClick={() => handleOpenModal(s)} className="text-blue-600 hover:underline">Ubah</button>
-                            <button onClick={() => handleDelete(s.id)} className="text-red-600 hover:underline">Hapus</button>
+                            <button onClick={() => handleOpenModal(s)} className="text-blue-400 hover:underline">Ubah</button>
+                            <button onClick={() => handleDelete(s.id)} className="text-red-400 hover:underline">Hapus</button>
                         </td>
                     </tr>
                 )}
@@ -1922,37 +1926,37 @@ const AdminEskulScheduleManagement: React.FC = () => {
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingSchedule?.id ? 'Ubah Jadwal Eskul' : 'Tambah Jadwal Eskul'}>
                 <form onSubmit={handleSave} className="space-y-4">
                     <div>
-                        <label className="block mb-1">Pembina</label>
-                        <select value={editingSchedule?.pembinaId || ''} onChange={e => setEditingSchedule({...editingSchedule, pembinaId: e.target.value})} className="w-full p-2 border rounded">
+                        <label className="block mb-1 text-gray-300">Pembina</label>
+                        <select value={editingSchedule?.pembinaId || ''} onChange={e => setEditingSchedule({...editingSchedule, pembinaId: e.target.value})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white">
                             <option value="">Pilih Pembina</option>
                             {pembinas.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                     </div>
                      <div>
-                        <label className="block mb-1">Kegiatan Eskul</label>
-                        <select value={editingSchedule?.eskulId || ''} onChange={e => setEditingSchedule({...editingSchedule, eskulId: e.target.value})} className="w-full p-2 border rounded">
+                        <label className="block mb-1 text-gray-300">Kegiatan Eskul</label>
+                        <select value={editingSchedule?.eskulId || ''} onChange={e => setEditingSchedule({...editingSchedule, eskulId: e.target.value})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white">
                             <option value="">Pilih Eskul</option>
                             {eskuls.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block mb-1">Hari</label>
-                        <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as EskulSchedule['day']})} className="w-full p-2 border rounded">
+                        <label className="block mb-1 text-gray-300">Hari</label>
+                        <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as EskulSchedule['day']})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white">
                             <option value="">Pilih Hari</option>
                             {DAYS_OF_WEEK.map(day => <option key={day} value={day}>{HARI_TRANSLATION[day]}</option>)}
                         </select>
                     </div>
                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block mb-1">Waktu Mulai</label>
-                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded" />
+                            <label className="block mb-1 text-gray-300">Waktu Mulai</label>
+                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white" />
                         </div>
                         <div>
-                            <label className="block mb-1">Waktu Selesai</label>
-                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded" />
+                            <label className="block mb-1 text-gray-300">Waktu Selesai</label>
+                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white" />
                         </div>
                     </div>
-                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
+                    <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Simpan</button>
                 </form>
             </Modal>
         </>
@@ -2157,20 +2161,20 @@ const AttendanceReport: React.FC = () => {
     };
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-2xl font-bold mb-4">Laporan Absensi</h2>
+        <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+            <h2 className="text-2xl font-bold mb-4 text-white">Laporan Absensi</h2>
             
-            <div className="mb-4 border-b border-gray-200">
+            <div className="mb-4 border-b border-gray-700">
                 <nav className="-mb-px flex space-x-8" aria-label="Tabs">
                     <button
                         onClick={() => setReportType('kelas')}
-                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${reportType === 'kelas' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${reportType === 'kelas' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}
                     >
                         Absensi Kelas
                     </button>
                     <button
                         onClick={() => setReportType('eskul')}
-                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${reportType === 'eskul' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${reportType === 'eskul' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}
                     >
                         Absensi Ekstrakurikuler
                     </button>
@@ -2179,61 +2183,61 @@ const AttendanceReport: React.FC = () => {
 
             {/* Filters */}
             {reportType === 'kelas' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 border rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 border border-gray-700 rounded-lg bg-gray-900">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Guru</label>
-                        <select value={filter.teacherId} onChange={e => setFilter({...filter, teacherId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <label className="block text-sm font-medium text-gray-300">Guru</label>
+                        <select value={filter.teacherId} onChange={e => setFilter({...filter, teacherId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white">
                             <option value="">Semua Guru</option>
                             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Kelas</label>
-                        <select value={filter.classId} onChange={e => setFilter({...filter, classId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <label className="block text-sm font-medium text-gray-300">Kelas</label>
+                        <select value={filter.classId} onChange={e => setFilter({...filter, classId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white">
                             <option value="">Semua Kelas</option>
                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Tanggal Mulai</label>
-                        <input type="date" value={filter.startDate} onChange={e => setFilter({...filter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                        <label className="block text-sm font-medium text-gray-300">Tanggal Mulai</label>
+                        <input type="date" value={filter.startDate} onChange={e => setFilter({...filter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Tanggal Selesai</label>
-                        <input type="date" value={filter.endDate} onChange={e => setFilter({...filter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                        <label className="block text-sm font-medium text-gray-300">Tanggal Selesai</label>
+                        <input type="date" value={filter.endDate} onChange={e => setFilter({...filter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
                     </div>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 border rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 border border-gray-700 rounded-lg bg-gray-900">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Pembina</label>
-                        <select value={eskulFilter.pembinaId} onChange={e => setEskulFilter({...eskulFilter, pembinaId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <label className="block text-sm font-medium text-gray-300">Pembina</label>
+                        <select value={eskulFilter.pembinaId} onChange={e => setEskulFilter({...eskulFilter, pembinaId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white">
                             <option value="">Semua Pembina</option>
                             {pembinas.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Eskul</label>
-                        <select value={eskulFilter.eskulId} onChange={e => setEskulFilter({...eskulFilter, eskulId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <label className="block text-sm font-medium text-gray-300">Eskul</label>
+                        <select value={eskulFilter.eskulId} onChange={e => setEskulFilter({...eskulFilter, eskulId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white">
                             <option value="">Semua Eskul</option>
                             {eskuls.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                         </select>
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Tanggal Mulai</label>
-                        <input type="date" value={eskulFilter.startDate} onChange={e => setEskulFilter({...eskulFilter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                        <label className="block text-sm font-medium text-gray-300">Tanggal Mulai</label>
+                        <input type="date" value={eskulFilter.startDate} onChange={e => setEskulFilter({...eskulFilter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Tanggal Selesai</label>
-                        <input type="date" value={eskulFilter.endDate} onChange={e => setEskulFilter({...eskulFilter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                        <label className="block text-sm font-medium text-gray-300">Tanggal Selesai</label>
+                        <input type="date" value={eskulFilter.endDate} onChange={e => setEskulFilter({...eskulFilter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
                     </div>
                 </div>
             )}
             
             {/* Export Buttons */}
             <div className="flex justify-end gap-2 mb-4">
-                <button onClick={exportToPDF} className="bg-red-500 text-white px-4 py-2 rounded-lg">Ekspor PDF</button>
-                <button onClick={exportToExcel} className="bg-green-500 text-white px-4 py-2 rounded-lg">Ekspor Excel</button>
+                <button onClick={exportToPDF} className="bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-800">Ekspor PDF</button>
+                <button onClick={exportToExcel} className="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">Ekspor Excel</button>
             </div>
 
             {/* Table */}
@@ -2244,7 +2248,7 @@ const AttendanceReport: React.FC = () => {
                         columns={['Guru', 'Kelas', 'Jam Ke', 'Waktu']}
                         data={filteredAttendance}
                         renderRow={(rec: AttendanceRecord) => (
-                             <tr key={rec.id} className="border-b hover:bg-gray-50">
+                             <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700">
                                 <td className="p-3">{getTeacherName(rec.teacherId)}</td>
                                 <td className="p-3">{getClassName(rec.classId)}</td>
                                 <td className="p-3">{rec.lessonHour}</td>
@@ -2258,7 +2262,7 @@ const AttendanceReport: React.FC = () => {
                         columns={['Pembina', 'Eskul', 'Tanggal', 'Datang', 'Pulang', 'Durasi']}
                         data={processedAndFilteredEskulAttendance}
                         renderRow={(rec: any) => (
-                             <tr key={rec.id} className="border-b hover:bg-gray-50">
+                             <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700">
                                 <td className="p-3">{rec.pembinaName}</td>
                                 <td className="p-3">{rec.eskulName}</td>
                                 <td className="p-3">{new Date(rec.checkInTime).toLocaleDateString('id-ID')}</td>
@@ -2391,42 +2395,42 @@ const App: React.FC = () => {
 
     if (!user || !userProfile) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-                <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8 space-y-6">
+            <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
+                <div className="w-full max-w-md bg-gray-800 rounded-xl shadow-lg p-8 space-y-6 border border-gray-700">
                     <div className="text-center">
-                        <h1 className="text-5xl font-extrabold text-blue-600 mb-2">HadirKu</h1>
-                        <p className="text-gray-500">Sistem Absensi Guru Digital</p>
+                        <h1 className="text-5xl font-extrabold text-blue-500 mb-2">HadirKu</h1>
+                        <p className="text-gray-400">Sistem Absensi Guru Digital</p>
                     </div>
 
                     {authView === 'login' && (
                         <div>
-                             <h2 className="text-2xl font-bold text-center text-gray-700 mb-6">Login</h2>
+                             <h2 className="text-2xl font-bold text-center text-white mb-6">Login</h2>
                             <form onSubmit={handleLogin} className="space-y-4">
                                 <div>
-                                    <label className="text-sm font-medium text-gray-600 block mb-1">Email</label>
-                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                    <label className="text-sm font-medium text-gray-300 block mb-1">Email</label>
+                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"/>
                                 </div>
                                 <div>
                                     <div className="flex justify-between items-baseline">
-                                        <label className="text-sm font-medium text-gray-600 block mb-1">Password</label>
-                                        <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('forgotPassword'); setAuthMessage(null); }} className="text-sm text-blue-600 hover:underline">Lupa Password?</a>
+                                        <label className="text-sm font-medium text-gray-300 block mb-1">Password</label>
+                                        <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('forgotPassword'); setAuthMessage(null); }} className="text-sm text-blue-400 hover:underline">Lupa Password?</a>
                                     </div>
-                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"/>
                                 </div>
                                 <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Login</button>
                             </form>
                              
                             {installPromptEvent && (
-                                <div className="mt-6 text-center bg-green-50 p-4 rounded-lg border border-green-200 space-y-3">
-                                    <p className="text-sm font-medium text-green-800">
+                                <div className="mt-6 text-center bg-gray-700 p-4 rounded-lg border border-gray-600 space-y-3">
+                                    <p className="text-sm font-medium text-gray-200">
                                         Instal Aplikasi untuk Pengalaman Terbaik
                                     </p>
-                                    <p className="text-xs text-green-700">
+                                    <p className="text-xs text-gray-400">
                                         Akses lebih cepat dan fitur offline dengan menambahkan aplikasi ini ke layar utama (home screen) Anda.
                                     </p>
                                     <button
                                         onClick={handleInstallClick}
-                                        className="w-full bg-green-500 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-600 transition duration-300 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+                                        className="w-full bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700 transition duration-300 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
                                     >
                                         <DownloadIcon />
                                         <span>Instal Aplikasi</span>
@@ -2434,31 +2438,31 @@ const App: React.FC = () => {
                                 </div>
                             )}
 
-                            <p className="text-center text-sm text-gray-600 mt-6">
-                                Belum punya akun? <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('register'); setAuthMessage(null); }} className="font-medium text-blue-600 hover:underline">Daftar</a>
+                            <p className="text-center text-sm text-gray-400 mt-6">
+                                Belum punya akun? <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('register'); setAuthMessage(null); }} className="font-medium text-blue-400 hover:underline">Daftar</a>
                             </p>
                         </div>
                     )}
                     
                     {authView === 'register' && (
                          <div>
-                            <h2 className="text-2xl font-bold text-center text-gray-700 mb-6">Daftar Akun Baru</h2>
+                            <h2 className="text-2xl font-bold text-center text-white mb-6">Daftar Akun Baru</h2>
                             <form onSubmit={handleRegister} className="space-y-4">
                                  <div>
-                                    <label className="text-sm font-medium text-gray-600 block mb-1">Nama Lengkap</label>
-                                    <input name="name" type="text" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                    <label className="text-sm font-medium text-gray-300 block mb-1">Nama Lengkap</label>
+                                    <input name="name" type="text" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"/>
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-gray-600 block mb-1">Email</label>
-                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                    <label className="text-sm font-medium text-gray-300 block mb-1">Email</label>
+                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"/>
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-gray-600 block mb-1">Password</label>
-                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                    <label className="text-sm font-medium text-gray-300 block mb-1">Password</label>
+                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"/>
                                 </div>
                                  <div>
-                                    <label className="text-sm font-medium text-gray-600 block mb-1">Daftar sebagai</label>
-                                    <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <label className="text-sm font-medium text-gray-300 block mb-1">Daftar sebagai</label>
+                                    <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white">
                                         <option value={UserRoleEnum.TEACHER}>Guru</option>
                                         <option value={UserRoleEnum.PEMBINA_ESKUL}>Pembina Ekstrakurikuler</option>
                                         <option value={UserRoleEnum.ADMIN}>Admin</option>
@@ -2466,35 +2470,35 @@ const App: React.FC = () => {
                                 </div>
                                 <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Daftar</button>
                             </form>
-                             <p className="text-center text-sm text-gray-600 mt-6">
-                                Sudah punya akun? <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('login'); setAuthMessage(null); }} className="font-medium text-blue-600 hover:underline">Login</a>
+                             <p className="text-center text-sm text-gray-400 mt-6">
+                                Sudah punya akun? <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('login'); setAuthMessage(null); }} className="font-medium text-blue-400 hover:underline">Login</a>
                             </p>
                         </div>
                     )}
                     
                     {authView === 'forgotPassword' && (
                         <div>
-                            <h2 className="text-2xl font-bold text-center text-gray-700 mb-6">Reset Password</h2>
+                            <h2 className="text-2xl font-bold text-center text-white mb-6">Reset Password</h2>
                              <form onSubmit={handleForgotPassword} className="space-y-4">
                                 <div>
-                                    <label className="text-sm font-medium text-gray-600 block mb-1">Email</label>
-                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                    <label className="text-sm font-medium text-gray-300 block mb-1">Email</label>
+                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"/>
                                 </div>
                                 <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Kirim Link Reset</button>
                             </form>
-                            <p className="text-center text-sm text-gray-600 mt-6">
-                                Kembali ke <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('login'); setAuthMessage(null); }} className="font-medium text-blue-600 hover:underline">Login</a>
+                            <p className="text-center text-sm text-gray-400 mt-6">
+                                Kembali ke <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('login'); setAuthMessage(null); }} className="font-medium text-blue-400 hover:underline">Login</a>
                             </p>
                         </div>
                     )}
 
                     {authMessage && (
-                        <div className={`mt-4 text-center p-3 rounded-lg ${authMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        <div className={`mt-4 text-center p-3 rounded-lg ${authMessage.type === 'success' ? 'bg-green-900 bg-opacity-50 text-green-300' : 'bg-red-900 bg-opacity-50 text-red-300'}`}>
                             {authMessage.text}
                         </div>
                     )}
 
-                    <div className="text-center text-xs text-gray-400 mt-8">
+                    <div className="text-center text-xs text-gray-500 mt-8">
                         © {new Date().getFullYear()} Rullp. All rights reserved.
                     </div>
                 </div>
