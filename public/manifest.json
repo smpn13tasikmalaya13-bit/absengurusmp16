@@ -1,6 +1,6 @@
 {
-  "short_name": "SABAR",
-  "name": "Sistem Absensi Guru",
+  "short_name": "HadirKu",
+  "name": "HadirKu - Sistem Absensi Guru",
   "description": "Aplikasi web untuk absensi guru menggunakan kode QR, dengan peran terpisah untuk Admin dan Guru. Fitur termasuk manajemen pengguna, pembuatan kode QR, pemindaian terbatas geolokasi, dan pelaporan absensi.",
   "id": "/?source=pwa",
   "start_url": ".",

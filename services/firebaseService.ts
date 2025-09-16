@@ -117,7 +117,7 @@ export const signUp = async (email: string, password: string, name: string, role
     const authInstance = firebase.auth();
     let userCredential;
 
-    // Step 1: Create the user in Firebase Authentication.
+    // Tahap 1: Buat pengguna di Firebase Authentication.
     try {
         userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
     } catch (authError: any) {
@@ -130,8 +130,8 @@ export const signUp = async (email: string, password: string, name: string, role
         throw new Error("Gagal memverifikasi pengguna setelah pendaftaran.");
     }
     
-    // Step 2: Create the user profile document in Firestore.
-    // With correct security rules, this should now succeed without complex retries.
+    // Tahap 2: Buat dokumen profil pengguna di Firestore.
+    // Dengan aturan keamanan yang benar, ini seharusnya berhasil tanpa coba-ulang yang rumit.
     try {
         const deviceId = getDeviceId();
         const profileData = {
@@ -145,14 +145,14 @@ export const signUp = async (email: string, password: string, name: string, role
 
     } catch (firestoreError: any) {
         console.error("Firestore profile creation failed, cleaning up auth user...", firestoreError);
-        // If Firestore fails, we MUST delete the Auth user to prevent an orphaned account.
+        // Jika Firestore gagal, kita HARUS menghapus pengguna Auth untuk mencegah akun yatim.
         try {
             await user.delete();
         } catch (deleteError) {
-            console.error("CRITICAL: Failed to clean up auth user after profile creation failure:", deleteError);
+            console.error("KRITIS: Gagal membersihkan pengguna auth setelah pembuatan profil gagal:", deleteError);
             throw new Error("Pendaftaran gagal kritis. Akun Anda mungkin dalam keadaan tidak konsisten. Harap hubungi admin.");
         }
-        // Throw a user-friendly message for the Firestore failure.
+        // Lempar pesan yang mudah dipahami untuk kegagalan Firestore.
         throw new Error(`Gagal menyimpan profil pengguna. Silakan coba lagi. (Pesan: ${firestoreError.message})`);
     }
 };
@@ -161,8 +161,8 @@ export const signUp = async (email: string, password: string, name: string, role
 
 export const onUserProfileChange = (uid: string, callback: (user: User | null) => void) => {
     const userDocRef = db.collection('users').doc(uid);
-    // onSnapshot handles offline cases gracefully. It provides cached data first,
-    // then updates with server data when the connection is restored.
+    // onSnapshot menangani kasus offline dengan baik. Ini menyediakan data cache terlebih dahulu,
+    // kemudian diperbarui dengan data server saat koneksi pulih.
     const unsubscribe = userDocRef.onSnapshot(
         (doc: any) => {
             if (doc.exists) {
@@ -173,7 +173,7 @@ export const onUserProfileChange = (uid: string, callback: (user: User | null) =
         },
         (error: any) => {
             console.error("Error listening to user profile:", error);
-            // In case of an error (e.g., permissions), treat as if the user profile doesn't exist.
+            // Jika terjadi kesalahan (misalnya, izin), anggap profil pengguna tidak ada.
             callback(null);
         }
     );
@@ -199,12 +199,12 @@ export const getUsersByRole = async (role: UserRole): Promise<User[]> => {
 };
 
 export const deleteUser = async (id: string): Promise<void> => {
-    // This function now only deletes the Firestore user data.
-    // Deleting a user from Firebase Authentication is a privileged operation
-    // and should be handled in a secure backend environment (e.g., Cloud Functions)
-    // or manually in the Firebase Console to prevent abuse.
+    // Fungsi ini sekarang hanya menghapus data pengguna Firestore.
+    // Menghapus pengguna dari Firebase Authentication adalah operasi istimewa
+    // dan harus ditangani di lingkungan backend yang aman (misalnya, Cloud Functions)
+    // atau secara manual di Firebase Console untuk mencegah penyalahgunaan.
     
-    // Delete associated schedules
+    // Hapus jadwal terkait
     const schedulesSnapshot = await db.collection('schedules').where('teacherId', '==', id).get();
     const batch = db.batch();
     schedulesSnapshot.docs.forEach((doc: any) => {
@@ -212,12 +212,12 @@ export const deleteUser = async (id: string): Promise<void> => {
     });
     await batch.commit();
 
-    // Delete the user document from Firestore
+    // Hapus dokumen pengguna dari Firestore
     await db.collection('users').doc(id).delete();
 };
 
 export const resetDeviceBinding = async (id: string): Promise<void> => {
-    // This function is for admins to unbind a user's device.
+    // Fungsi ini untuk admin melepaskan ikatan perangkat pengguna.
     await db.collection('users').doc(id).update({
         boundDeviceId: firebase.firestore.FieldValue.delete()
     });
@@ -234,7 +234,7 @@ export const addClass = async (classData: Omit<Class, 'id'>): Promise<void> => {
 };
 
 export const deleteClass = async (id: string): Promise<void> => {
-    // Also delete associated schedules to prevent orphaned data
+    // Juga hapus jadwal terkait untuk mencegah data yatim
     const schedulesSnapshot = await db.collection('schedules').where('classId', '==', id).get();
     const batch = db.batch();
     schedulesSnapshot.docs.forEach((doc: any) => {
@@ -248,13 +248,13 @@ export const deleteClass = async (id: string): Promise<void> => {
 // --- Schedule Functions ---
 
 export const getSchedules = async (): Promise<Schedule[]> => {
-    // The query with multiple orderBy clauses requires a composite index,
-    // which can fail if not created in Firebase.
-    // To avoid this, we fetch unsorted and sort on the client.
+    // Query dengan beberapa klausa orderBy memerlukan indeks komposit,
+    // yang bisa gagal jika tidak dibuat di Firebase.
+    // Untuk menghindarinya, kita ambil tanpa diurutkan dan urutkan di sisi klien.
     const snapshot = await db.collection('schedules').get();
     const schedules = collectionToData<Schedule>(snapshot);
 
-    // Sort schedules by day of the week, then by start time
+    // Urutkan jadwal berdasarkan hari, lalu waktu mulai
     schedules.sort((a, b) => {
         const dayAIndex = a.day ? DAYS_OF_WEEK.indexOf(a.day) : -1;
         const dayBIndex = b.day ? DAYS_OF_WEEK.indexOf(b.day) : -1;
@@ -263,7 +263,7 @@ export const getSchedules = async (): Promise<Schedule[]> => {
             return dayAIndex - dayBIndex;
         }
         
-        // Safely compare startTime, defaulting to an empty string if null or undefined
+        // Bandingkan startTime dengan aman, default ke string kosong jika null atau undefined
         const startTimeA = a.startTime || '';
         const startTimeB = b.startTime || '';
         return startTimeA.localeCompare(startTimeB);
@@ -273,14 +273,14 @@ export const getSchedules = async (): Promise<Schedule[]> => {
 };
 
 const checkForTimeConflict = async (scheduleData: Omit<Schedule, 'id'>, existingId?: string): Promise<{ conflict: boolean; message: string }> => {
-    // 1. Check for teacher conflict
+    // 1. Periksa konflik guru
     const teacherConflictQuery = db.collection('schedules')
         .where('teacherId', '==', scheduleData.teacherId)
         .where('day', '==', scheduleData.day);
         
     const teacherSchedulesSnapshot = await teacherConflictQuery.get();
     for (const doc of teacherSchedulesSnapshot.docs) {
-        if (existingId && doc.id === existingId) continue; // Skip self when updating
+        if (existingId && doc.id === existingId) continue; // Lewati diri sendiri saat memperbarui
 
         const existingSchedule = doc.data();
         if (existingSchedule.startTime && existingSchedule.endTime) {
@@ -293,14 +293,14 @@ const checkForTimeConflict = async (scheduleData: Omit<Schedule, 'id'>, existing
         }
     }
 
-    // 2. Check for class conflict
+    // 2. Periksa konflik kelas
     const classConflictQuery = db.collection('schedules')
         .where('classId', '==', scheduleData.classId)
         .where('day', '==', scheduleData.day);
 
     const classSchedulesSnapshot = await classConflictQuery.get();
     for (const doc of classSchedulesSnapshot.docs) {
-        if (existingId && doc.id === existingId) continue; // Skip self when updating
+        if (existingId && doc.id === existingId) continue; // Lewati diri sendiri saat memperbarui
 
         const existingSchedule = doc.data();
         if (existingSchedule.startTime && existingSchedule.endTime) {
@@ -317,7 +317,7 @@ const checkForTimeConflict = async (scheduleData: Omit<Schedule, 'id'>, existing
 };
 
 export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
-    // Basic time validation
+    // Validasi waktu dasar
     if (scheduleData.startTime >= scheduleData.endTime) {
         return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
     }
@@ -332,7 +332,7 @@ export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{
 };
 
 export const updateSchedule = async (id: string, scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
-     // Basic time validation
+     // Validasi waktu dasar
     if (scheduleData.startTime >= scheduleData.endTime) {
         return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
     }
@@ -364,7 +364,7 @@ export const addAttendanceRecord = async (recordData: Omit<AttendanceRecord, 'id
 
 export const checkIfAlreadyScanned = async (teacherId: string, classId: string, lessonHour: number): Promise<boolean> => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
+    today.setHours(0, 0, 0, 0); // Mulai hari ini
     
     const snapshot = await db.collection('attendance')
         .where('teacherId', '==', teacherId)
@@ -383,7 +383,7 @@ export const addMessage = async (messageData: Omit<Message, 'id'>): Promise<void
     await db.collection('messages').add(messageData);
 };
 
-// Use onSnapshot for real-time updates
+// Gunakan onSnapshot untuk pembaruan real-time
 export const onMessagesReceived = (userId: string, callback: (messages: Message[]) => void): (() => void) => {
     return db.collection('messages')
         .where('recipientId', '==', userId)

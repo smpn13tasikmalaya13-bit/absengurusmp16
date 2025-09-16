@@ -1603,8 +1603,8 @@ const App: React.FC = () => {
             <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
                 <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8 space-y-6">
                     <div className="text-center">
-                        <h1 className="text-5xl font-extrabold text-blue-600 mb-2">SABAR</h1>
-                        <p className="text-gray-500">Sistem Absensi Berbasis QR</p>
+                        <h1 className="text-5xl font-extrabold text-blue-600 mb-2">HadirKu</h1>
+                        <p className="text-gray-500">Sistem Absensi Guru Digital</p>
                     </div>
 
                     {authView === 'login' && (
