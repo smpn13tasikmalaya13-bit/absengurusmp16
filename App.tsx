@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
-import type { User, Class, Schedule, AttendanceRecord, UserRole, Message } from './types';
+import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord } from './types';
 import { UserRole as UserRoleEnum } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CENTRAL_COORDINATES, MAX_RADIUS_METERS, DAYS_OF_WEEK, LESSON_HOURS, HARI_TRANSLATION } from './constants';
@@ -483,7 +483,7 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
             <div className="w-full bg-white rounded-2xl shadow-xl max-w-sm mx-auto overflow-hidden">
                 <div className="p-4 text-center space-y-3">
                     <h2 className="font-bold text-lg text-gray-800">
-                        Arahkan kamera ke QR Code Kelas
+                        Arahkan kamera ke QR Code
                     </h2>
                 </div>
                 <div className="w-full aspect-square bg-black relative">
@@ -655,6 +655,318 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
     );
 };
 
+// --- Pembina Eskul Dashboard Components ---
+const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, onLogout }) => {
+    const [isScanning, setIsScanning] = useState(false);
+    const [schedules, setSchedules] = useState<EskulSchedule[]>([]);
+    const [eskuls, setEskuls] = useState<Eskul[]>([]);
+    const [attendance, setAttendance] = useState<EskulAttendanceRecord[]>([]);
+    const [loadingData, setLoadingData] = useState(true);
+    const [scanResult, setScanResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const { isWithinRadius } = useGeolocation();
+
+    const getEskulName = useCallback((eskulId: string) => eskuls.find(e => e.id === eskulId)?.name || 'N/A', [eskuls]);
+
+    const fetchData = useCallback(async () => {
+        setLoadingData(true);
+        try {
+            const [eskulsData, schedulesData, attendanceData] = await Promise.all([
+                api.getEskuls(),
+                api.getEskulSchedules(user.id),
+                api.getEskulAttendanceRecords(user.id),
+            ]);
+            setEskuls(eskulsData);
+            setSchedules(schedulesData);
+            setAttendance(attendanceData);
+        } catch (error) {
+            console.error("Gagal memuat data ekstrakurikuler:", error);
+        } finally {
+            setLoadingData(false);
+        }
+    }, [user.id]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+    
+    useEffect(() => {
+        if (scanResult) {
+            const timer = setTimeout(() => setScanResult(null), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [scanResult]);
+
+    const handleScanSuccess = async (qrData: string) => {
+        setIsScanning(false);
+        let eskulId: string;
+        try {
+            const parsedData = JSON.parse(qrData);
+            if (parsedData.type !== 'eskul_attendance' || !parsedData.eskulId) {
+                setScanResult({ type: 'error', message: 'QR Code tidak valid untuk absensi eskul.' });
+                return;
+            }
+            eskulId = parsedData.eskulId;
+        } catch (e) {
+            setScanResult({ type: 'error', message: 'Format QR Code tidak dikenali.' });
+            return;
+        }
+
+        const now = new Date();
+        const todayName = now.toLocaleDateString('en-US', { weekday: 'long' }) as EskulSchedule['day'];
+        
+        const activeSchedule = schedules.find(s => {
+            if (s.eskulId !== eskulId || s.day !== todayName) return false;
+            
+            const [startHour, startMinute] = s.startTime.split(':').map(Number);
+            const startTime = new Date(now);
+            startTime.setHours(startHour, startMinute, 0, 0);
+    
+            const [endHour, endMinute] = s.endTime.split(':').map(Number);
+            const endTime = new Date(now);
+            endTime.setHours(endHour, endMinute, 0, 0);
+
+            // Allow scanning 30 mins before start and up to 60 mins after end
+            const leewayStart = 30 * 60 * 1000;
+            const leewayEnd = 60 * 60 * 1000;
+
+            return now.getTime() >= (startTime.getTime() - leewayStart) && now.getTime() <= (endTime.getTime() + leewayEnd);
+        });
+
+        if (!activeSchedule) {
+            setScanResult({ type: 'error', message: `Tidak ada jadwal eskul ${getEskulName(eskulId)} yang aktif saat ini.` });
+            return;
+        }
+
+        const todayDateString = now.toISOString().slice(0, 10);
+        
+        try {
+            const existingRecord = await api.findEskulAttendanceForToday(user.id, activeSchedule.id, todayDateString);
+
+            if (existingRecord) {
+                if (existingRecord.checkOutTime) {
+                    setScanResult({ type: 'error', message: 'Anda sudah absen pulang untuk kegiatan ini hari ini.' });
+                } else {
+                    // This is a check-out
+                    await api.updateEskulAttendanceRecord(existingRecord.id, { checkOutTime: now.toISOString() });
+                    setScanResult({ type: 'success', message: `Absen PULANG berhasil untuk ${getEskulName(eskulId)}.` });
+                    fetchData();
+                }
+            } else {
+                // This is a check-in
+                const newRecord: Omit<EskulAttendanceRecord, 'id'> = {
+                    pembinaId: user.id,
+                    eskulScheduleId: activeSchedule.id,
+                    date: todayDateString,
+                    checkInTime: now.toISOString(),
+                };
+                await api.addEskulAttendanceRecord(newRecord);
+                setScanResult({ type: 'success', message: `Absen DATANG berhasil untuk ${getEskulName(eskulId)}.` });
+                fetchData();
+            }
+        } catch (error: any) {
+             setScanResult({ type: 'error', message: `Gagal menyimpan absensi: ${error.message}` });
+        }
+    };
+    
+    if (loadingData) return <FullPageSpinner />;
+    if (isScanning) return <QRScanner onScanSuccess={handleScanSuccess} onCancel={() => setIsScanning(false)} />;
+
+    const todaySchedules = schedules.filter(s => s.day === new Date().toLocaleDateString('en-US', { weekday: 'long' }));
+
+    return (
+        <div className="bg-gray-50 min-h-screen font-sans">
+            <header className="bg-white p-4 flex justify-between items-center shadow-sm">
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Dashboard Pembina Eskul</h1>
+                    <p className="text-sm text-gray-500">Selamat datang, {user.name}</p>
+                </div>
+                <button onClick={onLogout} className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-4 py-2 rounded-md border border-gray-300 hover:border-gray-400">
+                    <LogoutIcon />
+                    <span>Keluar</span>
+                </button>
+            </header>
+            <main className="p-4 md:p-6 space-y-6">
+                {scanResult && (
+                    <div className={`p-4 rounded-md mb-6 shadow ${scanResult.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        <p className="font-medium">{scanResult.type === 'success' ? 'Berhasil!' : 'Gagal'}</p>
+                        <p className="text-sm">{scanResult.message}</p>
+                    </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <button onClick={() => setIsScanning(true)} disabled={!isWithinRadius} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-sm group flex flex-col items-center justify-center gap-4 border border-gray-200">
+                        <QrScanIcon />
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-800 group-disabled:text-gray-500">Scan Absensi Eskul</h3>
+                            <p className="text-gray-500 text-sm mt-1">Pindai QR untuk absensi datang & pulang</p>
+                            {!isWithinRadius && <p className="text-xs text-red-500 mt-1">Anda berada di luar radius sekolah.</p>}
+                        </div>
+                    </button>
+                    <button onClick={() => setIsScheduleModalOpen(true)} className="bg-white p-8 rounded-lg shadow-sm text-center hover:shadow-md transition-shadow flex flex-col items-center justify-center gap-4 border border-gray-200">
+                        <ScheduleIcon />
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-800">Jadwal Eskul</h3>
+                            <p className="text-gray-500 text-sm mt-1">Lihat dan kelola jadwal eskul Anda</p>
+                        </div>
+                    </button>
+                </div>
+                 <div className="grid grid-cols-1 gap-6">
+                     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h3 className="font-bold text-lg">Jadwal Hari Ini</h3>
+                         <div className="space-y-3 mt-4">
+                            {todaySchedules.length === 0 ? (
+                                <div className="text-center py-10 text-gray-400">
+                                    <CalendarEmptyIcon />
+                                    <p className="font-semibold mt-2 text-gray-600">Tidak ada jadwal eskul hari ini</p>
+                                </div>
+                            ) : (
+                                todaySchedules.map(s => (
+                                    <div key={s.id} className="bg-gray-50 p-4 rounded-lg flex justify-between items-center">
+                                        <p className="font-semibold text-gray-800">{getEskulName(s.eskulId)}</p>
+                                        <span className="text-sm font-medium text-gray-500">{s.startTime} - {s.endTime}</span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h3 className="font-bold text-lg">Riwayat Absensi Eskul Terbaru</h3>
+                        <div className="space-y-3 mt-4">
+                            {attendance.length === 0 ? (
+                                <div className="text-center py-10 text-gray-400">
+                                    <QrCodeEmptyIcon />
+                                    <p className="font-semibold mt-2 text-gray-600">Belum ada riwayat absensi</p>
+                                </div>
+                            ) : (
+                                attendance.slice(0, 5).map(rec => {
+                                    const schedule = schedules.find(s => s.id === rec.eskulScheduleId);
+                                    return (
+                                        <div key={rec.id} className="border-b last:border-b-0 pb-3 pt-2">
+                                            <p className="font-semibold">{schedule ? getEskulName(schedule.eskulId) : 'Kegiatan Dihapus'}</p>
+                                            <p className="text-sm text-gray-500">Tanggal: {new Date(rec.checkInTime).toLocaleDateString('id-ID')}</p>
+                                            <p className="text-sm text-gray-500">Datang: {new Date(rec.checkInTime).toLocaleTimeString('id-ID')}</p>
+                                            {rec.checkOutTime && <p className="text-sm text-gray-500">Pulang: {new Date(rec.checkOutTime).toLocaleTimeString('id-ID')}</p>}
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </main>
+            <Modal isOpen={isScheduleModalOpen} onClose={() => setIsScheduleModalOpen(false)} title="Kelola Jadwal Eskul">
+                <EskulScheduleManager user={user} schedules={schedules} eskuls={eskuls} onScheduleUpdate={fetchData} />
+            </Modal>
+             <footer className="text-center text-sm text-gray-500 py-6">
+                © {new Date().getFullYear()} Rullp. All rights reserved.
+            </footer>
+        </div>
+    );
+};
+
+const EskulScheduleManager: React.FC<{user: User, schedules: EskulSchedule[], eskuls: Eskul[], onScheduleUpdate: () => void}> = ({ user, schedules, eskuls, onScheduleUpdate }) => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingSchedule, setEditingSchedule] = useState<Partial<EskulSchedule> | null>(null);
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingSchedule || !editingSchedule.eskulId || !editingSchedule.day || !editingSchedule.startTime || !editingSchedule.endTime) {
+            alert("Harap isi semua kolom");
+            return;
+        }
+
+        try {
+            const scheduleData = {
+              pembinaId: user.id,
+              eskulId: editingSchedule.eskulId,
+              day: editingSchedule.day,
+              startTime: editingSchedule.startTime,
+              endTime: editingSchedule.endTime,
+            };
+            if (editingSchedule.id) {
+                await api.updateEskulSchedule(editingSchedule.id, scheduleData);
+            } else {
+                await api.addEskulSchedule(scheduleData);
+            }
+            onScheduleUpdate();
+            handleCloseModal();
+        } catch (error: any) {
+            alert(`Gagal menyimpan: ${error.message}`);
+        }
+    };
+    
+    const handleDelete = async (id: string) => {
+        if(window.confirm("Yakin ingin menghapus jadwal ini?")){
+            await api.deleteEskulSchedule(id);
+            onScheduleUpdate();
+        }
+    }
+
+    const handleOpenModal = (schedule: Partial<EskulSchedule> | null = null) => {
+        setEditingSchedule(schedule || { startTime: '14:00', endTime: '16:00' });
+        setIsModalOpen(true);
+    };
+    
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingSchedule(null);
+    }
+    
+    const getEskulName = (eskulId: string) => eskuls.find(e => e.id === eskulId)?.name || 'N/A';
+    
+    return (
+        <div className="bg-white p-4 rounded-lg">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Jadwal Eskul Saya</h2>
+                <button onClick={() => handleOpenModal()} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Tambah</button>
+            </div>
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+                {schedules.map(s => (
+                    <div key={s.id} className="border p-3 rounded-lg flex justify-between items-center">
+                        <div>
+                            <p className="font-semibold">{getEskulName(s.eskulId)}</p>
+                            <p className="text-gray-600">{HARI_TRANSLATION[s.day]}, {s.startTime} - {s.endTime}</p>
+                        </div>
+                        <div>
+                            <button onClick={() => handleOpenModal(s)} className="text-blue-600 hover:underline text-sm font-medium">Ubah</button>
+                            <button onClick={() => handleDelete(s.id)} className="text-red-600 hover:underline text-sm font-medium ml-2">Hapus</button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+             <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingSchedule?.id ? 'Ubah Jadwal' : 'Tambah Jadwal'}>
+                <form onSubmit={handleSave} className="space-y-4">
+                     <div>
+                        <label className="block mb-1">Kegiatan Eskul</label>
+                        <select value={editingSchedule?.eskulId || ''} onChange={e => setEditingSchedule({...editingSchedule, eskulId: e.target.value})} className="w-full p-2 border rounded">
+                            <option value="">Pilih Eskul</option>
+                            {eskuls.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block mb-1">Hari</label>
+                        <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as EskulSchedule['day']})} className="w-full p-2 border rounded">
+                            <option value="">Pilih Hari</option>
+                            {DAYS_OF_WEEK.map(day => <option key={day} value={day}>{HARI_TRANSLATION[day]}</option>)}
+                        </select>
+                    </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block mb-1">Waktu Mulai</label>
+                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded" />
+                        </div>
+                        <div>
+                            <label className="block mb-1">Waktu Selesai</label>
+                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded" />
+                        </div>
+                    </div>
+                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
+                </form>
+            </Modal>
+        </div>
+    );
+};
+
 // --- Admin Dashboard Components ---
 
 const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, onLogout }) => {
@@ -670,9 +982,10 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
     
     const viewTitles: { [key: string]: string } = {
         dashboard: 'Dashboard',
-        teachers: 'Data Guru',
+        teachers: 'Data Guru & Pembina',
         admins: 'Data Admin',
         classes: 'Data Kelas',
+        eskul: 'Data Ekstrakurikuler',
         schedules: 'Jadwal Pelajaran',
         reports: 'Laporan Absensi',
         'ai-assistant': 'Asisten AI'
@@ -698,9 +1011,10 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                 </div>
                 <nav className="flex-grow">
                     <a onClick={() => handleSetView('dashboard')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Dashboard</a>
-                    <a onClick={() => handleSetView('teachers')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Guru</a>
+                    <a onClick={() => handleSetView('teachers')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Guru & Pembina</a>
                     <a onClick={() => handleSetView('admins')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Admin</a>
                     <a onClick={() => handleSetView('classes')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Kelas</a>
+                    <a onClick={() => handleSetView('eskul')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Ekstrakurikuler</a>
                     <a onClick={() => handleSetView('schedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Pelajaran</a>
                     <a onClick={() => handleSetView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi</a>
                     <a onClick={() => handleSetView('ai-assistant')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Asisten AI</a>
@@ -725,9 +1039,10 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
 
                 {/* Page Content */}
                 {view === 'dashboard' && <DashboardHome />}
-                {view === 'teachers' && <TeacherManagement adminUser={user}/>}
+                {view === 'teachers' && <StaffManagement adminUser={user}/>}
                 {view === 'admins' && <AdminManagement />}
                 {view === 'classes' && <ClassManagement />}
+                {view === 'eskul' && <EskulManagement />}
                 {view === 'schedules' && <ScheduleManagement />}
                 {view === 'reports' && <AttendanceReport />}
                 {view === 'ai-assistant' && <AIAssistant />}
@@ -893,7 +1208,7 @@ const CrudTable: React.FC<{
     </div>
 );
 
-const SendMessageModal: React.FC<{ teacher: User; adminUser: User; onClose: () => void }> = ({ teacher, adminUser, onClose }) => {
+const SendMessageModal: React.FC<{ staff: User; adminUser: User; onClose: () => void }> = ({ staff, adminUser, onClose }) => {
     const [content, setContent] = useState('');
     const [isSending, setIsSending] = useState(false);
 
@@ -905,13 +1220,13 @@ const SendMessageModal: React.FC<{ teacher: User; adminUser: User; onClose: () =
             const newMessage: Omit<Message, 'id'> = {
                 senderId: adminUser.id,
                 senderName: adminUser.name,
-                recipientId: teacher.id,
+                recipientId: staff.id,
                 content: content.trim(),
                 timestamp: new Date().toISOString(),
                 isRead: false,
             };
             await api.addMessage(newMessage);
-            alert(`Pesan berhasil dikirim ke ${teacher.name}`);
+            alert(`Pesan berhasil dikirim ke ${staff.name}`);
             onClose();
         } catch (error: any) {
             alert(`Gagal mengirim pesan: ${error.message}`);
@@ -921,7 +1236,7 @@ const SendMessageModal: React.FC<{ teacher: User; adminUser: User; onClose: () =
     };
 
     return (
-        <Modal isOpen={true} onClose={onClose} title={`Kirim Pesan ke ${teacher.name}`}>
+        <Modal isOpen={true} onClose={onClose} title={`Kirim Pesan ke ${staff.name}`}>
             <form onSubmit={handleSend}>
                 <textarea
                     value={content}
@@ -941,27 +1256,29 @@ const SendMessageModal: React.FC<{ teacher: User; adminUser: User; onClose: () =
     );
 };
 
-const TeacherManagement: React.FC<{ adminUser: User }> = ({ adminUser }) => {
-    const [teachers, setTeachers] = useState<User[]>([]);
-    const [messagingTeacher, setMessagingTeacher] = useState<User | null>(null);
+const StaffManagement: React.FC<{ adminUser: User }> = ({ adminUser }) => {
+    const [staff, setStaff] = useState<User[]>([]);
+    const [messagingStaff, setMessagingStaff] = useState<User | null>(null);
 
-    const fetchTeachers = async () => {
-        setTeachers(await api.getUsersByRole(UserRoleEnum.TEACHER));
+    const fetchStaff = async () => {
+        const teachers = await api.getUsersByRole(UserRoleEnum.TEACHER);
+        const pembinas = await api.getUsersByRole(UserRoleEnum.PEMBINA_ESKUL);
+        setStaff([...teachers, ...pembinas]);
     };
 
     useEffect(() => {
-        fetchTeachers();
+        fetchStaff();
     }, []);
     
     const handleDelete = async (id: string) => {
-        if (window.confirm("Yakin ingin menghapus guru ini? Ini juga akan menghapus jadwal terkait.")) {
+        if (window.confirm("Yakin ingin menghapus pengguna ini? Ini juga akan menghapus jadwal terkait.")) {
             await api.deleteUser(id);
-            setTeachers(teachers.filter(t => t.id !== id));
+            setStaff(staff.filter(t => t.id !== id));
         }
     };
 
     const handleResetDevice = async (id: string, name: string) => {
-        if (window.confirm(`Yakin ingin mereset perangkat untuk guru "${name}"? Guru ini akan dapat login di perangkat baru setelahnya.`)) {
+        if (window.confirm(`Yakin ingin mereset perangkat untuk "${name}"? Pengguna ini akan dapat login di perangkat baru setelahnya.`)) {
             try {
                 await api.resetDeviceBinding(id);
                 alert(`Perangkat untuk ${name} berhasil direset.`);
@@ -972,34 +1289,44 @@ const TeacherManagement: React.FC<{ adminUser: User }> = ({ adminUser }) => {
         }
     };
 
+    const roleTranslation: { [key in UserRole]?: string } = {
+        [UserRoleEnum.TEACHER]: 'Guru',
+        [UserRoleEnum.PEMBINA_ESKUL]: 'Pembina Eskul',
+    };
+
     return (
         <>
             <CrudTable
-                title="Manajemen Guru"
-                columns={['Nama', 'User ID (Email)', 'Aksi']}
-                data={teachers}
-                renderRow={(teacher: User) => (
-                    <tr key={teacher.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3">{teacher.name}</td>
-                        <td className="p-3">{teacher.userId}</td>
+                title="Manajemen Guru & Pembina"
+                columns={['Nama', 'User ID (Email)', 'Peran', 'Aksi']}
+                data={staff}
+                renderRow={(member: User) => (
+                    <tr key={member.id} className="border-b hover:bg-gray-50">
+                        <td className="p-3">{member.name}</td>
+                        <td className="p-3">{member.userId}</td>
+                        <td className="p-3">
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${member.role === UserRoleEnum.TEACHER ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                                {roleTranslation[member.role] || member.role}
+                            </span>
+                        </td>
                         <td className="p-3 space-x-4">
-                            <button onClick={() => setMessagingTeacher(teacher)} className="text-green-600 hover:underline">Kirim Pesan</button>
-                            <button onClick={() => handleResetDevice(teacher.id, teacher.name)} className="text-blue-600 hover:underline">Reset Perangkat</button>
-                            <button onClick={() => handleDelete(teacher.id)} className="text-red-600 hover:underline">Hapus</button>
+                            <button onClick={() => setMessagingStaff(member)} className="text-green-600 hover:underline">Kirim Pesan</button>
+                            <button onClick={() => handleResetDevice(member.id, member.name)} className="text-blue-600 hover:underline">Reset Perangkat</button>
+                            <button onClick={() => handleDelete(member.id)} className="text-red-600 hover:underline">Hapus</button>
                         </td>
                     </tr>
                 )}
             />
             <div className="mt-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-lg">
-                <p className="font-bold">Informasi Pendaftaran Guru</p>
-                <p>Untuk menambahkan guru baru, mereka harus mendaftar melalui halaman login dengan memilih opsi 'Daftar' dan menggunakan peran 'Guru'.</p>
+                <p className="font-bold">Informasi Pendaftaran</p>
+                <p>Untuk menambahkan guru atau pembina baru, mereka harus mendaftar melalui halaman login dengan memilih opsi 'Daftar' dan peran yang sesuai.</p>
             </div>
 
-            {messagingTeacher && (
+            {messagingStaff && (
                 <SendMessageModal
-                    teacher={messagingTeacher}
+                    staff={messagingStaff}
                     adminUser={adminUser}
-                    onClose={() => setMessagingTeacher(null)}
+                    onClose={() => setMessagingStaff(null)}
                 />
             )}
         </>
@@ -1128,6 +1455,84 @@ const ClassManagement: React.FC = () => {
                         />
                         <p className="mt-4 text-gray-600">Pindai kode ini untuk melakukan absensi di kelas {qrClass.name}.</p>
                         <p className="text-sm text-gray-500 mt-2">Pastikan guru memindai dari dalam radius sekolah.</p>
+                    </div>
+                )}
+            </Modal>
+        </>
+    );
+};
+
+const EskulManagement: React.FC = () => {
+    const [eskuls, setEskuls] = useState<Eskul[]>([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [newEskulName, setNewEskulName] = useState('');
+    const [qrEskul, setQrEskul] = useState<Eskul | null>(null);
+
+    const fetchEskuls = async () => setEskuls(await api.getEskuls());
+
+    useEffect(() => {
+        fetchEskuls();
+    }, []);
+
+    const handleAdd = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmedName = newEskulName.trim();
+        if (trimmedName) {
+             if (eskuls.some(e => e.name.toLowerCase() === trimmedName.toLowerCase())) {
+                alert(`Ekstrakurikuler "${trimmedName}" sudah ada.`);
+                return;
+            }
+            await api.addEskul({ name: trimmedName });
+            setNewEskulName('');
+            setIsModalOpen(false);
+            fetchEskuls();
+        }
+    };
+    
+    const handleDelete = async (id: string) => {
+        if (window.confirm("Yakin ingin menghapus eskul ini? Ini juga akan menghapus jadwal terkait.")) {
+            await api.deleteEskul(id);
+            fetchEskuls();
+        }
+    };
+
+    return (
+        <>
+            <CrudTable
+                title="Manajemen Ekstrakurikuler"
+                columns={['Nama Kegiatan', 'Aksi']}
+                data={eskuls}
+                onAdd={() => setIsModalOpen(true)}
+                renderRow={(e: Eskul) => (
+                    <tr key={e.id} className="border-b hover:bg-gray-50">
+                        <td className="p-3">{e.name}</td>
+                        <td className="p-3 space-x-4">
+                            <button onClick={() => setQrEskul(e)} className="text-blue-600 hover:underline">QR Code</button>
+                            <button onClick={() => handleDelete(e.id)} className="text-red-600 hover:underline">Hapus</button>
+                        </td>
+                    </tr>
+                )}
+            />
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Tambah Eskul Baru">
+                <form onSubmit={handleAdd}>
+                    <div className="mb-4">
+                        <label className="block mb-2">Nama Eskul (Contoh: Pramuka)</label>
+                        <input value={newEskulName} onChange={e => setNewEskulName(e.target.value)} className="w-full p-2 border rounded"/>
+                    </div>
+                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
+                </form>
+            </Modal>
+
+            <Modal isOpen={!!qrEskul} onClose={() => setQrEskul(null)} title={`QR Code Absensi - ${qrEskul?.name}`}>
+                {qrEskul && (
+                    <div className="text-center p-4">
+                        <QRCode
+                            value={JSON.stringify({ type: 'eskul_attendance', eskulId: qrEskul.id })}
+                            size={256}
+                            level={"H"}
+                            includeMargin={true}
+                        />
+                        <p className="mt-4 text-gray-600">Pindai kode ini untuk absensi kegiatan {qrEskul.name}.</p>
                     </div>
                 )}
             </Modal>
@@ -1282,9 +1687,9 @@ const AttendanceReport: React.FC = () => {
     const [filter, setFilter] = useState({ teacherId: '', classId: '', startDate: '', endDate: '' });
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
             const [att, tch, cls] = await Promise.all([
                 api.getAttendanceRecords(),
                 api.getUsersByRole(UserRoleEnum.TEACHER),
@@ -1293,10 +1698,16 @@ const AttendanceReport: React.FC = () => {
             setAttendance(att);
             setTeachers(tch);
             setClasses(cls);
+        } catch (error) {
+            console.error("Failed to fetch report data:", error);
+        } finally {
             setLoading(false);
-        };
-        fetchData();
+        }
     }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const filteredAttendance = useMemo(() => {
         return attendance.filter(rec => {
@@ -1317,7 +1728,7 @@ const AttendanceReport: React.FC = () => {
 
     const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
     const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
-    
+
     const exportToPDF = () => {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
@@ -1332,7 +1743,7 @@ const AttendanceReport: React.FC = () => {
         ]);
         
         doc.autoTable({
-            head: [['Nama Guru', 'Kelas', 'Jam Pelajaran', 'Waktu Scan']],
+            head: [['Nama Guru', 'Kelas', 'Jam Pelajaran', 'Waktu']],
             body: tableData,
             startY: 20,
         });
@@ -1345,7 +1756,7 @@ const AttendanceReport: React.FC = () => {
             "Nama Guru": getTeacherName(rec.teacherId),
             "Kelas": getClassName(rec.classId),
             "Jam Pelajaran": `Jam ke-${rec.lessonHour}`,
-            "Waktu Scan": new Date(rec.scanTime).toLocaleString('id-ID'),
+            "Waktu": new Date(rec.scanTime).toLocaleString('id-ID'),
         }));
         const worksheet = XLSX.utils.json_to_sheet(worksheetData);
         const workbook = XLSX.utils.book_new();
@@ -1393,7 +1804,7 @@ const AttendanceReport: React.FC = () => {
             {loading ? <Spinner/> : (
                 <CrudTable
                     title=""
-                    columns={['Guru', 'Kelas', 'Jam Ke', 'Waktu Scan']}
+                    columns={['Guru', 'Kelas', 'Jam Ke', 'Waktu']}
                     data={filteredAttendance}
                     renderRow={(rec: AttendanceRecord) => (
                          <tr key={rec.id} className="border-b hover:bg-gray-50">
@@ -1405,7 +1816,6 @@ const AttendanceReport: React.FC = () => {
                     )}
                 />
             )}
-
         </div>
     );
 };
@@ -1675,6 +2085,7 @@ const App: React.FC = () => {
                                     <label className="text-sm font-medium text-gray-600 block mb-1">Daftar sebagai</label>
                                     <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                                         <option value={UserRoleEnum.TEACHER}>Guru</option>
+                                        <option value={UserRoleEnum.PEMBINA_ESKUL}>Pembina Ekstrakurikuler</option>
                                         <option value={UserRoleEnum.ADMIN}>Admin</option>
                                     </select>
                                 </div>
@@ -1716,9 +2127,18 @@ const App: React.FC = () => {
         );
     }
 
-    return userProfile.role === UserRoleEnum.ADMIN ? 
-        <AdminDashboard user={userProfile} onLogout={handleLogout} /> : 
-        <TeacherDashboard user={userProfile} onLogout={handleLogout} />;
+    if (userProfile.role === UserRoleEnum.ADMIN) {
+        return <AdminDashboard user={userProfile} onLogout={handleLogout} />;
+    }
+    if (userProfile.role === UserRoleEnum.TEACHER) {
+        return <TeacherDashboard user={userProfile} onLogout={handleLogout} />;
+    }
+    if (userProfile.role === UserRoleEnum.PEMBINA_ESKUL) {
+        return <PembinaEskulDashboard user={userProfile} onLogout={handleLogout} />;
+    }
+
+    // Fallback for unknown roles
+    return <div>Peran pengguna tidak dikenali.</div>;
 };
 
 export default App;

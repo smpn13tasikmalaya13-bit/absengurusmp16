@@ -2,6 +2,7 @@
 export enum UserRole {
   ADMIN = 'ADMIN',
   TEACHER = 'TEACHER',
+  PEMBINA_ESKUL = 'PEMBINA_ESKUL',
 }
 
 export interface User {
@@ -51,4 +52,28 @@ export interface Message {
   content: string;
   timestamp: string; // ISO string
   isRead: boolean;
+}
+
+// --- Extracurricular Interfaces ---
+export interface Eskul {
+  id: string;
+  name: string;
+}
+
+export interface EskulSchedule {
+  id: string;
+  pembinaId: string;
+  eskulId: string;
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+  startTime: string; // "14:00"
+  endTime: string;   // "16:00"
+}
+
+export interface EskulAttendanceRecord {
+  id: string;
+  pembinaId: string;
+  eskulScheduleId: string;
+  date: string; // YYYY-MM-DD
+  checkInTime: string; // ISO string
+  checkOutTime?: string; // ISO string
 }

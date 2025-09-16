@@ -1,4 +1,5 @@
-import type { User, Class, Schedule, AttendanceRecord, UserRole, Message } from '../types';
+
+import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
 declare var firebase: any;
@@ -210,6 +211,11 @@ export const deleteUser = async (id: string): Promise<void> => {
     schedulesSnapshot.docs.forEach((doc: any) => {
         batch.delete(doc.ref);
     });
+    // Hapus juga jadwal eskul
+    const eskulSchedulesSnapshot = await db.collection('eskulSchedules').where('pembinaId', '==', id).get();
+    eskulSchedulesSnapshot.docs.forEach((doc: any) => {
+        batch.delete(doc.ref);
+    });
     await batch.commit();
 
     // Hapus dokumen pengguna dari Firestore
@@ -404,4 +410,77 @@ export const markMessagesAsRead = async (messageIds: string[]): Promise<void> =>
         batch.update(docRef, { isRead: true });
     });
     await batch.commit();
+};
+
+// --- Extracurricular (Eskul) Functions ---
+
+export const getEskuls = async (): Promise<Eskul[]> => {
+    const snapshot = await db.collection('eskuls').orderBy('name').get();
+    return collectionToData<Eskul>(snapshot);
+};
+
+export const addEskul = async (eskulData: Omit<Eskul, 'id'>): Promise<void> => {
+    await db.collection('eskuls').add(eskulData);
+};
+
+export const deleteEskul = async (id: string): Promise<void> => {
+    const schedulesSnapshot = await db.collection('eskulSchedules').where('eskulId', '==', id).get();
+    const batch = db.batch();
+    schedulesSnapshot.docs.forEach((doc: any) => {
+        batch.delete(doc.ref);
+    });
+    await batch.commit();
+    await db.collection('eskuls').doc(id).delete();
+};
+
+export const getEskulSchedules = async (pembinaId: string): Promise<EskulSchedule[]> => {
+    const snapshot = await db.collection('eskulSchedules').where('pembinaId', '==', pembinaId).get();
+    const schedules = collectionToData<EskulSchedule>(snapshot);
+    schedules.sort((a, b) => {
+        const dayAIndex = DAYS_OF_WEEK.indexOf(a.day);
+        const dayBIndex = DAYS_OF_WEEK.indexOf(b.day);
+        if (dayAIndex !== dayBIndex) return dayAIndex - dayBIndex;
+        return (a.startTime || '').localeCompare(b.startTime || '');
+    });
+    return schedules;
+};
+
+export const addEskulSchedule = async (scheduleData: Omit<EskulSchedule, 'id'>): Promise<void> => {
+    await db.collection('eskulSchedules').add(scheduleData);
+};
+
+export const updateEskulSchedule = async (id: string, scheduleData: Partial<EskulSchedule>): Promise<void> => {
+    await db.collection('eskulSchedules').doc(id).update(scheduleData);
+};
+
+export const deleteEskulSchedule = async (id: string): Promise<void> => {
+    await db.collection('eskulSchedules').doc(id).delete();
+};
+
+export const getEskulAttendanceRecords = async (pembinaId: string): Promise<EskulAttendanceRecord[]> => {
+    const snapshot = await db.collection('eskulAttendance').where('pembinaId', '==', pembinaId).orderBy('checkInTime', 'desc').get();
+    return collectionToData<EskulAttendanceRecord>(snapshot);
+};
+
+export const findEskulAttendanceForToday = async (pembinaId: string, eskulScheduleId: string, date: string): Promise<EskulAttendanceRecord | null> => {
+    const snapshot = await db.collection('eskulAttendance')
+        .where('pembinaId', '==', pembinaId)
+        .where('eskulScheduleId', '==', eskulScheduleId)
+        .where('date', '==', date)
+        .limit(1)
+        .get();
+
+    if (snapshot.empty) {
+        return null;
+    }
+    return docToData<EskulAttendanceRecord>(snapshot.docs[0]);
+};
+
+export const addEskulAttendanceRecord = async (recordData: Omit<EskulAttendanceRecord, 'id'>): Promise<string> => {
+    const docRef = await db.collection('eskulAttendance').add(recordData);
+    return docRef.id;
+};
+
+export const updateEskulAttendanceRecord = async (id: string, updateData: { checkOutTime: string }): Promise<void> => {
+    await db.collection('eskulAttendance').doc(id).update(updateData);
 };
