@@ -552,8 +552,16 @@ export const deleteEskulSchedule = async (id: string): Promise<{success: boolean
 };
 
 export const getEskulAttendanceRecords = async (pembinaId: string): Promise<EskulAttendanceRecord[]> => {
-    const snapshot = await db.collection('eskulAttendance').where('pembinaId', '==', pembinaId).orderBy('checkInTime', 'desc').get();
-    return collectionToData<EskulAttendanceRecord>(snapshot);
+    // Remove orderBy to prevent needing a composite index. Sorting will be done client-side.
+    const snapshot = await db.collection('eskulAttendance').where('pembinaId', '==', pembinaId).get();
+    const records = collectionToData<EskulAttendanceRecord>(snapshot);
+    // Sort records client-side in descending order of check-in time.
+    records.sort((a, b) => {
+        const timeA = a.checkInTime ? new Date(a.checkInTime).getTime() : 0;
+        const timeB = b.checkInTime ? new Date(b.checkInTime).getTime() : 0;
+        return timeB - timeA;
+    });
+    return records;
 };
 
 export const getAllEskulAttendanceRecords = async (): Promise<EskulAttendanceRecord[]> => {
