@@ -378,6 +378,14 @@ export const getAttendanceRecords = async (): Promise<AttendanceRecord[]> => {
     return collectionToData<AttendanceRecord>(snapshot);
 };
 
+export const getAttendanceRecordsForTeacher = async (teacherId: string): Promise<AttendanceRecord[]> => {
+    const snapshot = await db.collection('attendance')
+        .where('teacherId', '==', teacherId)
+        .orderBy('scanTime', 'desc')
+        .get();
+    return collectionToData<AttendanceRecord>(snapshot);
+};
+
 export const addAttendanceRecord = async (recordData: Omit<AttendanceRecord, 'id'>): Promise<string> => {
     const docRef = await db.collection('attendance').add(recordData);
     return docRef.id;

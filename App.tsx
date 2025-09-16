@@ -98,7 +98,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
         const results = await Promise.allSettled([
             api.getClasses(),
             api.getSchedules(),
-            api.getAttendanceRecords()
+            api.getAttendanceRecordsForTeacher(user.id) // Use the specific function
         ]);
 
         const [classesResult, schedulesResult, attendanceResult] = results;
@@ -118,10 +118,8 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
         }
 
         if (attendanceResult.status === 'fulfilled') {
-            const userAttendance = attendanceResult.value
-                .filter(rec => rec.teacherId === user.id)
-                .sort((a, b) => new Date(b.scanTime).getTime() - new Date(a.scanTime).getTime());
-            setAttendance(userAttendance);
+            // Data is already filtered and sorted by the server
+            setAttendance(attendanceResult.value);
         } else {
             console.error("Gagal memuat absensi:", attendanceResult.reason);
             alert(`Gagal memuat riwayat absensi: ${attendanceResult.reason.message}`);
