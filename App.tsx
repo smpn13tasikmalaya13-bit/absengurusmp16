@@ -755,26 +755,25 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
     const fetchData = useCallback(async () => {
         setLoadingData(true);
         try {
-            // FIX: Fetch eskul list first and separately to ensure dropdown populates reliably.
+            // Fetch critical data for dropdowns first.
             const eskulsData = await api.getEskuls();
             setEskuls(eskulsData);
     
-            // Fetch remaining data. An error here won't break the dropdown.
-            try {
-                const [schedulesData, attendanceData] = await Promise.all([
-                    api.getEskulSchedules(user.id),
-                    api.getEskulAttendanceRecords(user.id)
-                ]);
-                setSchedules(schedulesData);
-                setAttendance(attendanceData);
-            } catch (scheduleError) {
-                console.error("Gagal memuat jadwal atau absensi eskul:", scheduleError);
-                // Non-critical error, the main page can still function.
+            if (eskulsData.length === 0) {
+                console.warn("Daftar eskul kosong. Periksa data di Firestore dan aturan keamanan.");
             }
     
+            // Fetch non-critical data.
+            const [schedulesData, attendanceData] = await Promise.all([
+                api.getEskulSchedules(user.id),
+                api.getEskulAttendanceRecords(user.id)
+            ]);
+            setSchedules(schedulesData);
+            setAttendance(attendanceData);
+    
         } catch (error: any) {
-            console.error("Gagal memuat daftar eskul:", error);
-            alert(`Gagal memuat data eskul: ${error.message}`);
+            console.error("Gagal memuat data dasbor pembina:", error);
+            alert(`Terjadi kesalahan saat memuat data: ${error.message}. Beberapa fitur mungkin tidak berfungsi.`);
         } finally {
             setLoadingData(false);
         }
@@ -1700,7 +1699,7 @@ const EskulManagement: React.FC = () => {
 
 const ScheduleManagement: React.FC = () => {
     const [schedules, setSchedules] = useState<Schedule[]>([]);
-    const [users, setUsers] = useState<User[]>([]); // Teachers only for this context
+    const [users, setUsers] = useState<User[]>([]); // Teachers only
     const [classes, setClasses] = useState<Class[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1710,25 +1709,25 @@ const ScheduleManagement: React.FC = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // FIX: Fetch dropdown data first and separately for resilience.
-            // This ensures the "Add" functionality works even if fetching schedules fails.
-            const teachersData = await api.getUsersByRole(UserRoleEnum.TEACHER);
-            const classesData = await api.getClasses();
+            // Fetch critical dropdown data first
+            const [teachersData, classesData] = await Promise.all([
+                api.getUsersByRole(UserRoleEnum.TEACHER),
+                api.getClasses()
+            ]);
             setUsers(teachersData);
             setClasses(classesData);
-
-            // Now, fetch the main table data. A failure here won't break the UI.
-            try {
-                const schedulesData = await api.getSchedules();
-                setSchedules(schedulesData);
-            } catch (scheduleError) {
-                console.error("Gagal memuat data jadwal:", scheduleError);
-                alert("Gagal memuat daftar jadwal, tetapi Anda masih bisa menambah jadwal baru.");
+    
+            if (teachersData.length === 0 || classesData.length === 0) {
+                console.warn("Daftar guru atau kelas kosong. Periksa data di Firestore dan aturan keamanan.");
             }
-
+    
+            // Fetch main table data
+            const schedulesData = await api.getSchedules();
+            setSchedules(schedulesData);
+    
         } catch (error: any) {
-            console.error("Gagal memuat data penting (guru/kelas):", error);
-            alert(`Gagal memuat data penting untuk manajemen jadwal: ${error.message}`);
+            console.error("Gagal memuat data manajemen jadwal:", error);
+            alert(`Terjadi kesalahan saat memuat data: ${error.message}. Beberapa fitur mungkin tidak berfungsi.`);
         } finally {
             setLoading(false);
         }
