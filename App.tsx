@@ -94,26 +94,42 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
     const fetchData = useCallback(async () => {
         setLoadingData(true);
-        try {
-            const [classesData, schedulesData, allAttendance] = await Promise.all([
-                api.getClasses(),
-                api.getSchedules(),
-                api.getAttendanceRecords()
-            ]);
-            setClasses(classesData);
-            setSchedules(schedulesData);
 
-            const userAttendance = allAttendance
+        const results = await Promise.allSettled([
+            api.getClasses(),
+            api.getSchedules(),
+            api.getAttendanceRecords()
+        ]);
+
+        const [classesResult, schedulesResult, attendanceResult] = results;
+
+        if (classesResult.status === 'fulfilled') {
+            setClasses(classesResult.value);
+        } else {
+            console.error("Gagal memuat kelas:", classesResult.reason);
+            alert(`Gagal memuat daftar Kelas: ${classesResult.reason.message}. Fitur jadwal mungkin tidak berfungsi dengan benar.`);
+        }
+
+        if (schedulesResult.status === 'fulfilled') {
+            setSchedules(schedulesResult.value);
+        } else {
+            console.error("Gagal memuat jadwal:", schedulesResult.reason);
+            alert(`Gagal memuat jadwal mengajar: ${schedulesResult.reason.message}`);
+        }
+
+        if (attendanceResult.status === 'fulfilled') {
+            const userAttendance = attendanceResult.value
                 .filter(rec => rec.teacherId === user.id)
                 .sort((a, b) => new Date(b.scanTime).getTime() - new Date(a.scanTime).getTime());
             setAttendance(userAttendance);
-        } catch (error) {
-            console.error("Failed to fetch data:", error);
-            // Optionally set an error state here to show in the UI
-        } finally {
-            setLoadingData(false);
+        } else {
+            console.error("Gagal memuat absensi:", attendanceResult.reason);
+            alert(`Gagal memuat riwayat absensi: ${attendanceResult.reason.message}`);
         }
+
+        setLoadingData(false);
     }, [user.id]);
+
 
     useEffect(() => {
         fetchData();
