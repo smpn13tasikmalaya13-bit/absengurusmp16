@@ -460,6 +460,19 @@ export const getEskulSchedules = async (pembinaId: string): Promise<EskulSchedul
     return schedules;
 };
 
+export const getAllEskulSchedules = async (): Promise<EskulSchedule[]> => {
+    const snapshot = await db.collection('eskulSchedules').get();
+    const schedules = collectionToData<EskulSchedule>(snapshot);
+    schedules.sort((a, b) => {
+        const dayAIndex = DAYS_OF_WEEK.indexOf(a.day);
+        const dayBIndex = DAYS_OF_WEEK.indexOf(b.day);
+        if (dayAIndex !== dayBIndex) return dayAIndex - dayBIndex;
+        return (a.startTime || '').localeCompare(b.startTime || '');
+    });
+    return schedules;
+};
+
+
 export const addEskulSchedule = async (scheduleData: Omit<EskulSchedule, 'id'>): Promise<void> => {
     await db.collection('eskulSchedules').add(scheduleData);
 };
@@ -474,6 +487,11 @@ export const deleteEskulSchedule = async (id: string): Promise<void> => {
 
 export const getEskulAttendanceRecords = async (pembinaId: string): Promise<EskulAttendanceRecord[]> => {
     const snapshot = await db.collection('eskulAttendance').where('pembinaId', '==', pembinaId).orderBy('checkInTime', 'desc').get();
+    return collectionToData<EskulAttendanceRecord>(snapshot);
+};
+
+export const getAllEskulAttendanceRecords = async (): Promise<EskulAttendanceRecord[]> => {
+    const snapshot = await db.collection('eskulAttendance').orderBy('checkInTime', 'desc').get();
     return collectionToData<EskulAttendanceRecord>(snapshot);
 };
 

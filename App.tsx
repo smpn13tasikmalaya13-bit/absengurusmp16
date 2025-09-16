@@ -1681,23 +1681,47 @@ const ScheduleManagement: React.FC = () => {
 };
 
 const AttendanceReport: React.FC = () => {
+    const [reportType, setReportType] = useState<'kelas' | 'eskul'>('kelas');
+    
+    // State for class attendance
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
     const [teachers, setTeachers] = useState<User[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
     const [filter, setFilter] = useState({ teacherId: '', classId: '', startDate: '', endDate: '' });
+
+    // State for eskul attendance
+    const [eskulAttendance, setEskulAttendance] = useState<EskulAttendanceRecord[]>([]);
+    const [pembinas, setPembinas] = useState<User[]>([]);
+    const [eskuls, setEskuls] = useState<Eskul[]>([]);
+    const [eskulSchedules, setEskulSchedules] = useState<EskulSchedule[]>([]);
+    const [eskulFilter, setEskulFilter] = useState({ pembinaId: '', eskulId: '', startDate: '', endDate: '' });
+
     const [loading, setLoading] = useState(true);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [att, tch, cls] = await Promise.all([
+            const [
+                att, tch, cls, // Class data
+                eskulAtt, pbn, es, eskSch // Eskul data
+            ] = await Promise.all([
                 api.getAttendanceRecords(),
                 api.getUsersByRole(UserRoleEnum.TEACHER),
                 api.getClasses(),
+                api.getAllEskulAttendanceRecords(),
+                api.getUsersByRole(UserRoleEnum.PEMBINA_ESKUL),
+                api.getEskuls(),
+                api.getAllEskulSchedules()
             ]);
+            // Set class data
             setAttendance(att);
             setTeachers(tch);
             setClasses(cls);
+            // Set eskul data
+            setEskulAttendance(eskulAtt);
+            setPembinas(pbn);
+            setEskuls(es);
+            setEskulSchedules(eskSch);
         } catch (error) {
             console.error("Failed to fetch report data:", error);
         } finally {
@@ -1725,74 +1749,206 @@ const AttendanceReport: React.FC = () => {
             );
         });
     }, [attendance, filter]);
+    
+    const processedAndFilteredEskulAttendance = useMemo(() => {
+        const scheduleMap = new Map(eskulSchedules.map(s => [s.id, s]));
+        const eskulMap = new Map(eskuls.map(e => [e.id, e]));
+        const pembinaMap = new Map(pembinas.map(p => [p.id, p]));
+
+        const processed = eskulAttendance.map(rec => {
+            const schedule = scheduleMap.get(rec.eskulScheduleId);
+            const eskul = schedule ? eskulMap.get(schedule.eskulId) : undefined;
+            const pembina = pembinaMap.get(rec.pembinaId);
+
+            let duration = 'N/A';
+            if (rec.checkInTime && rec.checkOutTime) {
+                const start = new Date(rec.checkInTime);
+                const end = new Date(rec.checkOutTime);
+                const diffMs = end.getTime() - start.getTime();
+                if (diffMs > 0) {
+                    const diffMins = Math.round(diffMs / 60000);
+                    const hours = Math.floor(diffMins / 60);
+                    const minutes = diffMins % 60;
+                    duration = `${hours} jam ${minutes} menit`;
+                }
+            }
+
+            return {
+                ...rec,
+                pembinaName: pembina?.name || 'N/A',
+                eskulName: eskul?.name || 'Kegiatan Dihapus',
+                pembinaId: rec.pembinaId,
+                eskulId: schedule?.eskulId || '',
+                duration,
+            };
+        });
+        
+        return processed.filter(rec => {
+            const checkInDate = new Date(rec.checkInTime);
+            const startDate = eskulFilter.startDate ? new Date(eskulFilter.startDate) : null;
+            const endDate = eskulFilter.endDate ? new Date(eskulFilter.endDate) : null;
+            if (startDate) startDate.setHours(0,0,0,0);
+            if (endDate) endDate.setHours(23,59,59,999);
+            
+            return (
+                (eskulFilter.pembinaId ? rec.pembinaId === eskulFilter.pembinaId : true) &&
+                (eskulFilter.eskulId ? rec.eskulId === eskulFilter.eskulId : true) &&
+                (startDate ? checkInDate >= startDate : true) &&
+                (endDate ? checkInDate <= endDate : true)
+            );
+        });
+    }, [eskulAttendance, eskulSchedules, eskuls, pembinas, eskulFilter]);
+
 
     const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
     const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
 
     const exportToPDF = () => {
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        
-        doc.text("Laporan Absensi Guru", 20, 10);
-        
-        const tableData = filteredAttendance.map(rec => [
-            getTeacherName(rec.teacherId),
-            getClassName(rec.classId),
-            `Jam ke-${rec.lessonHour}`,
-            new Date(rec.scanTime).toLocaleString('id-ID'),
-        ]);
-        
-        doc.autoTable({
-            head: [['Nama Guru', 'Kelas', 'Jam Pelajaran', 'Waktu']],
-            body: tableData,
-            startY: 20,
-        });
+        // @ts-ignore
+        const doc = new jsPDF.default();
+         // @ts-ignore
+        if (!doc.autoTable) {
+            console.error("jsPDF autoTable plugin is not loaded!");
+            return;
+        }
 
-        doc.save('laporan_absensi.pdf');
+        if (reportType === 'kelas') {
+            doc.text("Laporan Absensi Guru", 14, 16);
+            const tableData = filteredAttendance.map(rec => [
+                getTeacherName(rec.teacherId),
+                getClassName(rec.classId),
+                `Jam ke-${rec.lessonHour}`,
+                new Date(rec.scanTime).toLocaleString('id-ID'),
+            ]);
+            doc.autoTable({
+                head: [['Nama Guru', 'Kelas', 'Jam Pelajaran', 'Waktu']],
+                body: tableData,
+                startY: 20,
+            });
+            doc.save('laporan_absensi_kelas.pdf');
+        } else { // eskul
+            doc.text("Laporan Absensi Ekstrakurikuler", 14, 16);
+            const tableData = processedAndFilteredEskulAttendance.map(rec => [
+                rec.pembinaName,
+                rec.eskulName,
+                new Date(rec.checkInTime).toLocaleDateString('id-ID'),
+                new Date(rec.checkInTime).toLocaleTimeString('id-ID'),
+                rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString('id-ID') : '-',
+                rec.duration
+            ]);
+            doc.autoTable({
+                head: [['Pembina', 'Eskul', 'Tanggal', 'Datang', 'Pulang', 'Durasi']],
+                body: tableData,
+                startY: 20,
+            });
+            doc.save('laporan_absensi_eskul.pdf');
+        }
     };
 
+
     const exportToExcel = () => {
-        const worksheetData = filteredAttendance.map(rec => ({
-            "Nama Guru": getTeacherName(rec.teacherId),
-            "Kelas": getClassName(rec.classId),
-            "Jam Pelajaran": `Jam ke-${rec.lessonHour}`,
-            "Waktu": new Date(rec.scanTime).toLocaleString('id-ID'),
-        }));
+        let worksheetData, fileName;
+
+        if (reportType === 'kelas') {
+            worksheetData = filteredAttendance.map(rec => ({
+                "Nama Guru": getTeacherName(rec.teacherId),
+                "Kelas": getClassName(rec.classId),
+                "Jam Pelajaran": `Jam ke-${rec.lessonHour}`,
+                "Waktu": new Date(rec.scanTime).toLocaleString('id-ID'),
+            }));
+            fileName = "Laporan_Absensi_Kelas.xlsx";
+        } else {
+             worksheetData = processedAndFilteredEskulAttendance.map(rec => ({
+                "Nama Pembina": rec.pembinaName,
+                "Kegiatan Eskul": rec.eskulName,
+                "Tanggal": new Date(rec.checkInTime).toLocaleDateString('id-ID'),
+                "Waktu Datang": new Date(rec.checkInTime).toLocaleTimeString('id-ID'),
+                "Waktu Pulang": rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString('id-ID') : '-',
+                "Durasi": rec.duration,
+            }));
+            fileName = "Laporan_Absensi_Eskul.xlsx";
+        }
+
         const worksheet = XLSX.utils.json_to_sheet(worksheetData);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Absensi");
-        XLSX.writeFile(workbook, "Laporan_Absensi.xlsx");
+        XLSX.writeFile(workbook, fileName);
     };
 
     return (
         <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-2xl font-bold mb-4">Laporan Absensi</h2>
             
-            {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 border rounded-lg">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Guru</label>
-                    <select value={filter.teacherId} onChange={e => setFilter({...filter, teacherId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                        <option value="">Semua Guru</option>
-                        {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                </div>
-                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Kelas</label>
-                    <select value={filter.classId} onChange={e => setFilter({...filter, classId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                        <option value="">Semua Kelas</option>
-                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                </div>
-                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Tanggal Mulai</label>
-                    <input type="date" value={filter.startDate} onChange={e => setFilter({...filter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
-                </div>
-                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Tanggal Selesai</label>
-                    <input type="date" value={filter.endDate} onChange={e => setFilter({...filter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
-                </div>
+            <div className="mb-4 border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                    <button
+                        onClick={() => setReportType('kelas')}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${reportType === 'kelas' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                    >
+                        Absensi Kelas
+                    </button>
+                    <button
+                        onClick={() => setReportType('eskul')}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${reportType === 'eskul' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                    >
+                        Absensi Ekstrakurikuler
+                    </button>
+                </nav>
             </div>
+
+            {/* Filters */}
+            {reportType === 'kelas' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 border rounded-lg">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Guru</label>
+                        <select value={filter.teacherId} onChange={e => setFilter({...filter, teacherId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <option value="">Semua Guru</option>
+                            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Kelas</label>
+                        <select value={filter.classId} onChange={e => setFilter({...filter, classId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <option value="">Semua Kelas</option>
+                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Tanggal Mulai</label>
+                        <input type="date" value={filter.startDate} onChange={e => setFilter({...filter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Tanggal Selesai</label>
+                        <input type="date" value={filter.endDate} onChange={e => setFilter({...filter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 border rounded-lg">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Pembina</label>
+                        <select value={eskulFilter.pembinaId} onChange={e => setEskulFilter({...eskulFilter, pembinaId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <option value="">Semua Pembina</option>
+                            {pembinas.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Eskul</label>
+                        <select value={eskulFilter.eskulId} onChange={e => setEskulFilter({...eskulFilter, eskulId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <option value="">Semua Eskul</option>
+                            {eskuls.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                        </select>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Tanggal Mulai</label>
+                        <input type="date" value={eskulFilter.startDate} onChange={e => setEskulFilter({...eskulFilter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Tanggal Selesai</label>
+                        <input type="date" value={eskulFilter.endDate} onChange={e => setEskulFilter({...eskulFilter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                    </div>
+                </div>
+            )}
             
             {/* Export Buttons */}
             <div className="flex justify-end gap-2 mb-4">
@@ -1802,19 +1958,37 @@ const AttendanceReport: React.FC = () => {
 
             {/* Table */}
             {loading ? <Spinner/> : (
-                <CrudTable
-                    title=""
-                    columns={['Guru', 'Kelas', 'Jam Ke', 'Waktu']}
-                    data={filteredAttendance}
-                    renderRow={(rec: AttendanceRecord) => (
-                         <tr key={rec.id} className="border-b hover:bg-gray-50">
-                            <td className="p-3">{getTeacherName(rec.teacherId)}</td>
-                            <td className="p-3">{getClassName(rec.classId)}</td>
-                            <td className="p-3">{rec.lessonHour}</td>
-                            <td className="p-3">{new Date(rec.scanTime).toLocaleString('id-ID')}</td>
-                        </tr>
-                    )}
-                />
+                reportType === 'kelas' ? (
+                    <CrudTable
+                        title=""
+                        columns={['Guru', 'Kelas', 'Jam Ke', 'Waktu']}
+                        data={filteredAttendance}
+                        renderRow={(rec: AttendanceRecord) => (
+                             <tr key={rec.id} className="border-b hover:bg-gray-50">
+                                <td className="p-3">{getTeacherName(rec.teacherId)}</td>
+                                <td className="p-3">{getClassName(rec.classId)}</td>
+                                <td className="p-3">{rec.lessonHour}</td>
+                                <td className="p-3">{new Date(rec.scanTime).toLocaleString('id-ID')}</td>
+                            </tr>
+                        )}
+                    />
+                ) : (
+                    <CrudTable
+                        title=""
+                        columns={['Pembina', 'Eskul', 'Tanggal', 'Datang', 'Pulang', 'Durasi']}
+                        data={processedAndFilteredEskulAttendance}
+                        renderRow={(rec: any) => (
+                             <tr key={rec.id} className="border-b hover:bg-gray-50">
+                                <td className="p-3">{rec.pembinaName}</td>
+                                <td className="p-3">{rec.eskulName}</td>
+                                <td className="p-3">{new Date(rec.checkInTime).toLocaleDateString('id-ID')}</td>
+                                <td className="p-3">{new Date(rec.checkInTime).toLocaleTimeString('id-ID')}</td>
+                                <td className="p-3">{rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString('id-ID') : '-'}</td>
+                                <td className="p-3">{rec.duration}</td>
+                            </tr>
+                        )}
+                    />
+                )
             )}
         </div>
     );
