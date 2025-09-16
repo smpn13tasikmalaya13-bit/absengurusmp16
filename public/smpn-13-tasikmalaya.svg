@@ -1,16 +1,22 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <!-- Background shape, typical for app icons -->
+    <!-- Gradient Background -->
     <rect width="512" height="512" rx="90" fill="url(#backgroundGradient)"/>
     <defs>
         <linearGradient id="backgroundGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
             <stop stop-color="#3B82F6"/>
-            <stop offset="1" stop-color="#2563EB"/>
+            <stop offset="1" stop-color="#1D4ED8"/>
         </linearGradient>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="4" dy="8" stdDeviation="8" flood-color="#000000" flood-opacity="0.3"/>
+        </filter>
     </defs>
-    <!-- Stylized Letter 'H' for HadirKu -->
-    <path d="M128 112 V 400 M 384 112 V 400 M 128 256 H 384" 
-          stroke="white" 
-          stroke-width="56" 
-          stroke-linecap="round" 
-          stroke-linejoin="round"/>
+
+    <!-- Main Icon Group: Location Pin with a Checkmark -->
+    <g transform="translate(0, -20)" filter="url(#shadow)">
+        <!-- The location pin shape -->
+        <path d="M256 96C186.4 96 128 154.4 128 224C128 310.4 240.2 411.3 249.6 421.1C252.9 424.5 259.1 424.5 262.4 421.1C271.8 411.3 384 310.4 384 224C384 154.4 325.6 96 256 96Z" fill="white"/>
+        
+        <!-- The checkmark inside the pin -->
+        <path d="M208 232L248 272L320 200" stroke="#2563EB" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
 </svg>
