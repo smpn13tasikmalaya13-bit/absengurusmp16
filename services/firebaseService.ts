@@ -21,7 +21,6 @@ if (!firebase.apps.length) {
 
 const db = firebase.firestore();
 const auth = firebase.auth();
-const storage = firebase.storage();
 
 // Enable offline persistence
 db.enablePersistence()
@@ -401,33 +400,32 @@ export const checkIfAlreadyScanned = async (teacherId: string, classId: string, 
 
 // --- Message Functions ---
 
-// FIX: The `addMessage` function is responsible for creating the timestamp. The caller should not provide it.
-// The parameter type is updated from `Omit<Message, 'id'>` to `Omit<Message, 'id' | 'timestamp'>`
-// to match the usage in `App.tsx` and avoid a TypeScript error.
-export const addMessage = async (messageData: Omit<Message, 'id' | 'timestamp'>): Promise<void> => {
-    await db.collection('messages').add({
-        ...messageData,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
+export const addMessage = async (messageData: Omit<Message, 'id'>): Promise<void> => {
+    await db.collection('messages').add(messageData);
 };
 
 // Gunakan onSnapshot untuk pembaruan real-time
 export const onMessagesReceived = (userId: string, callback: (messages: Message[]) => void): (() => void) => {
+    // The query for messages likely fails silently due to a missing composite index
+    // for `where('recipientId', '==', ...)` and `orderBy('timestamp', ...)`.
+    // Re-adding the `orderBy` clause is crucial because Firestore will then log an error
+    // in the developer console with a direct link to CREATE the required index.
     return db.collection('messages')
         .where('recipientId', '==', userId)
-        .orderBy('timestamp', 'desc')
+        .orderBy('timestamp', 'desc') // This is critical for triggering the index creation link in the console.
         .onSnapshot((snapshot: any) => {
-            const messages = snapshot.docs.map((doc: any) => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    ...data,
-                    timestamp: data.timestamp?.toDate()?.toISOString() || new Date().toISOString()
-                };
+            const messages = collectionToData<Message>(snapshot);
+            // Although the server should sort, a robust client-side sort is a good fallback.
+            messages.sort((a, b) => {
+                const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                return timeB - timeA;
             });
-            callback(messages as Message[]);
+            callback(messages);
         }, (error: any) => {
             console.error("Error listening to messages:", error);
+            // If there's an error (e.g., missing index, permissions), return an empty array.
+            // Check the browser's developer console for a detailed error message from Firebase.
             callback([]);
         });
 };
@@ -443,16 +441,6 @@ export const markMessagesAsRead = async (messageIds: string[]): Promise<void> =>
 };
 
 // --- Extracurricular (Eskul) Functions ---
-
-export const uploadEskulSelfie = async (base64Image: string, userId: string, recordId: string, type: 'checkin' | 'checkout'): Promise<string> => {
-    const storageRef = storage.ref();
-    const imagePath = `eskul_selfies/${userId}/${recordId}_${type}_${Date.now()}.jpg`;
-    const imageRef = storageRef.child(imagePath);
-    
-    const snapshot = await imageRef.putString(base64Image, 'data_url');
-    const downloadURL = await snapshot.ref.getDownloadURL();
-    return downloadURL;
-};
 
 export const getEskuls = async (): Promise<Eskul[]> => {
     const snapshot = await db.collection('eskuls').orderBy('name').get();
@@ -566,24 +554,18 @@ export const getAllEskulAttendanceRecords = async (): Promise<EskulAttendanceRec
 };
 
 export const findEskulAttendanceForToday = async (pembinaId: string, eskulScheduleId: string, date: string): Promise<EskulAttendanceRecord | null> => {
-    // FIX: Use a simpler query to avoid requiring a complex composite index.
-    // This query is more robust and less likely to fail silently.
     const snapshot = await db.collection('eskulAttendance')
         .where('pembinaId', '==', pembinaId)
+        .where('eskulScheduleId', '==', eskulScheduleId)
         .where('date', '==', date)
+        .limit(1)
         .get();
 
     if (snapshot.empty) {
         return null;
     }
-    
-    // Filter the results on the client side to find the specific schedule record.
-    const records = collectionToData<EskulAttendanceRecord>(snapshot);
-    const todaysRecord = records.find((rec: EskulAttendanceRecord) => rec.eskulScheduleId === eskulScheduleId);
-    
-    return todaysRecord || null;
+    return docToData<EskulAttendanceRecord>(snapshot.docs[0]);
 };
-
 
 export const addEskulAttendanceRecord = async (recordData: Omit<EskulAttendanceRecord, 'id'>): Promise<{success: boolean, message: string, id?: string}> => {
     try {
@@ -598,10 +580,10 @@ export const addEskulAttendanceRecord = async (recordData: Omit<EskulAttendanceR
     }
 };
 
-export const updateEskulAttendanceRecord = async (id: string, updateData: Partial<Pick<EskulAttendanceRecord, 'checkOutTime' | 'checkInImageUrl' | 'checkOutImageUrl'>>): Promise<{success: boolean, message: string}> => {
+export const updateEskulAttendanceRecord = async (id: string, updateData: { checkOutTime: string }): Promise<{success: boolean, message: string}> => {
     try {
         await db.collection('eskulAttendance').doc(id).update(updateData);
-        return { success: true, message: "Absensi berhasil diperbarui." };
+        return { success: true, message: "Absensi pulang berhasil diperbarui." };
     } catch (error: any) {
         console.error("Error updating eskul attendance:", error);
         const message = error.code === 'permission-denied'

@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
@@ -8,6 +7,7 @@ import { UserRole as UserRoleEnum } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CENTRAL_COORDINATES, MAX_RADIUS_METERS, DAYS_OF_WEEK, LESSON_HOURS, HARI_TRANSLATION } from './constants';
 import * as api from './services/firebaseService';
+import * as geminiApi from './services/geminiService';
 
 
 // FIX: Add declarations for globally available libraries
@@ -398,7 +398,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                             <div key={msg.id} className={`p-3 rounded-lg ${msg.isRead ? 'bg-gray-100' : 'bg-blue-50 border border-blue-200'}`}>
                                 <p className="text-sm text-gray-800">{msg.content}</p>
                                 <p className="text-xs text-gray-500 mt-2 text-right">
-                                    Dari: {msg.senderName} - {msg.timestamp ? new Date(msg.timestamp).toLocaleString('id-ID') : 'Baru saja'}
+                                    Dari: {msg.senderName} - {new Date(msg.timestamp).toLocaleString('id-ID')}
                                 </p>
                             </div>
                         ))
@@ -656,123 +656,49 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
 };
 
 // --- Pembina Eskul Dashboard Components ---
-const SelfieCapture: React.FC<{ onConfirm: (base64Image: string) => void; onCancel: () => void; }> = ({ onConfirm, onCancel }) => {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [capturedImage, setCapturedImage] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        let stream: MediaStream | null = null;
-        const startCamera = async () => {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                }
-            } catch (err) {
-                console.error("Error accessing camera:", err);
-                setError("Gagal mengakses kamera. Pastikan izin telah diberikan.");
-            }
-        };
-
-        if (!capturedImage) {
-            startCamera();
-        }
-
-        return () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-        };
-    }, [capturedImage]);
-
-    const handleCapture = () => {
-        if (videoRef.current && canvasRef.current) {
-            const video = videoRef.current;
-            const canvas = canvasRef.current;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const context = canvas.getContext('2d');
-            if (context) {
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                setCapturedImage(dataUrl);
-            }
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex flex-col items-center justify-center p-4">
-            <div className="w-full bg-white rounded-2xl shadow-xl max-w-sm mx-auto overflow-hidden">
-                <div className="p-4 text-center">
-                    <h2 className="font-bold text-lg text-gray-800">Ambil Foto Selfie</h2>
-                    <p className="text-sm text-gray-500">Sebagai bukti kehadiran</p>
-                </div>
-                <div className="w-full aspect-[3/4] bg-black relative">
-                    {error ? (
-                        <div className="absolute inset-0 flex items-center justify-center text-white p-4 text-center">{error}</div>
-                    ) : capturedImage ? (
-                        <img src={capturedImage} alt="Preview" className="w-full h-full object-cover" />
-                    ) : (
-                        <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
-                    )}
-                    <canvas ref={canvasRef} className="hidden"></canvas>
-                </div>
-                <div className="p-4 space-y-2">
-                    {capturedImage ? (
-                        <div className="flex gap-2">
-                            <button onClick={() => setCapturedImage(null)} className="flex-1 bg-gray-200 text-gray-800 font-semibold py-3 rounded-lg">Ulangi</button>
-                            <button onClick={() => onConfirm(capturedImage)} className="flex-1 bg-green-500 text-white font-semibold py-3 rounded-lg">Konfirmasi</button>
-                        </div>
-                    ) : (
-                        <button onClick={handleCapture} className="w-full bg-blue-500 text-white font-semibold py-3 rounded-lg" disabled={!!error}>Ambil Foto</button>
-                    )}
-                    <button onClick={onCancel} className="w-full bg-transparent text-gray-600 font-semibold py-2 rounded-lg">Batal</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
 const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, onLogout }) => {
     const [isScanning, setIsScanning] = useState(false);
     const [schedules, setSchedules] = useState<EskulSchedule[]>([]);
     const [eskuls, setEskuls] = useState<Eskul[]>([]);
     const [attendance, setAttendance] = useState<EskulAttendanceRecord[]>([]);
     const [loadingData, setLoadingData] = useState(true);
-    const [scanResult, setScanResult] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
+    const [scanResult, setScanResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-    const [selfieContext, setSelfieContext] = useState<{ schedule: EskulSchedule; existingRecord?: EskulAttendanceRecord } | null>(null);
-    const [viewingImage, setViewingImage] = useState<string | null>(null);
-
     const { isWithinRadius } = useGeolocation();
 
     const getEskulName = useCallback((eskulId: string) => eskuls.find(e => e.id === eskulId)?.name || 'N/A', [eskuls]);
 
     const fetchData = useCallback(async () => {
         setLoadingData(true);
+        // Reset states to prevent displaying stale data during refetch
+        setEskuls([]);
+        setSchedules([]);
+        setAttendance([]);
         try {
-            // Fetch critical data for dropdowns first.
+            // Fetch eskuls list first, as it's critical for the schedule manager dropdown.
             const eskulsData = await api.getEskuls();
             setEskuls(eskulsData);
-    
-            if (eskulsData.length === 0) {
-                console.warn("Daftar eskul kosong. Periksa data di Firestore dan aturan keamanan.");
+
+            // Fetch other data. If these fail, the eskul list is still available.
+            try {
+                const schedulesData = await api.getEskulSchedules(user.id);
+                setSchedules(schedulesData);
+            } catch (scheduleError: any) {
+                console.error("Gagal memuat jadwal eskul:", scheduleError);
+                alert(`Gagal memuat jadwal eskul Anda. Fitur mungkin tidak bekerja dengan benar. Kesalahan: ${scheduleError.message}`);
             }
-    
-            // Fetch non-critical data.
-            const [schedulesData, attendanceData] = await Promise.all([
-                api.getEskulSchedules(user.id),
-                api.getEskulAttendanceRecords(user.id)
-            ]);
-            setSchedules(schedulesData);
-            setAttendance(attendanceData);
-    
+
+            try {
+                const attendanceData = await api.getEskulAttendanceRecords(user.id);
+                setAttendance(attendanceData);
+            } catch (attendanceError: any) {
+                 console.error("Gagal memuat riwayat absensi eskul:", attendanceError);
+                 alert(`Gagal memuat riwayat absensi eskul Anda. Kesalahan: ${attendanceError.message}`);
+            }
+
         } catch (error: any) {
-            console.error("Gagal memuat data dasbor pembina:", error);
-            alert(`Terjadi kesalahan saat memuat data: ${error.message}. Beberapa fitur mungkin tidak berfungsi.`);
+            console.error("Gagal memuat daftar eskul:", error);
+            alert(`Gagal memuat daftar eskul. Fitur mungkin tidak bekerja dengan benar. Kesalahan: ${error.message}`);
         } finally {
             setLoadingData(false);
         }
@@ -784,7 +710,7 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
     
     useEffect(() => {
         if (scanResult) {
-            const timer = setTimeout(() => setScanResult(null), 7000);
+            const timer = setTimeout(() => setScanResult(null), 5000);
             return () => clearTimeout(timer);
         }
     }, [scanResult]);
@@ -811,10 +737,17 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
             if (s.eskulId !== eskulId || s.day !== todayName) return false;
             
             const [startHour, startMinute] = s.startTime.split(':').map(Number);
-            const startTime = new Date(now); startTime.setHours(startHour, startMinute, 0, 0);
+            const startTime = new Date(now);
+            startTime.setHours(startHour, startMinute, 0, 0);
+    
             const [endHour, endMinute] = s.endTime.split(':').map(Number);
-            const endTime = new Date(now); endTime.setHours(endHour, endMinute, 0, 0);
-            const leewayStart = 30 * 60 * 1000, leewayEnd = 60 * 60 * 1000;
+            const endTime = new Date(now);
+            endTime.setHours(endHour, endMinute, 0, 0);
+
+            // Allow scanning 30 mins before start and up to 60 mins after end
+            const leewayStart = 30 * 60 * 1000;
+            const leewayEnd = 60 * 60 * 1000;
+
             return now.getTime() >= (startTime.getTime() - leewayStart) && now.getTime() <= (endTime.getTime() + leewayEnd);
         });
 
@@ -824,68 +757,46 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
         }
 
         const todayDateString = now.toISOString().slice(0, 10);
-        const existingRecord = await api.findEskulAttendanceForToday(user.id, activeSchedule.id, todayDateString);
-
-        if (existingRecord && existingRecord.checkOutTime) {
-            setScanResult({ type: 'error', message: 'Anda sudah absen pulang untuk kegiatan ini.' });
-            return;
-        }
-
-        // Trigger selfie capture
-        setSelfieContext({ schedule: activeSchedule, existingRecord: existingRecord || undefined });
-    };
-
-    const handleSelfieConfirm = async (base64Image: string) => {
-        if (!selfieContext) return;
-        const { schedule, existingRecord } = selfieContext;
-        const isCheckIn = !existingRecord;
-        const eskulName = getEskulName(schedule.eskulId);
-        setSelfieContext(null);
-
+        
         try {
-            if (isCheckIn) {
-                // Flow Absen Datang
-                setScanResult({ type: 'info', message: `Mencatat absensi datang untuk ${eskulName}...` });
-                const newRecordData: Omit<EskulAttendanceRecord, 'id'> = {
-                    pembinaId: user.id,
-                    eskulScheduleId: schedule.id,
-                    date: new Date().toISOString().slice(0, 10),
-                    checkInTime: new Date().toISOString(),
-                };
-                const addResult = await api.addEskulAttendanceRecord(newRecordData);
-                if (!addResult.success || !addResult.id) throw new Error(addResult.message);
-                
-                setScanResult({ type: 'info', message: 'Mengunggah foto...' });
-                const imageUrl = await api.uploadEskulSelfie(base64Image, user.id, addResult.id, 'checkin');
-                
-                await api.updateEskulAttendanceRecord(addResult.id, { checkInImageUrl: imageUrl });
+            const existingRecord = await api.findEskulAttendanceForToday(user.id, activeSchedule.id, todayDateString);
 
-                setScanResult({ type: 'success', message: `Absen DATANG berhasil untuk ${eskulName}.` });
+            if (existingRecord) {
+                if (existingRecord.checkOutTime) {
+                    setScanResult({ type: 'error', message: 'Anda sudah absen pulang untuk kegiatan ini hari ini.' });
+                } else {
+                    // This is a check-out
+                    const result = await api.updateEskulAttendanceRecord(existingRecord.id, { checkOutTime: now.toISOString() });
+                    if (result.success) {
+                        setScanResult({ type: 'success', message: `Absen PULANG berhasil untuk ${getEskulName(eskulId)}.` });
+                        fetchData();
+                    } else {
+                        setScanResult({ type: 'error', message: result.message });
+                    }
+                }
             } else {
-                // Flow Absen Pulang
-                if(!existingRecord) return; // Should not happen, but for type safety
-                setScanResult({ type: 'info', message: `Mencatat absensi pulang untuk ${eskulName}...` });
-                setScanResult({ type: 'info', message: 'Mengunggah foto...' });
-                const imageUrl = await api.uploadEskulSelfie(base64Image, user.id, existingRecord.id, 'checkout');
-
-                const updateData = {
-                    checkOutTime: new Date().toISOString(),
-                    checkOutImageUrl: imageUrl
+                // This is a check-in
+                const newRecord: Omit<EskulAttendanceRecord, 'id'> = {
+                    pembinaId: user.id,
+                    eskulScheduleId: activeSchedule.id,
+                    date: todayDateString,
+                    checkInTime: now.toISOString(),
                 };
-                await api.updateEskulAttendanceRecord(existingRecord.id, updateData);
-
-                setScanResult({ type: 'success', message: `Absen PULANG berhasil untuk ${eskulName}.` });
+                const result = await api.addEskulAttendanceRecord(newRecord);
+                if (result.success) {
+                    setScanResult({ type: 'success', message: `Absen DATANG berhasil untuk ${getEskulName(eskulId)}.` });
+                    fetchData();
+                } else {
+                     setScanResult({ type: 'error', message: result.message });
+                }
             }
         } catch (error: any) {
-            setScanResult({ type: 'error', message: `Terjadi kesalahan: ${error.message}` });
-        } finally {
-            fetchData();
+             setScanResult({ type: 'error', message: `Gagal menyimpan absensi: ${error.message}` });
         }
     };
     
     if (loadingData) return <FullPageSpinner />;
     if (isScanning) return <QRScanner onScanSuccess={handleScanSuccess} onCancel={() => setIsScanning(false)} />;
-    if (selfieContext) return <SelfieCapture onConfirm={handleSelfieConfirm} onCancel={() => setSelfieContext(null)} />;
 
     const todaySchedules = schedules.filter(s => s.day === new Date().toLocaleDateString('en-US', { weekday: 'long' }));
 
@@ -903,8 +814,8 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
             </header>
             <main className="p-4 md:p-6 space-y-6">
                 {scanResult && (
-                    <div className={`p-4 rounded-md mb-6 shadow ${scanResult.type === 'success' ? 'bg-green-100 text-green-800' : scanResult.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
-                        <p className="font-medium">{scanResult.type === 'success' ? 'Berhasil!' : scanResult.type === 'error' ? 'Gagal' : 'Info'}</p>
+                    <div className={`p-4 rounded-md mb-6 shadow ${scanResult.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        <p className="font-medium">{scanResult.type === 'success' ? 'Berhasil!' : 'Gagal'}</p>
                         <p className="text-sm">{scanResult.message}</p>
                     </div>
                 )}
@@ -957,18 +868,10 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
                                     const schedule = schedules.find(s => s.id === rec.eskulScheduleId);
                                     return (
                                         <div key={rec.id} className="border-b last:border-b-0 pb-3 pt-2">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="font-semibold">{schedule ? getEskulName(schedule.eskulId) : 'Kegiatan Dihapus'}</p>
-                                                    <p className="text-sm text-gray-500">Tanggal: {new Date(rec.checkInTime).toLocaleDateString('id-ID')}</p>
-                                                    <p className="text-sm text-gray-500">Datang: {new Date(rec.checkInTime).toLocaleTimeString('id-ID')}</p>
-                                                    {rec.checkOutTime && <p className="text-sm text-gray-500">Pulang: {new Date(rec.checkOutTime).toLocaleTimeString('id-ID')}</p>}
-                                                </div>
-                                                <div className="flex gap-2 flex-shrink-0 ml-2">
-                                                    {rec.checkInImageUrl && <img src={rec.checkInImageUrl} alt="selfie datang" className="w-12 h-12 object-cover rounded-md cursor-pointer" onClick={() => setViewingImage(rec.checkInImageUrl!)} />}
-                                                    {rec.checkOutImageUrl && <img src={rec.checkOutImageUrl} alt="selfie pulang" className="w-12 h-12 object-cover rounded-md cursor-pointer" onClick={() => setViewingImage(rec.checkOutImageUrl!)} />}
-                                                </div>
-                                            </div>
+                                            <p className="font-semibold">{schedule ? getEskulName(schedule.eskulId) : 'Kegiatan Dihapus'}</p>
+                                            <p className="text-sm text-gray-500">Tanggal: {new Date(rec.checkInTime).toLocaleDateString('id-ID')}</p>
+                                            <p className="text-sm text-gray-500">Datang: {new Date(rec.checkInTime).toLocaleTimeString('id-ID')}</p>
+                                            {rec.checkOutTime && <p className="text-sm text-gray-500">Pulang: {new Date(rec.checkOutTime).toLocaleTimeString('id-ID')}</p>}
                                         </div>
                                     );
                                 })
@@ -980,11 +883,6 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
             <Modal isOpen={isScheduleModalOpen} onClose={() => setIsScheduleModalOpen(false)} title="Kelola Jadwal Eskul">
                 <EskulScheduleManager user={user} schedules={schedules} eskuls={eskuls} onScheduleUpdate={fetchData} />
             </Modal>
-            {viewingImage && (
-                <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" onClick={() => setViewingImage(null)}>
-                    <img src={viewingImage} alt="Bukti Foto" className="max-w-full max-h-full rounded-lg"/>
-                </div>
-            )}
              <footer className="text-center text-sm text-gray-500 py-6">
                 © {new Date().getFullYear()} Rullp. All rights reserved.
             </footer>
@@ -1126,8 +1024,8 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
         classes: 'Data Kelas',
         eskul: 'Data Ekstrakurikuler',
         schedules: 'Jadwal Pelajaran',
-        eskulSchedules: 'Jadwal Ekstrakurikuler',
         reports: 'Laporan Absensi',
+        'ai-assistant': 'Asisten AI'
     };
 
     return (
@@ -1155,8 +1053,8 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                     <a onClick={() => handleSetView('classes')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Kelas</a>
                     <a onClick={() => handleSetView('eskul')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Ekstrakurikuler</a>
                     <a onClick={() => handleSetView('schedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Pelajaran</a>
-                    <a onClick={() => handleSetView('eskulSchedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Ekstrakurikuler</a>
                     <a onClick={() => handleSetView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi</a>
+                    <a onClick={() => handleSetView('ai-assistant')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Asisten AI</a>
                 </nav>
                 <div className="p-4 border-t border-gray-700">
                     <p>{user.name}</p>
@@ -1183,8 +1081,8 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                 {view === 'classes' && <ClassManagement />}
                 {view === 'eskul' && <EskulManagement />}
                 {view === 'schedules' && <ScheduleManagement />}
-                {view === 'eskulSchedules' && <AdminEskulScheduleManagement />}
                 {view === 'reports' && <AttendanceReport />}
+                {view === 'ai-assistant' && <AIAssistant />}
                 <footer className="text-center text-sm text-gray-500 pt-8 pb-2">
                     © {new Date().getFullYear()} Rullp. All rights reserved.
                 </footer>
@@ -1356,11 +1254,12 @@ const SendMessageModal: React.FC<{ staff: User; adminUser: User; onClose: () => 
         if (!content.trim()) return;
         setIsSending(true);
         try {
-            const newMessage: Omit<Message, 'id' | 'timestamp'> = {
+            const newMessage: Omit<Message, 'id'> = {
                 senderId: adminUser.id,
                 senderName: adminUser.name,
                 recipientId: staff.id,
                 content: content.trim(),
+                timestamp: new Date().toISOString(),
                 isRead: false,
             };
             await api.addMessage(newMessage);
@@ -1623,8 +1522,8 @@ const EskulManagement: React.FC = () => {
         e.preventDefault();
         const trimmedName = newEskulName.trim();
         if (trimmedName) {
-            if (eskuls.some(e => e.name.toLowerCase() === trimmedName.toLowerCase())) {
-                alert(`Eskul dengan nama "${trimmedName}" sudah ada.`);
+             if (eskuls.some(e => e.name.toLowerCase() === trimmedName.toLowerCase())) {
+                alert(`Ekstrakurikuler "${trimmedName}" sudah ada.`);
                 return;
             }
             const result = await api.addEskul({ name: trimmedName });
@@ -1639,9 +1538,9 @@ const EskulManagement: React.FC = () => {
     };
     
     const handleDelete = async (id: string) => {
-        if (window.confirm("Yakin ingin menghapus kegiatan eskul ini? Ini juga akan menghapus jadwal terkait.")) {
+        if (window.confirm("Yakin ingin menghapus eskul ini? Ini juga akan menghapus jadwal terkait.")) {
             const result = await api.deleteEskul(id);
-            if (result.success) {
+            if(result.success) {
                 fetchEskuls();
             } else {
                 alert(result.message);
@@ -1653,7 +1552,7 @@ const EskulManagement: React.FC = () => {
         <>
             <CrudTable
                 title="Manajemen Ekstrakurikuler"
-                columns={['Nama Eskul', 'Aksi']}
+                columns={['Nama Kegiatan', 'Aksi']}
                 data={eskuls}
                 onAdd={() => setIsModalOpen(true)}
                 renderRow={(e: Eskul) => (
@@ -1695,61 +1594,25 @@ const EskulManagement: React.FC = () => {
 
 const ScheduleManagement: React.FC = () => {
     const [schedules, setSchedules] = useState<Schedule[]>([]);
-    const [users, setUsers] = useState<User[]>([]); // Teachers only
     const [classes, setClasses] = useState<Class[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [teachers, setTeachers] = useState<User[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<Partial<Schedule> | null>(null);
-    const [isSaving, setIsSaving] = useState(false);
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        let hadError = false;
-        // Fetch dropdown data separately to ensure UI is usable even if some requests fail.
-        try {
-            const teachersData = await api.getUsersByRole(UserRoleEnum.TEACHER);
-            setUsers(teachersData);
-        } catch (error) {
-            console.error("Gagal memuat data guru:", error);
-            hadError = true;
-        }
-        
-        try {
-            const classesData = await api.getClasses();
-            setClasses(classesData);
-        } catch (error) {
-            console.error("Gagal memuat data kelas:", error);
-            hadError = true;
-        }
-
-        // Fetch main table data
-        try {
-            const schedulesData = await api.getSchedules();
-            setSchedules(schedulesData);
-        } catch (error) {
-            console.error("Gagal memuat data jadwal:", error);
-            hadError = true;
-        }
-
-        if (hadError) {
-            alert("Terjadi kesalahan saat memuat sebagian data. Fungsionalitas mungkin terbatas, namun Anda masih dapat mencoba menambahkan data baru.");
-        }
-        setLoading(false);
-    }, []);
+    const fetchData = async () => {
+        const [s, c, t] = await Promise.all([
+            api.getSchedules(),
+            api.getClasses(),
+            api.getUsersByRole(UserRoleEnum.TEACHER)
+        ]);
+        setSchedules(s);
+        setClasses(c);
+        setTeachers(t);
+    };
 
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
-
-    const handleOpenModal = (schedule: Partial<Schedule> | null = null) => {
-        setEditingSchedule(schedule || { startTime: '07:00', endTime: '08:00', subject: '' });
-        setIsModalOpen(true);
-    };
-
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setEditingSchedule(null);
-    };
+    }, []);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1758,55 +1621,59 @@ const ScheduleManagement: React.FC = () => {
             return;
         }
 
-        setIsSaving(true);
-        try {
-            const result = editingSchedule.id
-                ? await api.updateSchedule(editingSchedule.id, editingSchedule as Omit<Schedule, 'id'>)
-                : await api.addSchedule(editingSchedule as Omit<Schedule, 'id'>);
-            
-            if(result.success) {
-                await fetchData();
-                handleCloseModal();
-            } else {
-                alert(result.message);
-            }
-        } catch (error: any) {
-            console.error("Gagal menyimpan jadwal:", error);
-            alert(`Terjadi kesalahan saat menyimpan: ${error.message || 'Silakan coba lagi.'}`);
-        } finally {
-            setIsSaving(false);
+        const scheduleData: Omit<Schedule, 'id'> = {
+            teacherId: editingSchedule.teacherId,
+            classId: editingSchedule.classId,
+            subject: editingSchedule.subject,
+            day: editingSchedule.day,
+            lessonHour: editingSchedule.lessonHour,
+            startTime: editingSchedule.startTime,
+            endTime: editingSchedule.endTime
+        };
+
+        const result = editingSchedule.id
+            ? await api.updateSchedule(editingSchedule.id, scheduleData)
+            : await api.addSchedule(scheduleData);
+        
+        if (result.success) {
+            setIsModalOpen(false);
+            setEditingSchedule(null);
+            fetchData();
+        } else {
+            alert(result.message);
         }
     };
-
+    
     const handleDelete = async (id: string) => {
-        if (window.confirm("Yakin ingin menghapus jadwal ini?")) {
-            try {
-                await api.deleteSchedule(id);
-                await fetchData();
-            } catch (error: any) {
-                alert(`Gagal menghapus: ${error.message}`);
-            }
+        if(window.confirm("Yakin ingin menghapus jadwal ini?")){
+            await api.deleteSchedule(id);
+            fetchData();
         }
+    }
+    
+    const handleOpenModal = (schedule: Partial<Schedule> | null = null) => {
+        setEditingSchedule(schedule || {startTime: '07:00', endTime: '08:00', subject: ''});
+        setIsModalOpen(true);
     };
 
-    const getUserName = (id: string) => users.find(u => u.id === id)?.name || 'N/A';
+    const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
     const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
-
-    if (loading) return <Spinner />;
 
     return (
         <>
             <CrudTable
                 title="Manajemen Jadwal Pelajaran"
-                columns={['Guru', 'Kelas', 'Mata Pelajaran', 'Hari & Waktu', 'Aksi']}
+                columns={['Hari', 'Waktu', 'Guru', 'Mata Pelajaran', 'Kelas', 'Jam Ke', 'Aksi']}
                 data={schedules}
                 onAdd={() => handleOpenModal()}
                 renderRow={(s: Schedule) => (
                     <tr key={s.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3">{getUserName(s.teacherId)}</td>
-                        <td className="p-3">{getClassName(s.classId)}</td>
+                        <td className="p-3">{HARI_TRANSLATION[s.day]}</td>
+                        <td className="p-3">{s.startTime} - {s.endTime}</td>
+                        <td className="p-3">{getTeacherName(s.teacherId)}</td>
                         <td className="p-3">{s.subject}</td>
-                        <td className="p-3">{HARI_TRANSLATION[s.day]}, Jam ke-{s.lessonHour} ({s.startTime}-{s.endTime})</td>
+                        <td className="p-3">{getClassName(s.classId)}</td>
+                        <td className="p-3">{s.lessonHour}</td>
                         <td className="p-3 space-x-2">
                             <button onClick={() => handleOpenModal(s)} className="text-blue-600 hover:underline">Ubah</button>
                             <button onClick={() => handleDelete(s.id)} className="text-red-600 hover:underline">Hapus</button>
@@ -1814,25 +1681,25 @@ const ScheduleManagement: React.FC = () => {
                     </tr>
                 )}
             />
-            <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingSchedule?.id ? 'Ubah Jadwal' : 'Tambah Jadwal'}>
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingSchedule?.id ? 'Ubah Jadwal' : 'Tambah Jadwal'}>
                 <form onSubmit={handleSave} className="space-y-4">
                     <div>
                         <label className="block mb-1">Guru</label>
                         <select value={editingSchedule?.teacherId || ''} onChange={e => setEditingSchedule({...editingSchedule, teacherId: e.target.value})} className="w-full p-2 border rounded">
                             <option value="">Pilih Guru</option>
-                            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
                     </div>
-                    <div>
+                     <div>
+                        <label className="block mb-1">Mata Pelajaran</label>
+                        <input type="text" value={editingSchedule?.subject || ''} onChange={e => setEditingSchedule({...editingSchedule, subject: e.target.value})} className="w-full p-2 border rounded" placeholder="Contoh: Sejarah Indonesia"/>
+                    </div>
+                     <div>
                         <label className="block mb-1">Kelas</label>
                         <select value={editingSchedule?.classId || ''} onChange={e => setEditingSchedule({...editingSchedule, classId: e.target.value})} className="w-full p-2 border rounded">
                             <option value="">Pilih Kelas</option>
                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                    </div>
-                    <div>
-                        <label className="block mb-1">Mata Pelajaran</label>
-                        <input type="text" value={editingSchedule?.subject || ''} onChange={e => setEditingSchedule({...editingSchedule, subject: e.target.value})} className="w-full p-2 border rounded" placeholder="Contoh: Matematika"/>
                     </div>
                     <div>
                         <label className="block mb-1">Hari</label>
@@ -1843,12 +1710,12 @@ const ScheduleManagement: React.FC = () => {
                     </div>
                     <div>
                         <label className="block mb-1">Jam Ke</label>
-                        <select value={editingSchedule?.lessonHour || ''} onChange={e => setEditingSchedule({...editingSchedule, lessonHour: parseInt(e.target.value)})} className="w-full p-2 border rounded">
+                         <select value={editingSchedule?.lessonHour || ''} onChange={e => setEditingSchedule({...editingSchedule, lessonHour: parseInt(e.target.value, 10)})} className="w-full p-2 border rounded">
                             <option value="">Pilih Jam</option>
                             {LESSON_HOURS.map(hour => <option key={hour} value={hour}>{hour}</option>)}
                         </select>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block mb-1">Waktu Mulai</label>
                             <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded" />
@@ -1858,178 +1725,7 @@ const ScheduleManagement: React.FC = () => {
                             <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded" />
                         </div>
                     </div>
-                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg flex justify-center items-center transition duration-150 disabled:bg-blue-400" disabled={isSaving}>
-                        {isSaving ? (
-                            <>
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                                <span>Menyimpan...</span>
-                            </>
-                        ) : 'Simpan'}
-                    </button>
-                </form>
-            </Modal>
-        </>
-    );
-};
-
-const AdminEskulScheduleManagement: React.FC = () => {
-    const [schedules, setSchedules] = useState<EskulSchedule[]>([]);
-    const [users, setUsers] = useState<User[]>([]); // Pembina eskul
-    const [eskuls, setEskuls] = useState<Eskul[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingSchedule, setEditingSchedule] = useState<Partial<EskulSchedule> | null>(null);
-    const [isSaving, setIsSaving] = useState(false);
-
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        let hadError = false;
-
-        // Fetch dropdown data separately
-        try {
-            const pembinaData = await api.getUsersByRole(UserRoleEnum.PEMBINA_ESKUL);
-            setUsers(pembinaData);
-        } catch (error) {
-            console.error("Gagal memuat data pembina:", error);
-            hadError = true;
-        }
-
-        try {
-            const eskulData = await api.getEskuls();
-            setEskuls(eskulData);
-        } catch (error) {
-            console.error("Gagal memuat data eskul:", error);
-            hadError = true;
-        }
-
-        // Fetch main data
-        try {
-            const schedulesData = await api.getAllEskulSchedules();
-            setSchedules(schedulesData);
-        } catch (error) {
-            console.error("Gagal memuat data jadwal eskul:", error);
-            hadError = true;
-        }
-
-        if (hadError) {
-            alert("Terjadi kesalahan saat memuat sebagian data. Fungsionalitas mungkin terbatas, namun Anda masih dapat mencoba menambahkan data baru.");
-        }
-        
-        setLoading(false);
-    }, []);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    const handleOpenModal = (schedule: Partial<EskulSchedule> | null = null) => {
-        setEditingSchedule(schedule || { startTime: '14:00', endTime: '16:00' });
-        setIsModalOpen(true);
-    };
-
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setEditingSchedule(null);
-    };
-
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editingSchedule || !editingSchedule.pembinaId || !editingSchedule.eskulId || !editingSchedule.day || !editingSchedule.startTime || !editingSchedule.endTime) {
-            alert("Harap isi semua kolom");
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            const result = editingSchedule.id
-                ? await api.updateEskulSchedule(editingSchedule.id, editingSchedule as Omit<EskulSchedule, 'id'>)
-                : await api.addEskulSchedule(editingSchedule as Omit<EskulSchedule, 'id'>);
-            
-            if(result.success) {
-                await fetchData();
-                handleCloseModal();
-            } else {
-                alert(result.message);
-            }
-        } catch (error: any) {
-            console.error("Gagal menyimpan jadwal eskul:", error);
-            alert(`Terjadi kesalahan: ${error.message}`);
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleDelete = async (id: string) => {
-        if (window.confirm("Yakin ingin menghapus jadwal eskul ini?")) {
-            const result = await api.deleteEskulSchedule(id);
-            if (result.success) {
-                await fetchData();
-            } else {
-                alert(result.message);
-            }
-        }
-    };
-
-    const getUserName = (id: string) => users.find(u => u.id === id)?.name || 'N/A';
-    const getEskulName = (id: string) => eskuls.find(e => e.id === id)?.name || 'N/A';
-
-    if (loading) return <Spinner />;
-
-    return (
-        <>
-            <CrudTable
-                title="Manajemen Jadwal Ekstrakurikuler"
-                columns={['Pembina', 'Eskul', 'Hari & Waktu', 'Aksi']}
-                data={schedules}
-                onAdd={() => handleOpenModal()}
-                renderRow={(s: EskulSchedule) => (
-                    <tr key={s.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3">{getUserName(s.pembinaId)}</td>
-                        <td className="p-3">{getEskulName(s.eskulId)}</td>
-                        <td className="p-3">{HARI_TRANSLATION[s.day]}, {s.startTime}-{s.endTime}</td>
-                        <td className="p-3 space-x-2">
-                            <button onClick={() => handleOpenModal(s)} className="text-blue-600 hover:underline">Ubah</button>
-                            <button onClick={() => handleDelete(s.id)} className="text-red-600 hover:underline">Hapus</button>
-                        </td>
-                    </tr>
-                )}
-            />
-            <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingSchedule?.id ? 'Ubah Jadwal Eskul' : 'Tambah Jadwal Eskul'}>
-                <form onSubmit={handleSave} className="space-y-4">
-                    <div>
-                        <label className="block mb-1">Pembina</label>
-                        <select value={editingSchedule?.pembinaId || ''} onChange={e => setEditingSchedule({...editingSchedule, pembinaId: e.target.value})} className="w-full p-2 border rounded">
-                            <option value="">Pilih Pembina</option>
-                            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block mb-1">Kegiatan Eskul</label>
-                        <select value={editingSchedule?.eskulId || ''} onChange={e => setEditingSchedule({...editingSchedule, eskulId: e.target.value})} className="w-full p-2 border rounded">
-                            <option value="">Pilih Eskul</option>
-                            {eskuls.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block mb-1">Hari</label>
-                        <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as EskulSchedule['day']})} className="w-full p-2 border rounded">
-                            <option value="">Pilih Hari</option>
-                            {DAYS_OF_WEEK.map(day => <option key={day} value={day}>{HARI_TRANSLATION[day]}</option>)}
-                        </select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block mb-1">Waktu Mulai</label>
-                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded" />
-                        </div>
-                        <div>
-                            <label className="block mb-1">Waktu Selesai</label>
-                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded" />
-                        </div>
-                    </div>
-                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg flex justify-center items-center" disabled={isSaving}>
-                         {isSaving ? 'Menyimpan...' : 'Simpan'}
-                    </button>
+                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
                 </form>
             </Modal>
         </>
@@ -2037,308 +1733,457 @@ const AdminEskulScheduleManagement: React.FC = () => {
 };
 
 const AttendanceReport: React.FC = () => {
+    const [reportType, setReportType] = useState<'kelas' | 'eskul'>('kelas');
+    
+    // State for class attendance
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-    const [eskulAttendance, setEskulAttendance] = useState<EskulAttendanceRecord[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
+    const [teachers, setTeachers] = useState<User[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
+    const [filter, setFilter] = useState({ teacherId: '', classId: '', startDate: '', endDate: '' });
+
+    // State for eskul attendance
+    const [eskulAttendance, setEskulAttendance] = useState<EskulAttendanceRecord[]>([]);
+    const [pembinas, setPembinas] = useState<User[]>([]);
     const [eskuls, setEskuls] = useState<Eskul[]>([]);
     const [eskulSchedules, setEskulSchedules] = useState<EskulSchedule[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState({ teacherId: '', classId: '', startDate: '', endDate: '' });
     const [eskulFilter, setEskulFilter] = useState({ pembinaId: '', eskulId: '', startDate: '', endDate: '' });
-    const [activeTab, setActiveTab] = useState<'kelas' | 'eskul'>('kelas');
 
-    const fetchAllData = useCallback(async () => {
+    const [loading, setLoading] = useState(true);
+
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const [
-                attendanceData,
-                eskulAttendanceData,
-                usersData,
-                classesData,
-                eskulData,
-                allEskulSchedules
+                att, tch, cls, // Class data
+                eskulAtt, pbn, es, eskSch // Eskul data
             ] = await Promise.all([
                 api.getAttendanceRecords(),
-                api.getAllEskulAttendanceRecords(),
-                api.getUsers(),
+                api.getUsersByRole(UserRoleEnum.TEACHER),
                 api.getClasses(),
+                api.getAllEskulAttendanceRecords(),
+                api.getUsersByRole(UserRoleEnum.PEMBINA_ESKUL),
                 api.getEskuls(),
                 api.getAllEskulSchedules()
             ]);
-            setAttendance(attendanceData);
-            setEskulAttendance(eskulAttendanceData);
-            setUsers(usersData);
-            setClasses(classesData);
-            setEskuls(eskulData);
-            setEskulSchedules(allEskulSchedules);
+            // Set class data
+            setAttendance(att);
+            setTeachers(tch);
+            setClasses(cls);
+            // Set eskul data
+            setEskulAttendance(eskulAtt);
+            setPembinas(pbn);
+            setEskuls(es);
+            setEskulSchedules(eskSch);
         } catch (error) {
-            console.error("Error fetching report data:", error);
-            alert("Gagal memuat data laporan.");
+            console.error("Failed to fetch report data:", error);
         } finally {
             setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchAllData();
-    }, [fetchAllData]);
-
-    const getUserName = (id: string) => users.find(u => u.id === id)?.name || 'N/A';
-    const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
-    const getEskulName = (id: string) => eskuls.find(e => e.id === id)?.name || 'N/A';
+        fetchData();
+    }, [fetchData]);
 
     const filteredAttendance = useMemo(() => {
         return attendance.filter(rec => {
             const scanDate = new Date(rec.scanTime);
             const startDate = filter.startDate ? new Date(filter.startDate) : null;
             const endDate = filter.endDate ? new Date(filter.endDate) : null;
-            if (startDate) startDate.setHours(0, 0, 0, 0);
-            if (endDate) endDate.setHours(23, 59, 59, 999);
-
+            if (startDate) startDate.setHours(0,0,0,0);
+            if (endDate) endDate.setHours(23,59,59,999);
+            
             return (
-                (filter.teacherId === '' || rec.teacherId === filter.teacherId) &&
-                (filter.classId === '' || rec.classId === filter.classId) &&
-                (!startDate || scanDate >= startDate) &&
-                (!endDate || scanDate <= endDate)
+                (filter.teacherId ? rec.teacherId === filter.teacherId : true) &&
+                (filter.classId ? rec.classId === filter.classId : true) &&
+                (startDate ? scanDate >= startDate : true) &&
+                (endDate ? scanDate <= endDate : true)
             );
         });
     }, [attendance, filter]);
     
-    const filteredEskulAttendance = useMemo(() => {
-        return eskulAttendance.filter(rec => {
-            const schedule = eskulSchedules.find(s => s.id === rec.eskulScheduleId);
+    const processedAndFilteredEskulAttendance = useMemo(() => {
+        const scheduleMap = new Map(eskulSchedules.map(s => [s.id, s]));
+        const eskulMap = new Map(eskuls.map(e => [e.id, e]));
+        const pembinaMap = new Map(pembinas.map(p => [p.id, p]));
+
+        const processed = eskulAttendance.map(rec => {
+            const schedule = scheduleMap.get(rec.eskulScheduleId);
+            const eskul = schedule ? eskulMap.get(schedule.eskulId) : undefined;
+            const pembina = pembinaMap.get(rec.pembinaId);
+
+            let duration = 'N/A';
+            if (rec.checkInTime && rec.checkOutTime) {
+                const start = new Date(rec.checkInTime);
+                const end = new Date(rec.checkOutTime);
+                const diffMs = end.getTime() - start.getTime();
+                if (diffMs > 0) {
+                    const diffMins = Math.round(diffMs / 60000);
+                    const hours = Math.floor(diffMins / 60);
+                    const minutes = diffMins % 60;
+                    duration = `${hours} jam ${minutes} menit`;
+                }
+            }
+
+            return {
+                ...rec,
+                pembinaName: pembina?.name || 'N/A',
+                eskulName: eskul?.name || 'Kegiatan Dihapus',
+                pembinaId: rec.pembinaId,
+                eskulId: schedule?.eskulId || '',
+                duration,
+            };
+        });
+        
+        return processed.filter(rec => {
             const checkInDate = new Date(rec.checkInTime);
             const startDate = eskulFilter.startDate ? new Date(eskulFilter.startDate) : null;
             const endDate = eskulFilter.endDate ? new Date(eskulFilter.endDate) : null;
-            if (startDate) startDate.setHours(0, 0, 0, 0);
-            if (endDate) endDate.setHours(23, 59, 59, 999);
-
+            if (startDate) startDate.setHours(0,0,0,0);
+            if (endDate) endDate.setHours(23,59,59,999);
+            
             return (
-                (eskulFilter.pembinaId === '' || rec.pembinaId === eskulFilter.pembinaId) &&
-                (eskulFilter.eskulId === '' || schedule?.eskulId === eskulFilter.eskulId) &&
-                (!startDate || checkInDate >= startDate) &&
-                (!endDate || checkInDate <= endDate)
+                (eskulFilter.pembinaId ? rec.pembinaId === eskulFilter.pembinaId : true) &&
+                (eskulFilter.eskulId ? rec.eskulId === eskulFilter.eskulId : true) &&
+                (startDate ? checkInDate >= startDate : true) &&
+                (endDate ? checkInDate <= endDate : true)
             );
         });
-    }, [eskulAttendance, eskulFilter, eskulSchedules]);
+    }, [eskulAttendance, eskulSchedules, eskuls, pembinas, eskulFilter]);
 
-    const handleExport = (type: 'pdf' | 'excel') => {
-        if (activeTab === 'kelas') {
-            exportClassReport(type);
-        } else {
-            exportEskulReport(type);
+
+    const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
+    const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
+
+    const exportToPDF = () => {
+        const { jsPDF } = window.jspdf;
+        // @ts-ignore
+        const doc = new jsPDF.default();
+         // @ts-ignore
+        if (!doc.autoTable) {
+            console.error("jsPDF autoTable plugin is not loaded!");
+            return;
         }
-    };
 
-    const exportClassReport = (type: 'pdf' | 'excel') => {
-        const reportData = filteredAttendance.map((rec, index) => ({
-            No: index + 1,
-            Guru: getUserName(rec.teacherId),
-            Kelas: getClassName(rec.classId),
-            'Jam Ke': rec.lessonHour,
-            Waktu: new Date(rec.scanTime).toLocaleString('id-ID'),
-        }));
-
-        if (type === 'excel') {
-            const ws = XLSX.utils.json_to_sheet(reportData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Laporan Absensi Kelas");
-            XLSX.writeFile(wb, "laporan_absensi_kelas.xlsx");
-        } else {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.text("Laporan Absensi Kelas", 14, 16);
+        if (reportType === 'kelas') {
+            doc.text("Laporan Absensi Guru", 14, 16);
+            const tableData = filteredAttendance.map(rec => [
+                getTeacherName(rec.teacherId),
+                getClassName(rec.classId),
+                `Jam ke-${rec.lessonHour}`,
+                new Date(rec.scanTime).toLocaleString('id-ID'),
+            ]);
             doc.autoTable({
+                head: [['Nama Guru', 'Kelas', 'Jam Pelajaran', 'Waktu']],
+                body: tableData,
                 startY: 20,
-                head: [['No', 'Guru', 'Kelas', 'Jam Ke', 'Waktu']],
-                body: reportData.map(Object.values),
             });
-            doc.save("laporan_absensi_kelas.pdf");
+            doc.save('laporan_absensi_kelas.pdf');
+        } else { // eskul
+            doc.text("Laporan Absensi Ekstrakurikuler", 14, 16);
+            const tableData = processedAndFilteredEskulAttendance.map(rec => [
+                rec.pembinaName,
+                rec.eskulName,
+                new Date(rec.checkInTime).toLocaleDateString('id-ID'),
+                new Date(rec.checkInTime).toLocaleTimeString('id-ID'),
+                rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString('id-ID') : '-',
+                rec.duration
+            ]);
+            doc.autoTable({
+                head: [['Pembina', 'Eskul', 'Tanggal', 'Datang', 'Pulang', 'Durasi']],
+                body: tableData,
+                startY: 20,
+            });
+            doc.save('laporan_absensi_eskul.pdf');
         }
     };
-    
-    const exportEskulReport = (type: 'pdf' | 'excel') => {
-        const reportData = filteredEskulAttendance.map((rec, index) => {
-            const schedule = eskulSchedules.find(s => s.id === rec.eskulScheduleId);
-            const checkIn = new Date(rec.checkInTime);
-            const checkOut = rec.checkOutTime ? new Date(rec.checkOutTime) : null;
-            let duration = 'N/A';
-            if (checkOut) {
-                const diffMs = checkOut.getTime() - checkIn.getTime();
-                const hours = Math.floor(diffMs / 3600000);
-                const minutes = Math.floor((diffMs % 3600000) / 60000);
-                duration = `${hours} jam ${minutes} menit`;
-            }
-            return {
-                No: index + 1,
-                Pembina: getUserName(rec.pembinaId),
-                Eskul: schedule ? getEskulName(schedule.eskulId) : 'N/A',
-                Tanggal: checkIn.toLocaleDateString('id-ID'),
-                'Jam Datang': checkIn.toLocaleTimeString('id-ID'),
-                'Jam Pulang': checkOut ? checkOut.toLocaleTimeString('id-ID') : 'N/A',
-                'Durasi': duration
-            };
-        });
 
-        if (type === 'excel') {
-            const ws = XLSX.utils.json_to_sheet(reportData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Laporan Eskul");
-            XLSX.writeFile(wb, "laporan_absensi_eskul.xlsx");
+
+    const exportToExcel = () => {
+        let worksheetData, fileName;
+
+        if (reportType === 'kelas') {
+            worksheetData = filteredAttendance.map(rec => ({
+                "Nama Guru": getTeacherName(rec.teacherId),
+                "Kelas": getClassName(rec.classId),
+                "Jam Pelajaran": `Jam ke-${rec.lessonHour}`,
+                "Waktu": new Date(rec.scanTime).toLocaleString('id-ID'),
+            }));
+            fileName = "Laporan_Absensi_Kelas.xlsx";
         } else {
-             const { jsPDF } = window.jspdf;
-             const doc = new jsPDF();
-             doc.text("Laporan Absensi Ekstrakurikuler", 14, 16);
-             doc.autoTable({
-                 startY: 20,
-                 head: [['No', 'Pembina', 'Eskul', 'Tanggal', 'Datang', 'Pulang', 'Durasi']],
-                 body: reportData.map(Object.values),
-             });
-             doc.save("laporan_absensi_eskul.pdf");
+             worksheetData = processedAndFilteredEskulAttendance.map(rec => ({
+                "Nama Pembina": rec.pembinaName,
+                "Kegiatan Eskul": rec.eskulName,
+                "Tanggal": new Date(rec.checkInTime).toLocaleDateString('id-ID'),
+                "Waktu Datang": new Date(rec.checkInTime).toLocaleTimeString('id-ID'),
+                "Waktu Pulang": rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString('id-ID') : '-',
+                "Durasi": rec.duration,
+            }));
+            fileName = "Laporan_Absensi_Eskul.xlsx";
         }
+
+        const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Absensi");
+        XLSX.writeFile(workbook, fileName);
     };
-
-
-    if (loading) return <Spinner />;
-
-    const teachers = users.filter(u => u.role === UserRoleEnum.TEACHER);
-    const pembinas = users.filter(u => u.role === UserRoleEnum.PEMBINA_ESKUL);
 
     return (
         <div className="bg-white p-6 rounded-lg shadow">
-            <h1 className="text-2xl font-bold mb-4">Laporan Absensi</h1>
-            <div className="border-b border-gray-200">
+            <h2 className="text-2xl font-bold mb-4">Laporan Absensi</h2>
+            
+            <div className="mb-4 border-b border-gray-200">
                 <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                    <button onClick={() => setActiveTab('kelas')} className={`${activeTab === 'kelas' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>
+                    <button
+                        onClick={() => setReportType('kelas')}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${reportType === 'kelas' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                    >
                         Absensi Kelas
                     </button>
-                    <button onClick={() => setActiveTab('eskul')} className={`${activeTab === 'eskul' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>
+                    <button
+                        onClick={() => setReportType('eskul')}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${reportType === 'eskul' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                    >
                         Absensi Ekstrakurikuler
                     </button>
                 </nav>
             </div>
 
-            {activeTab === 'kelas' ? (
-                <div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 my-4 p-4 border rounded-md">
-                        <select value={filter.teacherId} onChange={e => setFilter({...filter, teacherId: e.target.value})} className="p-2 border rounded">
+            {/* Filters */}
+            {reportType === 'kelas' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 border rounded-lg">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Guru</label>
+                        <select value={filter.teacherId} onChange={e => setFilter({...filter, teacherId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                             <option value="">Semua Guru</option>
                             {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
-                        <select value={filter.classId} onChange={e => setFilter({...filter, classId: e.target.value})} className="p-2 border rounded">
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Kelas</label>
+                        <select value={filter.classId} onChange={e => setFilter({...filter, classId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                             <option value="">Semua Kelas</option>
                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                        <input type="date" value={filter.startDate} onChange={e => setFilter({...filter, startDate: e.target.value})} className="p-2 border rounded"/>
-                        <input type="date" value={filter.endDate} onChange={e => setFilter({...filter, endDate: e.target.value})} className="p-2 border rounded"/>
                     </div>
-                    <CrudTable
-                        title="Laporan Absensi Kelas"
-                        columns={['Guru', 'Kelas', 'Jam Ke', 'Waktu Absen', 'Foto']}
-                        data={filteredAttendance}
-                        renderRow={(rec: AttendanceRecord) => (
-                            <tr key={rec.id} className="border-b">
-                                <td className="p-3">{getUserName(rec.teacherId)}</td>
-                                <td className="p-3">{getClassName(rec.classId)}</td>
-                                <td className="p-3">{rec.lessonHour}</td>
-                                <td className="p-3">{new Date(rec.scanTime).toLocaleString('id-ID')}</td>
-                                <td className="p-3">-</td>
-                            </tr>
-                        )}
-                    />
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Tanggal Mulai</label>
+                        <input type="date" value={filter.startDate} onChange={e => setFilter({...filter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Tanggal Selesai</label>
+                        <input type="date" value={filter.endDate} onChange={e => setFilter({...filter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                    </div>
                 </div>
             ) : (
-                <div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 my-4 p-4 border rounded-md">
-                        <select value={eskulFilter.pembinaId} onChange={e => setEskulFilter({...eskulFilter, pembinaId: e.target.value})} className="p-2 border rounded">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 border rounded-lg">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Pembina</label>
+                        <select value={eskulFilter.pembinaId} onChange={e => setEskulFilter({...eskulFilter, pembinaId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                             <option value="">Semua Pembina</option>
                             {pembinas.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
-                        <select value={eskulFilter.eskulId} onChange={e => setEskulFilter({...eskulFilter, eskulId: e.target.value})} className="p-2 border rounded">
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Eskul</label>
+                        <select value={eskulFilter.eskulId} onChange={e => setEskulFilter({...eskulFilter, eskulId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                             <option value="">Semua Eskul</option>
                             {eskuls.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                         </select>
-                        <input type="date" value={eskulFilter.startDate} onChange={e => setEskulFilter({...eskulFilter, startDate: e.target.value})} className="p-2 border rounded"/>
-                        <input type="date" value={eskulFilter.endDate} onChange={e => setEskulFilter({...eskulFilter, endDate: e.target.value})} className="p-2 border rounded"/>
                     </div>
-                    <CrudTable
-                        title="Laporan Absensi Ekstrakurikuler"
-                        columns={['Pembina', 'Eskul', 'Tanggal', 'Datang', 'Pulang', 'Durasi', 'Foto']}
-                        data={filteredEskulAttendance}
-                        renderRow={(rec: EskulAttendanceRecord) => {
-                             const schedule = eskulSchedules.find(s => s.id === rec.eskulScheduleId);
-                             const checkIn = new Date(rec.checkInTime);
-                             const checkOut = rec.checkOutTime ? new Date(rec.checkOutTime) : null;
-                             let duration = '-';
-                             if (checkOut) {
-                                 const diffMs = checkOut.getTime() - checkIn.getTime();
-                                 const hours = Math.floor(diffMs / 3600000);
-                                 const minutes = Math.floor((diffMs % 3600000) / 60000);
-                                 duration = `${hours}j ${minutes}m`;
-                             }
-                             return (
-                                 <tr key={rec.id} className="border-b">
-                                     <td className="p-3">{getUserName(rec.pembinaId)}</td>
-                                     <td className="p-3">{schedule ? getEskulName(schedule.eskulId) : 'N/A'}</td>
-                                     <td className="p-3">{checkIn.toLocaleDateString('id-ID')}</td>
-                                     <td className="p-3">{checkIn.toLocaleTimeString('id-ID')}</td>
-                                     <td className="p-3">{checkOut ? checkOut.toLocaleTimeString('id-ID') : '-'}</td>
-                                     <td className="p-3">{duration}</td>
-                                     <td className="p-3 flex gap-2">
-                                        {rec.checkInImageUrl && <img src={rec.checkInImageUrl} alt="datang" className="w-10 h-10 object-cover rounded"/>}
-                                        {rec.checkOutImageUrl && <img src={rec.checkOutImageUrl} alt="pulang" className="w-10 h-10 object-cover rounded"/>}
-                                     </td>
-                                 </tr>
-                             );
-                        }}
-                    />
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Tanggal Mulai</label>
+                        <input type="date" value={eskulFilter.startDate} onChange={e => setEskulFilter({...eskulFilter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Tanggal Selesai</label>
+                        <input type="date" value={eskulFilter.endDate} onChange={e => setEskulFilter({...eskulFilter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" />
+                    </div>
                 </div>
             )}
-
-            <div className="mt-6 flex justify-end space-x-4">
-                <button onClick={() => handleExport('pdf')} className="bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-                    <DownloadIcon/> PDF
-                </button>
-                <button onClick={() => handleExport('excel')} className="bg-green-500 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-                    <DownloadIcon/> Excel
-                </button>
+            
+            {/* Export Buttons */}
+            <div className="flex justify-end gap-2 mb-4">
+                <button onClick={exportToPDF} className="bg-red-500 text-white px-4 py-2 rounded-lg">Ekspor PDF</button>
+                <button onClick={exportToExcel} className="bg-green-500 text-white px-4 py-2 rounded-lg">Ekspor Excel</button>
             </div>
+
+            {/* Table */}
+            {loading ? <Spinner/> : (
+                reportType === 'kelas' ? (
+                    <CrudTable
+                        title=""
+                        columns={['Guru', 'Kelas', 'Jam Ke', 'Waktu']}
+                        data={filteredAttendance}
+                        renderRow={(rec: AttendanceRecord) => (
+                             <tr key={rec.id} className="border-b hover:bg-gray-50">
+                                <td className="p-3">{getTeacherName(rec.teacherId)}</td>
+                                <td className="p-3">{getClassName(rec.classId)}</td>
+                                <td className="p-3">{rec.lessonHour}</td>
+                                <td className="p-3">{new Date(rec.scanTime).toLocaleString('id-ID')}</td>
+                            </tr>
+                        )}
+                    />
+                ) : (
+                    <CrudTable
+                        title=""
+                        columns={['Pembina', 'Eskul', 'Tanggal', 'Datang', 'Pulang', 'Durasi']}
+                        data={processedAndFilteredEskulAttendance}
+                        renderRow={(rec: any) => (
+                             <tr key={rec.id} className="border-b hover:bg-gray-50">
+                                <td className="p-3">{rec.pembinaName}</td>
+                                <td className="p-3">{rec.eskulName}</td>
+                                <td className="p-3">{new Date(rec.checkInTime).toLocaleDateString('id-ID')}</td>
+                                <td className="p-3">{new Date(rec.checkInTime).toLocaleTimeString('id-ID')}</td>
+                                <td className="p-3">{rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString('id-ID') : '-'}</td>
+                                <td className="p-3">{rec.duration}</td>
+                            </tr>
+                        )}
+                    />
+                )
+            )}
         </div>
     );
 };
 
-// --- App Component ---
+
+const AIAssistant: React.FC = () => {
+    const [query, setQuery] = useState('');
+    const [response, setResponse] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleQuery = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!query.trim()) return;
+
+        setIsLoading(true);
+        setError('');
+        setResponse('');
+
+        try {
+            const [teachers, classes, schedules, attendance] = await Promise.all([
+                api.getUsersByRole(UserRoleEnum.TEACHER),
+                api.getClasses(),
+                api.getSchedules(),
+                api.getAttendanceRecords()
+            ]);
+
+            const analysis = await geminiApi.getAIAnalysis({ teachers, classes, schedules, attendance }, query);
+            setResponse(analysis);
+
+        } catch (err: any) {
+            console.error("Error fetching data or getting AI analysis:", err);
+            setError(`Terjadi kesalahan: ${err.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="bg-white p-6 rounded-lg shadow max-w-4xl mx-auto">
+            <h2 className="text-2xl font-bold mb-4">Asisten AI Analisis Absensi</h2>
+            <p className="text-gray-600 mb-6">Ajukan pertanyaan tentang data absensi, jadwal, atau guru, dan AI akan membantu Anda menganalisisnya. Contoh: "Siapa guru yang paling sering hadir minggu ini?", "Buat ringkasan absensi untuk kelas VII A hari ini", atau "Berapa total jam mengajar Budi?".</p>
+            
+            <form onSubmit={handleQuery}>
+                <div className="flex gap-2">
+                    <input 
+                        type="text"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Ketik pertanyaan Anda di sini..."
+                        className="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        disabled={isLoading}
+                    />
+                    <button 
+                        type="submit"
+                        className="bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
+                        disabled={isLoading}
+                    >
+                        {isLoading ? 'Memproses...' : 'Tanya'}
+                    </button>
+                </div>
+            </form>
+
+            {error && <div className="mt-4 p-3 bg-red-100 text-red-700 border border-red-300 rounded-lg">{error}</div>}
+
+            {isLoading && (
+                 <div className="mt-6 text-center">
+                    <Spinner />
+                    <p className="text-gray-500 mt-2">AI sedang berpikir...</p>
+                 </div>
+            )}
+            
+            {response && (
+                <div className="mt-6 p-4 border rounded-lg bg-gray-50">
+                    <h3 className="font-bold text-lg mb-2">Jawaban AI:</h3>
+                    <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: response.replace(/\n/g, '<br />') }}></div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
+// --- Main App Component ---
 
 const App: React.FC = () => {
     const [user, setUser] = useState<any | null>(null);
     const [userProfile, setUserProfile] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [authView, setAuthView] = useState<'login' | 'register' | 'forgotPassword'>('login');
+    const [authMessage, setAuthMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
 
     useEffect(() => {
-        const unsubscribe = api.onAuthStateChanged((firebaseUser) => {
-            setUser(firebaseUser);
-            if (!firebaseUser) {
-                // Not logged in
+        const handleBeforeInstallPrompt = (e: Event) => {
+            // Mencegah mini-infobar muncul di mobile
+            e.preventDefault();
+            // Menyimpan event agar bisa dipicu nanti.
+            setInstallPromptEvent(e);
+            console.log('beforeinstallprompt event has been fired and saved.');
+        };
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        };
+    }, []);
+
+    const handleInstallClick = () => {
+        if (installPromptEvent) {
+            // Menampilkan prompt instalasi
+            installPromptEvent.prompt();
+            // Menunggu pilihan pengguna
+            installPromptEvent.userChoice.then((choiceResult: any) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the A2HS prompt');
+                } else {
+                    console.log('User dismissed the A2HS prompt');
+                }
+                // Prompt hanya bisa digunakan sekali, jadi kita hapus
+                setInstallPromptEvent(null);
+            });
+        }
+    };
+
+    useEffect(() => {
+        const unsubscribeAuth = api.onAuthStateChanged(newUser => {
+            setUser(newUser);
+            if (!newUser) {
                 setUserProfile(null);
                 setLoading(false);
             }
         });
-        return () => unsubscribe();
+        return () => unsubscribeAuth();
     }, []);
 
     useEffect(() => {
         let unsubscribeProfile: (() => void) | null = null;
         if (user) {
-            // User is logged in, now fetch their profile from Firestore
-            unsubscribeProfile = api.onUserProfileChange(user.uid, (profile) => {
-                if (profile) {
-                    setUserProfile(profile);
-                } else {
-                    // This can happen if the user exists in Auth but not in Firestore (e.g., deleted by admin)
-                    console.error("User profile not found in Firestore. Logging out.");
-                    api.signOut(); // Force logout
-                }
+            unsubscribeProfile = api.onUserProfileChange(user.uid, profile => {
+                setUserProfile(profile);
                 setLoading(false);
             });
         }
@@ -2349,147 +2194,177 @@ const App: React.FC = () => {
         };
     }, [user]);
 
+    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const { email, password } = e.currentTarget.elements as any;
+        setAuthMessage(null);
+        try {
+            await api.signIn(email.value, password.value);
+            // State change will handle UI update
+        } catch (error: any) {
+            setAuthMessage({ type: 'error', text: error.message || "Email atau password salah." });
+        }
+    };
+    
+    const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const { name, email, password, role } = e.currentTarget.elements as any;
+        setAuthMessage(null);
+        try {
+            // The new signUp function will throw an error on failure, simplifying this logic.
+            await api.signUp(email.value, password.value, name.value, role.value as UserRole);
+            setAuthMessage({ type: 'success', text: "Pendaftaran berhasil! Anda akan dialihkan secara otomatis." });
+            // The user is now logged in. Auth listeners will handle the UI transition.
+        } catch (error: any) {
+            setAuthMessage({ type: 'error', text: error.message || "Pendaftaran gagal." });
+        }
+    };
+    
+    const handleForgotPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const { email } = e.currentTarget.elements as any;
+        setAuthMessage(null);
+        try {
+            await api.sendPasswordResetEmail(email.value);
+            setAuthMessage({ type: 'success', text: "Email pemulihan password telah dikirim." });
+        } catch (error: any) {
+            setAuthMessage({ type: 'error', text: error.message || "Gagal mengirim email." });
+        }
+    };
+
+    const handleLogout = async () => {
+        await api.signOut();
+    };
+
     if (loading) {
         return <FullPageSpinner />;
     }
 
-    if (!userProfile) {
-        return <LoginPage onLoginSuccess={() => setLoading(true)} />;
+    if (!user || !userProfile) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+                <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8 space-y-6">
+                    <div className="text-center">
+                        <h1 className="text-5xl font-extrabold text-blue-600 mb-2">HadirKu</h1>
+                        <p className="text-gray-500">Sistem Absensi Guru Digital</p>
+                    </div>
+
+                    {authView === 'login' && (
+                        <div>
+                             <h2 className="text-2xl font-bold text-center text-gray-700 mb-6">Login</h2>
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-600 block mb-1">Email</label>
+                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                </div>
+                                <div>
+                                    <div className="flex justify-between items-baseline">
+                                        <label className="text-sm font-medium text-gray-600 block mb-1">Password</label>
+                                        <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('forgotPassword'); setAuthMessage(null); }} className="text-sm text-blue-600 hover:underline">Lupa Password?</a>
+                                    </div>
+                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                </div>
+                                <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Login</button>
+                            </form>
+                             
+                            {installPromptEvent && (
+                                <div className="mt-6 text-center bg-green-50 p-4 rounded-lg border border-green-200 space-y-3">
+                                    <p className="text-sm font-medium text-green-800">
+                                        Instal Aplikasi untuk Pengalaman Terbaik
+                                    </p>
+                                    <p className="text-xs text-green-700">
+                                        Akses lebih cepat dan fitur offline dengan menambahkan aplikasi ini ke layar utama (home screen) Anda.
+                                    </p>
+                                    <button
+                                        onClick={handleInstallClick}
+                                        className="w-full bg-green-500 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-600 transition duration-300 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+                                    >
+                                        <DownloadIcon />
+                                        <span>Instal Aplikasi</span>
+                                    </button>
+                                </div>
+                            )}
+
+                            <p className="text-center text-sm text-gray-600 mt-6">
+                                Belum punya akun? <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('register'); setAuthMessage(null); }} className="font-medium text-blue-600 hover:underline">Daftar</a>
+                            </p>
+                        </div>
+                    )}
+                    
+                    {authView === 'register' && (
+                         <div>
+                            <h2 className="text-2xl font-bold text-center text-gray-700 mb-6">Daftar Akun Baru</h2>
+                            <form onSubmit={handleRegister} className="space-y-4">
+                                 <div>
+                                    <label className="text-sm font-medium text-gray-600 block mb-1">Nama Lengkap</label>
+                                    <input name="name" type="text" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-600 block mb-1">Email</label>
+                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-600 block mb-1">Password</label>
+                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                </div>
+                                 <div>
+                                    <label className="text-sm font-medium text-gray-600 block mb-1">Daftar sebagai</label>
+                                    <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                        <option value={UserRoleEnum.TEACHER}>Guru</option>
+                                        <option value={UserRoleEnum.PEMBINA_ESKUL}>Pembina Ekstrakurikuler</option>
+                                        <option value={UserRoleEnum.ADMIN}>Admin</option>
+                                    </select>
+                                </div>
+                                <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Daftar</button>
+                            </form>
+                             <p className="text-center text-sm text-gray-600 mt-6">
+                                Sudah punya akun? <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('login'); setAuthMessage(null); }} className="font-medium text-blue-600 hover:underline">Login</a>
+                            </p>
+                        </div>
+                    )}
+                    
+                    {authView === 'forgotPassword' && (
+                        <div>
+                            <h2 className="text-2xl font-bold text-center text-gray-700 mb-6">Reset Password</h2>
+                             <form onSubmit={handleForgotPassword} className="space-y-4">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-600 block mb-1">Email</label>
+                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                                </div>
+                                <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Kirim Link Reset</button>
+                            </form>
+                            <p className="text-center text-sm text-gray-600 mt-6">
+                                Kembali ke <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('login'); setAuthMessage(null); }} className="font-medium text-blue-600 hover:underline">Login</a>
+                            </p>
+                        </div>
+                    )}
+
+                    {authMessage && (
+                        <div className={`mt-4 text-center p-3 rounded-lg ${authMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {authMessage.text}
+                        </div>
+                    )}
+
+                    <div className="text-center text-xs text-gray-400 mt-8">
+                        © {new Date().getFullYear()} Rullp. All rights reserved.
+                    </div>
+                </div>
+            </div>
+        );
     }
 
-    switch (userProfile.role) {
-        case UserRoleEnum.ADMIN:
-            return <AdminDashboard user={userProfile} onLogout={api.signOut} />;
-        case UserRoleEnum.TEACHER:
-            return <TeacherDashboard user={userProfile} onLogout={api.signOut} />;
-        case UserRoleEnum.PEMBINA_ESKUL:
-            return <PembinaEskulDashboard user={userProfile} onLogout={api.signOut} />;
-        default:
-            return <div>Peran tidak diketahui. Hubungi admin. <button onClick={api.signOut}>Keluar</button></div>;
+    if (userProfile.role === UserRoleEnum.ADMIN) {
+        return <AdminDashboard user={userProfile} onLogout={handleLogout} />;
     }
-};
+    if (userProfile.role === UserRoleEnum.TEACHER) {
+        return <TeacherDashboard user={userProfile} onLogout={handleLogout} />;
+    }
+    if (userProfile.role === UserRoleEnum.PEMBINA_ESKUL) {
+        return <PembinaEskulDashboard user={userProfile} onLogout={handleLogout} />;
+    }
 
-// FIX: The `onLoginSuccess` prop must be destructured from the component's arguments.
-const LoginPage: React.FC<{onLoginSuccess: () => void}> = ({ onLoginSuccess }) => {
-    const [isRegister, setIsRegister] = useState(false);
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [name, setName] = useState('');
-    const [role, setRole] = useState<UserRole>(UserRoleEnum.TEACHER);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [resetEmail, setResetEmail] = useState('');
-    const [isResetModalOpen, setIsResetModalOpen] = useState(false);
-
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        setSuccess('');
-
-        try {
-            if (isRegister) {
-                await api.signUp(email, password, name, role);
-                setSuccess('Pendaftaran berhasil! Silakan login.');
-                setIsRegister(false);
-            } else {
-                await api.signIn(email, password);
-                // The onAuthStateChanged listener in App component will handle the redirect.
-                onLoginSuccess();
-            }
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-    
-    const handlePasswordReset = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        setSuccess('');
-        try {
-            await api.sendPasswordResetEmail(resetEmail);
-            setSuccess(`Email pemulihan telah dikirim ke ${resetEmail}.`);
-            setIsResetModalOpen(false);
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-      <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 space-y-6">
-          <div className="text-center">
-            <img src="/smpn-13-tasikmalaya.svg" alt="Logo" className="w-20 h-20 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-gray-800">HadirKu</h1>
-            <p className="text-gray-500">Sistem Absensi Guru & Pembina</p>
-          </div>
-
-          {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md"><p>{error}</p></div>}
-          {success && <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-md"><p>{success}</p></div>}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {isRegister && (
-              <>
-                 <div>
-                  <label className="block mb-1 font-medium text-gray-700">Nama Lengkap</label>
-                  <input type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full p-3 border rounded-lg" />
-                </div>
-                 <div>
-                  <label className="block mb-1 font-medium text-gray-700">Peran</label>
-                  <select value={role} onChange={e => setRole(e.target.value as UserRole)} className="w-full p-3 border rounded-lg bg-white">
-                    <option value={UserRoleEnum.TEACHER}>Guru</option>
-                    <option value={UserRoleEnum.PEMBINA_ESKUL}>Pembina Eskul</option>
-                    <option value={UserRoleEnum.ADMIN}>Admin</option>
-                  </select>
-                </div>
-              </>
-            )}
-             <div>
-              <label className="block mb-1 font-medium text-gray-700">Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full p-3 border rounded-lg" />
-            </div>
-             <div>
-              <label className="block mb-1 font-medium text-gray-700">Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full p-3 border rounded-lg" />
-            </div>
-            
-            <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400">
-              {loading ? 'Memproses...' : (isRegister ? 'Daftar' : 'Login')}
-            </button>
-          </form>
-
-          <div className="text-center text-sm">
-            <p className="text-gray-600">
-              {isRegister ? 'Sudah punya akun?' : 'Belum punya akun?'}
-              <button onClick={() => { setIsRegister(!isRegister); setError(''); setSuccess(''); }} className="font-semibold text-blue-600 hover:underline ml-1">
-                {isRegister ? 'Login' : 'Daftar'}
-              </button>
-            </p>
-            {!isRegister && (
-                <p className="mt-2">
-                    <button onClick={() => setIsResetModalOpen(true)} className="text-sm text-gray-500 hover:underline">Lupa Password?</button>
-                </p>
-            )}
-          </div>
-        </div>
-        <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="Reset Password">
-                <form onSubmit={handlePasswordReset}>
-                    <p className="mb-4 text-gray-600">Masukkan email Anda untuk menerima link reset password.</p>
-                    <input type="email" value={resetEmail} onChange={e => setResetEmail(e.target.value)} required className="w-full p-2 border rounded" placeholder="Email Anda"/>
-                    <button type="submit" disabled={loading} className="w-full mt-4 bg-blue-500 text-white py-2 rounded-lg">
-                        {loading ? 'Mengirim...' : 'Kirim Email Pemulihan'}
-                    </button>
-                </form>
-            </Modal>
-      </div>
-    );
+    // Fallback for unknown roles
+    return <div>Peran pengguna tidak dikenali.</div>;
 };
 
 export default App;

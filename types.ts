@@ -50,7 +50,7 @@ export interface Message {
   senderName: string;
   recipientId: string;
   content: string;
-  timestamp: any; // Can be string or Firestore Timestamp
+  timestamp: string; // ISO string
   isRead: boolean;
 }
 
@@ -76,6 +76,4 @@ export interface EskulAttendanceRecord {
   date: string; // YYYY-MM-DD
   checkInTime: string; // ISO string
   checkOutTime?: string; // ISO string
-  checkInImageUrl?: string;
-  checkOutImageUrl?: string;
 }
