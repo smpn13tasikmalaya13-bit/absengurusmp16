@@ -405,6 +405,9 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                     )}
                 </div>
             </Modal>
+            <footer className="text-center text-sm text-gray-500 py-6">
+                © {new Date().getFullYear()} Rullp. All rights reserved.
+            </footer>
         </div>
     );
 };
@@ -728,6 +731,9 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                 {view === 'schedules' && <ScheduleManagement />}
                 {view === 'reports' && <AttendanceReport />}
                 {view === 'ai-assistant' && <AIAssistant />}
+                <footer className="text-center text-sm text-gray-500 pt-8 pb-2">
+                    © {new Date().getFullYear()} Rullp. All rights reserved.
+                </footer>
             </main>
         </div>
     );
@@ -1701,6 +1707,10 @@ const App: React.FC = () => {
                             {authMessage.text}
                         </div>
                     )}
+
+                    <div className="text-center text-xs text-gray-400 mt-8">
+                        © {new Date().getFullYear()} Rullp. All rights reserved.
+                    </div>
                 </div>
             </div>
         );
