@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
@@ -7,7 +8,6 @@ import { UserRole as UserRoleEnum } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CENTRAL_COORDINATES, MAX_RADIUS_METERS, DAYS_OF_WEEK, LESSON_HOURS, HARI_TRANSLATION } from './constants';
 import * as api from './services/firebaseService';
-import * as geminiApi from './services/geminiService';
 
 
 // FIX: Add declarations for globally available libraries
@@ -671,33 +671,38 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
     const fetchData = useCallback(async () => {
         setLoadingData(true);
     
-        // Fetch eskul list (critical for dropdown).
-        try {
-            const eskulsData = await api.getEskuls();
-            setEskuls(eskulsData);
-        } catch (error: any) {
-            console.error("Gagal memuat daftar eskul:", error);
-            alert(`Gagal memuat daftar eskul. Anda tidak akan bisa menambah jadwal baru. Error: ${error.message}`);
+        const results = await Promise.allSettled([
+            api.getEskuls(),
+            api.getEskulSchedules(user.id),
+            api.getEskulAttendanceRecords(user.id)
+        ]);
+
+        const [eskulsResult, schedulesResult, attendanceResult] = results;
+
+        if (eskulsResult.status === 'fulfilled') {
+            setEskuls(eskulsResult.value);
+            if (eskulsResult.value.length === 0) {
+                 alert("Peringatan: Tidak ada data Ekstrakurikuler yang ditemukan. Ini mungkin disebabkan oleh aturan keamanan (security rules) di Firebase atau karena belum ada data Eskul yang ditambahkan.");
+            }
+        } else {
+            console.error("Gagal memuat eskul:", eskulsResult.reason);
+            alert(`Gagal memuat daftar eskul: ${eskulsResult.reason.message}. Anda tidak akan bisa menambah jadwal baru.`);
         }
-    
-        // Fetch schedules (less critical).
-        try {
-            const schedulesData = await api.getEskulSchedules(user.id);
-            setSchedules(schedulesData);
-        } catch (error: any) {
-            console.error("Gagal memuat jadwal eskul:", error);
-            alert(`Gagal memuat daftar jadwal eskul yang ada.`);
+
+        if (schedulesResult.status === 'fulfilled') {
+            setSchedules(schedulesResult.value);
+        } else {
+             console.error("Gagal memuat jadwal eskul:", schedulesResult.reason);
+             alert(`Gagal memuat jadwal eskul Anda: ${schedulesResult.reason.message}`);
         }
-    
-        // Fetch attendance (less critical).
-        try {
-            const attendanceData = await api.getEskulAttendanceRecords(user.id);
-            setAttendance(attendanceData);
-        } catch (error: any) {
-             console.error("Gagal memuat riwayat absensi eskul:", error);
-             alert(`Gagal memuat riwayat absensi eskul Anda.`);
+        
+        if (attendanceResult.status === 'fulfilled') {
+            setAttendance(attendanceResult.value);
+        } else {
+            console.error("Gagal memuat absensi eskul:", attendanceResult.reason);
+            alert(`Gagal memuat riwayat absensi eskul: ${attendanceResult.reason.message}`);
         }
-    
+
         setLoadingData(false);
     }, [user.id]);
 
@@ -1022,8 +1027,8 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
         classes: 'Data Kelas',
         eskul: 'Data Ekstrakurikuler',
         schedules: 'Jadwal Pelajaran',
+        eskulSchedules: 'Jadwal Ekstrakurikuler',
         reports: 'Laporan Absensi',
-        'ai-assistant': 'Asisten AI'
     };
 
     return (
@@ -1051,8 +1056,8 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                     <a onClick={() => handleSetView('classes')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Kelas</a>
                     <a onClick={() => handleSetView('eskul')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Ekstrakurikuler</a>
                     <a onClick={() => handleSetView('schedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Pelajaran</a>
+                    <a onClick={() => handleSetView('eskulSchedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Ekstrakurikuler</a>
                     <a onClick={() => handleSetView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi</a>
-                    <a onClick={() => handleSetView('ai-assistant')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Asisten AI</a>
                 </nav>
                 <div className="p-4 border-t border-gray-700">
                     <p>{user.name}</p>
@@ -1079,8 +1084,8 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                 {view === 'classes' && <ClassManagement />}
                 {view === 'eskul' && <EskulManagement />}
                 {view === 'schedules' && <ScheduleManagement />}
+                {view === 'eskulSchedules' && <AdminEskulScheduleManagement />}
                 {view === 'reports' && <AttendanceReport />}
-                {view === 'ai-assistant' && <AIAssistant />}
                 <footer className="text-center text-sm text-gray-500 pt-8 pb-2">
                     © {new Date().getFullYear()} Rullp. All rights reserved.
                 </footer>
@@ -1601,28 +1606,41 @@ const ScheduleManagement: React.FC = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
 
-        // Fetch dropdown data first, it's critical.
-        try {
-            const [classesData, teachersData] = await Promise.all([
-                api.getClasses(),
-                api.getUsersByRole(UserRoleEnum.TEACHER)
-            ]);
-            setClasses(classesData);
-            setTeachers(teachersData);
-        } catch (error: any) {
-            console.error("Gagal memuat data dropdown (kelas/guru):", error);
-            alert(`Gagal memuat data penting untuk dropdown. Harap muat ulang halaman. Error: ${error.message}`);
+        const results = await Promise.allSettled([
+            api.getClasses(),
+            api.getUsersByRole(UserRoleEnum.TEACHER),
+            api.getSchedules()
+        ]);
+
+        const [classesResult, teachersResult, schedulesResult] = results;
+
+        if (classesResult.status === 'fulfilled') {
+            setClasses(classesResult.value);
+            if (classesResult.value.length === 0) {
+                alert("Peringatan: Tidak ada data Kelas yang ditemukan. Dropdown akan kosong.");
+            }
+        } else {
+            console.error("Gagal memuat kelas:", classesResult.reason);
+            alert(`Gagal memuat daftar Kelas: ${classesResult.reason.message}`);
         }
-        
-        // Fetch table data separately.
-        try {
-            const schedulesData = await api.getSchedules();
-            setSchedules(schedulesData);
-        } catch (error: any) {
-             console.error("Gagal memuat data jadwal:", error);
-             alert(`Gagal memuat daftar jadwal yang ada. Menambah jadwal baru masih dimungkinkan.`);
+
+        if (teachersResult.status === 'fulfilled') {
+            setTeachers(teachersResult.value);
+            if (teachersResult.value.length === 0) {
+                alert("Peringatan: Tidak ada data Guru yang ditemukan. Dropdown akan kosong.");
+            }
+        } else {
+            console.error("Gagal memuat guru:", teachersResult.reason);
+            alert(`Gagal memuat daftar Guru: ${teachersResult.reason.message}`);
         }
-        
+
+        if (schedulesResult.status === 'fulfilled') {
+            setSchedules(schedulesResult.value);
+        } else {
+            console.error("Gagal memuat jadwal:", schedulesResult.reason);
+            alert(`Gagal memuat daftar jadwal: ${schedulesResult.reason.message}`);
+        }
+
         setLoading(false);
     }, []);
 
@@ -1757,6 +1775,176 @@ const ScheduleManagement: React.FC = () => {
         </>
     );
 };
+
+const AdminEskulScheduleManagement: React.FC = () => {
+    const [schedules, setSchedules] = useState<EskulSchedule[]>([]);
+    const [eskuls, setEskuls] = useState<Eskul[]>([]);
+    const [pembinas, setPembinas] = useState<User[]>([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingSchedule, setEditingSchedule] = useState<Partial<EskulSchedule> | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+
+        const results = await Promise.allSettled([
+            api.getEskuls(),
+            api.getUsersByRole(UserRoleEnum.PEMBINA_ESKUL),
+            api.getAllEskulSchedules()
+        ]);
+
+        const [eskulsResult, pembinasResult, schedulesResult] = results;
+
+        if (eskulsResult.status === 'fulfilled') {
+            setEskuls(eskulsResult.value);
+            if (eskulsResult.value.length === 0) {
+                alert("Peringatan: Tidak ada data Ekstrakurikuler ditemukan. Dropdown akan kosong.");
+            }
+        } else {
+            console.error("Gagal memuat eskul:", eskulsResult.reason);
+            alert(`Gagal memuat daftar Ekstrakurikuler: ${eskulsResult.reason.message}`);
+        }
+
+        if (pembinasResult.status === 'fulfilled') {
+            setPembinas(pembinasResult.value);
+            if (pembinasResult.value.length === 0) {
+                alert("Peringatan: Tidak ada data Pembina Eskul ditemukan. Dropdown akan kosong.");
+            }
+        } else {
+            console.error("Gagal memuat pembina:", pembinasResult.reason);
+            alert(`Gagal memuat daftar Pembina: ${pembinasResult.reason.message}`);
+        }
+
+        if (schedulesResult.status === 'fulfilled') {
+            setSchedules(schedulesResult.value);
+        } else {
+            console.error("Gagal memuat jadwal eskul:", schedulesResult.reason);
+            alert(`Gagal memuat daftar jadwal eskul: ${schedulesResult.reason.message}`);
+        }
+
+        setLoading(false);
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingSchedule || !editingSchedule.pembinaId || !editingSchedule.eskulId || !editingSchedule.day || !editingSchedule.startTime || !editingSchedule.endTime) {
+            alert("Harap isi semua kolom");
+            return;
+        }
+
+        const scheduleData = {
+            pembinaId: editingSchedule.pembinaId,
+            eskulId: editingSchedule.eskulId,
+            day: editingSchedule.day,
+            startTime: editingSchedule.startTime,
+            endTime: editingSchedule.endTime
+        };
+
+        const result = editingSchedule.id
+            ? await api.updateEskulSchedule(editingSchedule.id, scheduleData)
+            : await api.addEskulSchedule(scheduleData);
+        
+        if (result.success) {
+            setIsModalOpen(false);
+            setEditingSchedule(null);
+            fetchData();
+        } else {
+            alert(result.message);
+        }
+    };
+    
+    const handleDelete = async (id: string) => {
+        if(window.confirm("Yakin ingin menghapus jadwal eskul ini?")){
+            const result = await api.deleteEskulSchedule(id);
+             if (result.success) {
+                fetchData();
+            } else {
+                alert(result.message);
+            }
+        }
+    }
+    
+    const handleOpenModal = (schedule: Partial<EskulSchedule> | null = null) => {
+        setEditingSchedule(schedule || {startTime: '14:00', endTime: '16:00'});
+        setIsModalOpen(true);
+    };
+
+    const getPembinaName = (id: string) => pembinas.find(p => p.id === id)?.name || 'N/A';
+    const getEskulName = (id: string) => eskuls.find(e => e.id === id)?.name || 'N/A';
+
+    if (loading) {
+        return (
+            <div className="bg-white p-6 rounded-lg shadow">
+                <h2 className="text-2xl font-bold mb-4">Manajemen Jadwal Ekstrakurikuler</h2>
+                <Spinner />
+            </div>
+        );
+    }
+
+    return (
+        <>
+            <CrudTable
+                title="Manajemen Jadwal Ekstrakurikuler"
+                columns={['Hari', 'Waktu', 'Pembina', 'Kegiatan', 'Aksi']}
+                data={schedules}
+                onAdd={() => handleOpenModal()}
+                renderRow={(s: EskulSchedule) => (
+                    <tr key={s.id} className="border-b hover:bg-gray-50">
+                        <td className="p-3">{HARI_TRANSLATION[s.day]}</td>
+                        <td className="p-3">{s.startTime} - {s.endTime}</td>
+                        <td className="p-3">{getPembinaName(s.pembinaId)}</td>
+                        <td className="p-3">{getEskulName(s.eskulId)}</td>
+                        <td className="p-3 space-x-2">
+                            <button onClick={() => handleOpenModal(s)} className="text-blue-600 hover:underline">Ubah</button>
+                            <button onClick={() => handleDelete(s.id)} className="text-red-600 hover:underline">Hapus</button>
+                        </td>
+                    </tr>
+                )}
+            />
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingSchedule?.id ? 'Ubah Jadwal Eskul' : 'Tambah Jadwal Eskul'}>
+                <form onSubmit={handleSave} className="space-y-4">
+                    <div>
+                        <label className="block mb-1">Pembina</label>
+                        <select value={editingSchedule?.pembinaId || ''} onChange={e => setEditingSchedule({...editingSchedule, pembinaId: e.target.value})} className="w-full p-2 border rounded">
+                            <option value="">Pilih Pembina</option>
+                            {pembinas.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                     <div>
+                        <label className="block mb-1">Kegiatan Eskul</label>
+                        <select value={editingSchedule?.eskulId || ''} onChange={e => setEditingSchedule({...editingSchedule, eskulId: e.target.value})} className="w-full p-2 border rounded">
+                            <option value="">Pilih Eskul</option>
+                            {eskuls.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block mb-1">Hari</label>
+                        <select value={editingSchedule?.day || ''} onChange={e => setEditingSchedule({...editingSchedule, day: e.target.value as EskulSchedule['day']})} className="w-full p-2 border rounded">
+                            <option value="">Pilih Hari</option>
+                            {DAYS_OF_WEEK.map(day => <option key={day} value={day}>{HARI_TRANSLATION[day]}</option>)}
+                        </select>
+                    </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block mb-1">Waktu Mulai</label>
+                            <input type="time" value={editingSchedule?.startTime || ''} onChange={e => setEditingSchedule({...editingSchedule, startTime: e.target.value})} className="w-full p-2 border rounded" />
+                        </div>
+                        <div>
+                            <label className="block mb-1">Waktu Selesai</label>
+                            <input type="time" value={editingSchedule?.endTime || ''} onChange={e => setEditingSchedule({...editingSchedule, endTime: e.target.value})} className="w-full p-2 border rounded" />
+                        </div>
+                    </div>
+                    <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded-lg">Simpan</button>
+                </form>
+            </Modal>
+        </>
+    );
+};
+
 
 const AttendanceReport: React.FC = () => {
     const [reportType, setReportType] = useState<'kelas' | 'eskul'>('kelas');
@@ -2071,85 +2259,6 @@ const AttendanceReport: React.FC = () => {
         </div>
     );
 };
-
-
-const AIAssistant: React.FC = () => {
-    const [query, setQuery] = useState('');
-    const [response, setResponse] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-
-    const handleQuery = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!query.trim()) return;
-
-        setIsLoading(true);
-        setError('');
-        setResponse('');
-
-        try {
-            const [teachers, classes, schedules, attendance] = await Promise.all([
-                api.getUsersByRole(UserRoleEnum.TEACHER),
-                api.getClasses(),
-                api.getSchedules(),
-                api.getAttendanceRecords()
-            ]);
-
-            const analysis = await geminiApi.getAIAnalysis({ teachers, classes, schedules, attendance }, query);
-            setResponse(analysis);
-
-        } catch (err: any) {
-            console.error("Error fetching data or getting AI analysis:", err);
-            setError(`Terjadi kesalahan: ${err.message}`);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <div className="bg-white p-6 rounded-lg shadow max-w-4xl mx-auto">
-            <h2 className="text-2xl font-bold mb-4">Asisten AI Analisis Absensi</h2>
-            <p className="text-gray-600 mb-6">Ajukan pertanyaan tentang data absensi, jadwal, atau guru, dan AI akan membantu Anda menganalisisnya. Contoh: "Siapa guru yang paling sering hadir minggu ini?", "Buat ringkasan absensi untuk kelas VII A hari ini", atau "Berapa total jam mengajar Budi?".</p>
-            
-            <form onSubmit={handleQuery}>
-                <div className="flex gap-2">
-                    <input 
-                        type="text"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Ketik pertanyaan Anda di sini..."
-                        className="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                        disabled={isLoading}
-                    />
-                    <button 
-                        type="submit"
-                        className="bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
-                        disabled={isLoading}
-                    >
-                        {isLoading ? 'Memproses...' : 'Tanya'}
-                    </button>
-                </div>
-            </form>
-
-            {error && <div className="mt-4 p-3 bg-red-100 text-red-700 border border-red-300 rounded-lg">{error}</div>}
-
-            {isLoading && (
-                 <div className="mt-6 text-center">
-                    <Spinner />
-                    <p className="text-gray-500 mt-2">AI sedang berpikir...</p>
-                 </div>
-            )}
-            
-            {response && (
-                <div className="mt-6 p-4 border rounded-lg bg-gray-50">
-                    <h3 className="font-bold text-lg mb-2">Jawaban AI:</h3>
-                    <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: response.replace(/\n/g, '<br />') }}></div>
-                </div>
-            )}
-        </div>
-    );
-};
-
 
 // --- Main App Component ---
 
