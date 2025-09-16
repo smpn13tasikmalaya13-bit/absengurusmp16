@@ -99,42 +99,48 @@ export const sendPasswordResetEmail = async (email: string): Promise<void> => {
     await auth.sendPasswordResetEmail(email);
 };
 
-export const signUp = async (email: string, password: string, name: string, role: UserRole): Promise<{success: boolean; message?: string}> => {
-    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-    const user = userCredential.user;
+export const signUp = async (email: string, password: string, name: string, role: UserRole): Promise<void> => {
+    // We get the auth instance directly from the firebase object.
+    const authInstance = firebase.auth();
+
+    // Create user in Auth. This also signs them in.
+    await authInstance.createUserWithEmailAndPassword(email, password);
+    
+    // Explicitly get the current user from the auth instance to ensure the session is fully established.
+    // This can help prevent race conditions where Firestore rules might not recognize the new user's permissions immediately.
+    const user = authInstance.currentUser;
 
     if (!user) {
-        throw new Error("Gagal membuat pengguna.");
+        // This is an unlikely but important safeguard.
+        throw new Error("Gagal memverifikasi pengguna setelah pendaftaran. Silakan coba lagi.");
     }
     
+    // Attempt to create the corresponding user profile document in Firestore.
     try {
         const deviceId = getDeviceId();
-        // Store user profile and bind device immediately on registration
         await db.collection('users').doc(user.uid).set({
             name,
             role,
             userId: email,
             boundDeviceId: deviceId, 
         });
+        // Success: The user is now fully registered and logged in.
+        // The onAuthStateChanged listener in App.tsx will handle updating the UI.
 
-        // The user is now authenticated. The app's auth listeners will handle
-        // redirecting to the dashboard.
-        return { success: true };
-
-    } catch (error) {
-        // If creating the profile fails, we should delete the auth user to avoid an inconsistent state.
-        console.error("Error creating user profile in Firestore, attempting to clean up auth user...", error);
+    } catch (firestoreError: any) {
+        // If writing to Firestore fails, we must clean up the Auth user to prevent an orphaned account
+        // where a user exists in Auth but has no profile, making them unable to log in or re-register.
+        console.error("Error creating user profile in Firestore. Attempting to clean up auth user...", firestoreError);
         try {
             await user.delete();
         } catch (deleteError) {
+            // This is a critical failure state. The user is stuck. They must contact an admin.
             console.error("CRITICAL: Failed to clean up auth user after profile creation failure:", deleteError);
-            // This is a bad state. The user exists in Auth but not in Firestore.
-            // The message should guide them to contact support.
-            throw new Error("Pendaftaran gagal dan pengguna tidak dapat dihapus secara otomatis. Harap hubungi admin.");
+            throw new Error("Pendaftaran gagal dan akun tidak dapat dibersihkan secara otomatis. Harap hubungi admin.");
         }
         
-        // Let the UI know the profile creation failed.
-        throw new Error("Gagal menyimpan profil pengguna. Silakan coba lagi.");
+        // Rethrow a more informative error to the UI.
+        throw new Error(`Gagal menyimpan profil pengguna. Silakan coba lagi. (Pesan: ${firestoreError.message})`);
     }
 };
 

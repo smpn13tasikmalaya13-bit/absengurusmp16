@@ -1569,13 +1569,10 @@ const App: React.FC = () => {
         const { name, email, password, role } = e.currentTarget.elements as any;
         setAuthMessage(null);
         try {
-            const result = await api.signUp(email.value, password.value, name.value, role.value as UserRole);
-            if (result.success) {
-                 setAuthMessage({ type: 'success', text: "Pendaftaran berhasil! Anda akan dialihkan secara otomatis." });
-                 // The user is now logged in. Auth listeners will handle the UI transition.
-            } else {
-                 setAuthMessage({ type: 'error', text: result.message || "Pendaftaran gagal." });
-            }
+            // The new signUp function will throw an error on failure, simplifying this logic.
+            await api.signUp(email.value, password.value, name.value, role.value as UserRole);
+            setAuthMessage({ type: 'success', text: "Pendaftaran berhasil! Anda akan dialihkan secara otomatis." });
+            // The user is now logged in. Auth listeners will handle the UI transition.
         } catch (error: any) {
             setAuthMessage({ type: 'error', text: error.message || "Pendaftaran gagal." });
         }
