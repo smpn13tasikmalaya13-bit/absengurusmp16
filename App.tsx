@@ -656,49 +656,115 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
 };
 
 // --- Pembina Eskul Dashboard Components ---
+const SelfieCapture: React.FC<{ onConfirm: (base64Image: string) => void; onCancel: () => void; }> = ({ onConfirm, onCancel }) => {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [capturedImage, setCapturedImage] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let stream: MediaStream | null = null;
+        const startCamera = async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            } catch (err) {
+                console.error("Error accessing camera:", err);
+                setError("Gagal mengakses kamera. Pastikan izin telah diberikan.");
+            }
+        };
+
+        if (!capturedImage) {
+            startCamera();
+        }
+
+        return () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [capturedImage]);
+
+    const handleCapture = () => {
+        if (videoRef.current && canvasRef.current) {
+            const video = videoRef.current;
+            const canvas = canvasRef.current;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            if (context) {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                setCapturedImage(dataUrl);
+            }
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex flex-col items-center justify-center p-4">
+            <div className="w-full bg-white rounded-2xl shadow-xl max-w-sm mx-auto overflow-hidden">
+                <div className="p-4 text-center">
+                    <h2 className="font-bold text-lg text-gray-800">Ambil Foto Selfie</h2>
+                    <p className="text-sm text-gray-500">Sebagai bukti kehadiran</p>
+                </div>
+                <div className="w-full aspect-[3/4] bg-black relative">
+                    {error ? (
+                        <div className="absolute inset-0 flex items-center justify-center text-white p-4 text-center">{error}</div>
+                    ) : capturedImage ? (
+                        <img src={capturedImage} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                        <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
+                    )}
+                    <canvas ref={canvasRef} className="hidden"></canvas>
+                </div>
+                <div className="p-4 space-y-2">
+                    {capturedImage ? (
+                        <div className="flex gap-2">
+                            <button onClick={() => setCapturedImage(null)} className="flex-1 bg-gray-200 text-gray-800 font-semibold py-3 rounded-lg">Ulangi</button>
+                            <button onClick={() => onConfirm(capturedImage)} className="flex-1 bg-green-500 text-white font-semibold py-3 rounded-lg">Konfirmasi</button>
+                        </div>
+                    ) : (
+                        <button onClick={handleCapture} className="w-full bg-blue-500 text-white font-semibold py-3 rounded-lg" disabled={!!error}>Ambil Foto</button>
+                    )}
+                    <button onClick={onCancel} className="w-full bg-transparent text-gray-600 font-semibold py-2 rounded-lg">Batal</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, onLogout }) => {
     const [isScanning, setIsScanning] = useState(false);
     const [schedules, setSchedules] = useState<EskulSchedule[]>([]);
     const [eskuls, setEskuls] = useState<Eskul[]>([]);
     const [attendance, setAttendance] = useState<EskulAttendanceRecord[]>([]);
     const [loadingData, setLoadingData] = useState(true);
-    const [scanResult, setScanResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+    const [scanResult, setScanResult] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [selfieContext, setSelfieContext] = useState<{ schedule: EskulSchedule; existingRecord?: EskulAttendanceRecord } | null>(null);
+    const [viewingImage, setViewingImage] = useState<string | null>(null);
+
     const { isWithinRadius } = useGeolocation();
 
     const getEskulName = useCallback((eskulId: string) => eskuls.find(e => e.id === eskulId)?.name || 'N/A', [eskuls]);
 
     const fetchData = useCallback(async () => {
-        setLoadingData(true);
-        // Reset states to prevent displaying stale data during refetch
-        setEskuls([]);
-        setSchedules([]);
-        setAttendance([]);
+        // setLoadingData(true);
         try {
-            // Fetch eskuls list first, as it's critical for the schedule manager dropdown.
-            const eskulsData = await api.getEskuls();
+            const [eskulsData, schedulesData, attendanceData] = await Promise.all([
+                api.getEskuls(),
+                api.getEskulSchedules(user.id),
+                api.getEskulAttendanceRecords(user.id)
+            ]);
             setEskuls(eskulsData);
-
-            // Fetch other data. If these fail, the eskul list is still available.
-            try {
-                const schedulesData = await api.getEskulSchedules(user.id);
-                setSchedules(schedulesData);
-            } catch (scheduleError: any) {
-                console.error("Gagal memuat jadwal eskul:", scheduleError);
-                alert(`Gagal memuat jadwal eskul Anda. Fitur mungkin tidak bekerja dengan benar. Kesalahan: ${scheduleError.message}`);
-            }
-
-            try {
-                const attendanceData = await api.getEskulAttendanceRecords(user.id);
-                setAttendance(attendanceData);
-            } catch (attendanceError: any) {
-                 console.error("Gagal memuat riwayat absensi eskul:", attendanceError);
-                 alert(`Gagal memuat riwayat absensi eskul Anda. Kesalahan: ${attendanceError.message}`);
-            }
-
+            setSchedules(schedulesData);
+            setAttendance(attendanceData);
         } catch (error: any) {
-            console.error("Gagal memuat daftar eskul:", error);
-            alert(`Gagal memuat daftar eskul. Fitur mungkin tidak bekerja dengan benar. Kesalahan: ${error.message}`);
+            console.error("Gagal memuat data eskul:", error);
+            alert(`Gagal memuat data: ${error.message}`);
         } finally {
             setLoadingData(false);
         }
@@ -710,7 +776,7 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
     
     useEffect(() => {
         if (scanResult) {
-            const timer = setTimeout(() => setScanResult(null), 5000);
+            const timer = setTimeout(() => setScanResult(null), 7000);
             return () => clearTimeout(timer);
         }
     }, [scanResult]);
@@ -737,17 +803,10 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
             if (s.eskulId !== eskulId || s.day !== todayName) return false;
             
             const [startHour, startMinute] = s.startTime.split(':').map(Number);
-            const startTime = new Date(now);
-            startTime.setHours(startHour, startMinute, 0, 0);
-    
+            const startTime = new Date(now); startTime.setHours(startHour, startMinute, 0, 0);
             const [endHour, endMinute] = s.endTime.split(':').map(Number);
-            const endTime = new Date(now);
-            endTime.setHours(endHour, endMinute, 0, 0);
-
-            // Allow scanning 30 mins before start and up to 60 mins after end
-            const leewayStart = 30 * 60 * 1000;
-            const leewayEnd = 60 * 60 * 1000;
-
+            const endTime = new Date(now); endTime.setHours(endHour, endMinute, 0, 0);
+            const leewayStart = 30 * 60 * 1000, leewayEnd = 60 * 60 * 1000;
             return now.getTime() >= (startTime.getTime() - leewayStart) && now.getTime() <= (endTime.getTime() + leewayEnd);
         });
 
@@ -757,46 +816,67 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
         }
 
         const todayDateString = now.toISOString().slice(0, 10);
-        
-        try {
-            const existingRecord = await api.findEskulAttendanceForToday(user.id, activeSchedule.id, todayDateString);
+        const existingRecord = await api.findEskulAttendanceForToday(user.id, activeSchedule.id, todayDateString);
 
-            if (existingRecord) {
-                if (existingRecord.checkOutTime) {
-                    setScanResult({ type: 'error', message: 'Anda sudah absen pulang untuk kegiatan ini hari ini.' });
-                } else {
-                    // This is a check-out
-                    const result = await api.updateEskulAttendanceRecord(existingRecord.id, { checkOutTime: now.toISOString() });
-                    if (result.success) {
-                        setScanResult({ type: 'success', message: `Absen PULANG berhasil untuk ${getEskulName(eskulId)}.` });
-                        fetchData();
-                    } else {
-                        setScanResult({ type: 'error', message: result.message });
-                    }
-                }
-            } else {
-                // This is a check-in
-                const newRecord: Omit<EskulAttendanceRecord, 'id'> = {
+        if (existingRecord && existingRecord.checkOutTime) {
+            setScanResult({ type: 'error', message: 'Anda sudah absen pulang untuk kegiatan ini.' });
+            return;
+        }
+
+        // Trigger selfie capture
+        setSelfieContext({ schedule: activeSchedule, existingRecord });
+    };
+
+    const handleSelfieConfirm = async (base64Image: string) => {
+        if (!selfieContext) return;
+        const { schedule, existingRecord } = selfieContext;
+        const isCheckIn = !existingRecord;
+        const eskulName = getEskulName(schedule.eskulId);
+        setSelfieContext(null);
+
+        try {
+            if (isCheckIn) {
+                // Flow Absen Datang
+                setScanResult({ type: 'info', message: `Mencatat absensi datang untuk ${eskulName}...` });
+                const newRecordData: Omit<EskulAttendanceRecord, 'id'> = {
                     pembinaId: user.id,
-                    eskulScheduleId: activeSchedule.id,
-                    date: todayDateString,
-                    checkInTime: now.toISOString(),
+                    eskulScheduleId: schedule.id,
+                    date: new Date().toISOString().slice(0, 10),
+                    checkInTime: new Date().toISOString(),
                 };
-                const result = await api.addEskulAttendanceRecord(newRecord);
-                if (result.success) {
-                    setScanResult({ type: 'success', message: `Absen DATANG berhasil untuk ${getEskulName(eskulId)}.` });
-                    fetchData();
-                } else {
-                     setScanResult({ type: 'error', message: result.message });
-                }
+                const addResult = await api.addEskulAttendanceRecord(newRecordData);
+                if (!addResult.success || !addResult.id) throw new Error(addResult.message);
+                
+                setScanResult({ type: 'info', message: 'Mengunggah foto...' });
+                const imageUrl = await api.uploadEskulSelfie(base64Image, user.id, addResult.id, 'checkin');
+                
+                await api.updateEskulAttendanceRecord(addResult.id, { checkInImageUrl: imageUrl });
+
+                setScanResult({ type: 'success', message: `Absen DATANG berhasil untuk ${eskulName}.` });
+            } else {
+                // Flow Absen Pulang
+                setScanResult({ type: 'info', message: `Mencatat absensi pulang untuk ${eskulName}...` });
+                setScanResult({ type: 'info', message: 'Mengunggah foto...' });
+                const imageUrl = await api.uploadEskulSelfie(base64Image, user.id, existingRecord.id, 'checkout');
+
+                const updateData = {
+                    checkOutTime: new Date().toISOString(),
+                    checkOutImageUrl: imageUrl
+                };
+                await api.updateEskulAttendanceRecord(existingRecord.id, updateData);
+
+                setScanResult({ type: 'success', message: `Absen PULANG berhasil untuk ${eskulName}.` });
             }
         } catch (error: any) {
-             setScanResult({ type: 'error', message: `Gagal menyimpan absensi: ${error.message}` });
+            setScanResult({ type: 'error', message: `Terjadi kesalahan: ${error.message}` });
+        } finally {
+            fetchData();
         }
     };
     
     if (loadingData) return <FullPageSpinner />;
     if (isScanning) return <QRScanner onScanSuccess={handleScanSuccess} onCancel={() => setIsScanning(false)} />;
+    if (selfieContext) return <SelfieCapture onConfirm={handleSelfieConfirm} onCancel={() => setSelfieContext(null)} />;
 
     const todaySchedules = schedules.filter(s => s.day === new Date().toLocaleDateString('en-US', { weekday: 'long' }));
 
@@ -814,8 +894,8 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
             </header>
             <main className="p-4 md:p-6 space-y-6">
                 {scanResult && (
-                    <div className={`p-4 rounded-md mb-6 shadow ${scanResult.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        <p className="font-medium">{scanResult.type === 'success' ? 'Berhasil!' : 'Gagal'}</p>
+                    <div className={`p-4 rounded-md mb-6 shadow ${scanResult.type === 'success' ? 'bg-green-100 text-green-800' : scanResult.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                        <p className="font-medium">{scanResult.type === 'success' ? 'Berhasil!' : scanResult.type === 'error' ? 'Gagal' : 'Info'}</p>
                         <p className="text-sm">{scanResult.message}</p>
                     </div>
                 )}
@@ -868,10 +948,18 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
                                     const schedule = schedules.find(s => s.id === rec.eskulScheduleId);
                                     return (
                                         <div key={rec.id} className="border-b last:border-b-0 pb-3 pt-2">
-                                            <p className="font-semibold">{schedule ? getEskulName(schedule.eskulId) : 'Kegiatan Dihapus'}</p>
-                                            <p className="text-sm text-gray-500">Tanggal: {new Date(rec.checkInTime).toLocaleDateString('id-ID')}</p>
-                                            <p className="text-sm text-gray-500">Datang: {new Date(rec.checkInTime).toLocaleTimeString('id-ID')}</p>
-                                            {rec.checkOutTime && <p className="text-sm text-gray-500">Pulang: {new Date(rec.checkOutTime).toLocaleTimeString('id-ID')}</p>}
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-semibold">{schedule ? getEskulName(schedule.eskulId) : 'Kegiatan Dihapus'}</p>
+                                                    <p className="text-sm text-gray-500">Tanggal: {new Date(rec.checkInTime).toLocaleDateString('id-ID')}</p>
+                                                    <p className="text-sm text-gray-500">Datang: {new Date(rec.checkInTime).toLocaleTimeString('id-ID')}</p>
+                                                    {rec.checkOutTime && <p className="text-sm text-gray-500">Pulang: {new Date(rec.checkOutTime).toLocaleTimeString('id-ID')}</p>}
+                                                </div>
+                                                <div className="flex gap-2 flex-shrink-0 ml-2">
+                                                    {rec.checkInImageUrl && <img src={rec.checkInImageUrl} alt="selfie datang" className="w-12 h-12 object-cover rounded-md cursor-pointer" onClick={() => setViewingImage(rec.checkInImageUrl!)} />}
+                                                    {rec.checkOutImageUrl && <img src={rec.checkOutImageUrl} alt="selfie pulang" className="w-12 h-12 object-cover rounded-md cursor-pointer" onClick={() => setViewingImage(rec.checkOutImageUrl!)} />}
+                                                </div>
+                                            </div>
                                         </div>
                                     );
                                 })
@@ -883,6 +971,11 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
             <Modal isOpen={isScheduleModalOpen} onClose={() => setIsScheduleModalOpen(false)} title="Kelola Jadwal Eskul">
                 <EskulScheduleManager user={user} schedules={schedules} eskuls={eskuls} onScheduleUpdate={fetchData} />
             </Modal>
+            {viewingImage && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" onClick={() => setViewingImage(null)}>
+                    <img src={viewingImage} alt="Bukti Foto" className="max-w-full max-h-full rounded-lg"/>
+                </div>
+            )}
              <footer className="text-center text-sm text-gray-500 py-6">
                 © {new Date().getFullYear()} Rullp. All rights reserved.
             </footer>
@@ -1254,12 +1347,11 @@ const SendMessageModal: React.FC<{ staff: User; adminUser: User; onClose: () => 
         if (!content.trim()) return;
         setIsSending(true);
         try {
-            const newMessage: Omit<Message, 'id'> = {
+            const newMessage: Omit<Message, 'id' | 'timestamp'> = {
                 senderId: adminUser.id,
                 senderName: adminUser.name,
                 recipientId: staff.id,
                 content: content.trim(),
-                timestamp: new Date().toISOString(),
                 isRead: false,
             };
             await api.addMessage(newMessage);
@@ -1747,6 +1839,7 @@ const AttendanceReport: React.FC = () => {
     const [eskuls, setEskuls] = useState<Eskul[]>([]);
     const [eskulSchedules, setEskulSchedules] = useState<EskulSchedule[]>([]);
     const [eskulFilter, setEskulFilter] = useState({ pembinaId: '', eskulId: '', startDate: '', endDate: '' });
+    const [viewingImage, setViewingImage] = useState<string | null>(null);
 
     const [loading, setLoading] = useState(true);
 
@@ -1918,6 +2011,8 @@ const AttendanceReport: React.FC = () => {
                 "Waktu Datang": new Date(rec.checkInTime).toLocaleTimeString('id-ID'),
                 "Waktu Pulang": rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString('id-ID') : '-',
                 "Durasi": rec.duration,
+                "Foto Datang": rec.checkInImageUrl || '-',
+                "Foto Pulang": rec.checkOutImageUrl || '-',
             }));
             fileName = "Laporan_Absensi_Eskul.xlsx";
         }
@@ -2027,7 +2122,7 @@ const AttendanceReport: React.FC = () => {
                 ) : (
                     <CrudTable
                         title=""
-                        columns={['Pembina', 'Eskul', 'Tanggal', 'Datang', 'Pulang', 'Durasi']}
+                        columns={['Pembina', 'Eskul', 'Tanggal', 'Datang', 'Pulang', 'Durasi', 'Foto']}
                         data={processedAndFilteredEskulAttendance}
                         renderRow={(rec: any) => (
                              <tr key={rec.id} className="border-b hover:bg-gray-50">
@@ -2037,10 +2132,21 @@ const AttendanceReport: React.FC = () => {
                                 <td className="p-3">{new Date(rec.checkInTime).toLocaleTimeString('id-ID')}</td>
                                 <td className="p-3">{rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString('id-ID') : '-'}</td>
                                 <td className="p-3">{rec.duration}</td>
+                                <td className="p-3">
+                                    <div className="flex gap-2">
+                                        {rec.checkInImageUrl && <img src={rec.checkInImageUrl} alt="selfie datang" className="w-10 h-10 object-cover rounded-md cursor-pointer" onClick={() => setViewingImage(rec.checkInImageUrl)} />}
+                                        {rec.checkOutImageUrl && <img src={rec.checkOutImageUrl} alt="selfie pulang" className="w-10 h-10 object-cover rounded-md cursor-pointer" onClick={() => setViewingImage(rec.checkOutImageUrl)} />}
+                                    </div>
+                                </td>
                             </tr>
                         )}
                     />
                 )
+            )}
+             {viewingImage && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" onClick={() => setViewingImage(null)}>
+                    <img src={viewingImage} alt="Bukti Foto" className="max-w-full max-h-full rounded-lg"/>
+                </div>
             )}
         </div>
     );
@@ -2075,6 +2181,9 @@ const AIAssistant: React.FC = () => {
         } catch (err: any) {
             console.error("Error fetching data or getting AI analysis:", err);
             setError(`Terjadi kesalahan: ${err.message}`);
+            if (err.message.includes("API Key not valid")) {
+                setError("Kunci API untuk Asisten AI tidak valid atau hilang. Harap periksa konfigurasi server.");
+            }
         } finally {
             setIsLoading(false);
         }
