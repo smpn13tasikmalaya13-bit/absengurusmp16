@@ -1,3 +1,4 @@
+
 import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
@@ -434,18 +435,36 @@ export const getEskuls = async (): Promise<Eskul[]> => {
     return collectionToData<Eskul>(snapshot);
 };
 
-export const addEskul = async (eskulData: Omit<Eskul, 'id'>): Promise<void> => {
-    await db.collection('eskuls').add(eskulData);
+export const addEskul = async (eskulData: Omit<Eskul, 'id'>): Promise<{success: boolean, message: string}> => {
+    try {
+        await db.collection('eskuls').add(eskulData);
+        return { success: true, message: "Eskul berhasil ditambahkan." };
+    } catch (error: any) {
+        console.error("Error adding eskul:", error);
+        const message = error.code === 'permission-denied'
+            ? "Akses ditolak. Anda tidak memiliki izin untuk menambahkan eskul. Periksa aturan keamanan Firestore."
+            : `Gagal menambahkan eskul: ${error.message}`;
+        return { success: false, message };
+    }
 };
 
-export const deleteEskul = async (id: string): Promise<void> => {
-    const schedulesSnapshot = await db.collection('eskulSchedules').where('eskulId', '==', id).get();
-    const batch = db.batch();
-    schedulesSnapshot.docs.forEach((doc: any) => {
-        batch.delete(doc.ref);
-    });
-    await batch.commit();
-    await db.collection('eskuls').doc(id).delete();
+export const deleteEskul = async (id: string): Promise<{success: boolean, message: string}> => {
+    try {
+        const schedulesSnapshot = await db.collection('eskulSchedules').where('eskulId', '==', id).get();
+        const batch = db.batch();
+        schedulesSnapshot.docs.forEach((doc: any) => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        await db.collection('eskuls').doc(id).delete();
+        return { success: true, message: "Eskul berhasil dihapus." };
+    } catch (error: any) {
+        console.error("Error deleting eskul:", error);
+        const message = error.code === 'permission-denied'
+            ? "Akses ditolak. Anda tidak memiliki izin untuk menghapus eskul. Periksa aturan keamanan Firestore."
+            : `Gagal menghapus eskul: ${error.message}`;
+        return { success: false, message };
+    }
 };
 
 export const getEskulSchedules = async (pembinaId: string): Promise<EskulSchedule[]> => {
@@ -473,16 +492,43 @@ export const getAllEskulSchedules = async (): Promise<EskulSchedule[]> => {
 };
 
 
-export const addEskulSchedule = async (scheduleData: Omit<EskulSchedule, 'id'>): Promise<void> => {
-    await db.collection('eskulSchedules').add(scheduleData);
+export const addEskulSchedule = async (scheduleData: Omit<EskulSchedule, 'id'>): Promise<{success: boolean, message: string}> => {
+    try {
+        await db.collection('eskulSchedules').add(scheduleData);
+        return { success: true, message: "Jadwal eskul berhasil ditambahkan." };
+    } catch (error: any) {
+        console.error("Error adding eskul schedule:", error);
+        const message = error.code === 'permission-denied'
+            ? "Akses ditolak. Anda tidak memiliki izin untuk menambahkan jadwal eskul. Periksa aturan keamanan Firestore."
+            : `Gagal menambahkan jadwal eskul: ${error.message}`;
+        return { success: false, message };
+    }
 };
 
-export const updateEskulSchedule = async (id: string, scheduleData: Partial<EskulSchedule>): Promise<void> => {
-    await db.collection('eskulSchedules').doc(id).update(scheduleData);
+export const updateEskulSchedule = async (id: string, scheduleData: Partial<EskulSchedule>): Promise<{success: boolean, message: string}> => {
+    try {
+        await db.collection('eskulSchedules').doc(id).update(scheduleData);
+        return { success: true, message: "Jadwal eskul berhasil diperbarui." };
+    } catch (error: any) {
+        console.error("Error updating eskul schedule:", error);
+        const message = error.code === 'permission-denied'
+            ? "Akses ditolak. Anda tidak memiliki izin untuk mengubah jadwal eskul. Periksa aturan keamanan Firestore."
+            : `Gagal mengubah jadwal eskul: ${error.message}`;
+        return { success: false, message };
+    }
 };
 
-export const deleteEskulSchedule = async (id: string): Promise<void> => {
-    await db.collection('eskulSchedules').doc(id).delete();
+export const deleteEskulSchedule = async (id: string): Promise<{success: boolean, message: string}> => {
+    try {
+        await db.collection('eskulSchedules').doc(id).delete();
+        return { success: true, message: "Jadwal eskul berhasil dihapus." };
+    } catch (error: any) {
+        console.error("Error deleting eskul schedule:", error);
+        const message = error.code === 'permission-denied'
+            ? "Akses ditolak. Anda tidak memiliki izin untuk menghapus jadwal eskul. Periksa aturan keamanan Firestore."
+            : `Gagal menghapus jadwal eskul: ${error.message}`;
+        return { success: false, message };
+    }
 };
 
 export const getEskulAttendanceRecords = async (pembinaId: string): Promise<EskulAttendanceRecord[]> => {
@@ -509,11 +555,28 @@ export const findEskulAttendanceForToday = async (pembinaId: string, eskulSchedu
     return docToData<EskulAttendanceRecord>(snapshot.docs[0]);
 };
 
-export const addEskulAttendanceRecord = async (recordData: Omit<EskulAttendanceRecord, 'id'>): Promise<string> => {
-    const docRef = await db.collection('eskulAttendance').add(recordData);
-    return docRef.id;
+export const addEskulAttendanceRecord = async (recordData: Omit<EskulAttendanceRecord, 'id'>): Promise<{success: boolean, message: string, id?: string}> => {
+    try {
+        const docRef = await db.collection('eskulAttendance').add(recordData);
+        return { success: true, message: "Absensi berhasil ditambahkan.", id: docRef.id };
+    } catch (error: any) {
+        console.error("Error adding eskul attendance:", error);
+        const message = error.code === 'permission-denied'
+            ? "Akses ditolak. Anda tidak memiliki izin untuk menambahkan absensi eskul. Periksa aturan keamanan Firestore."
+            : `Gagal menambahkan absensi eskul: ${error.message}`;
+        return { success: false, message };
+    }
 };
 
-export const updateEskulAttendanceRecord = async (id: string, updateData: { checkOutTime: string }): Promise<void> => {
-    await db.collection('eskulAttendance').doc(id).update(updateData);
+export const updateEskulAttendanceRecord = async (id: string, updateData: { checkOutTime: string }): Promise<{success: boolean, message: string}> => {
+    try {
+        await db.collection('eskulAttendance').doc(id).update(updateData);
+        return { success: true, message: "Absensi pulang berhasil diperbarui." };
+    } catch (error: any) {
+        console.error("Error updating eskul attendance:", error);
+        const message = error.code === 'permission-denied'
+            ? "Akses ditolak. Anda tidak memiliki izin untuk mengubah absensi eskul. Periksa aturan keamanan Firestore."
+            : `Gagal mengubah absensi eskul: ${error.message}`;
+        return { success: false, message };
+    }
 };

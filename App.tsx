@@ -679,8 +679,9 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
             setEskuls(eskulsData);
             setSchedules(schedulesData);
             setAttendance(attendanceData);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Gagal memuat data ekstrakurikuler:", error);
+            alert(`Gagal memuat data eskul Anda. Fitur mungkin tidak bekerja dengan benar. Kesalahan: ${error.message}`);
         } finally {
             setLoadingData(false);
         }
@@ -748,9 +749,13 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
                     setScanResult({ type: 'error', message: 'Anda sudah absen pulang untuk kegiatan ini hari ini.' });
                 } else {
                     // This is a check-out
-                    await api.updateEskulAttendanceRecord(existingRecord.id, { checkOutTime: now.toISOString() });
-                    setScanResult({ type: 'success', message: `Absen PULANG berhasil untuk ${getEskulName(eskulId)}.` });
-                    fetchData();
+                    const result = await api.updateEskulAttendanceRecord(existingRecord.id, { checkOutTime: now.toISOString() });
+                    if (result.success) {
+                        setScanResult({ type: 'success', message: `Absen PULANG berhasil untuk ${getEskulName(eskulId)}.` });
+                        fetchData();
+                    } else {
+                        setScanResult({ type: 'error', message: result.message });
+                    }
                 }
             } else {
                 // This is a check-in
@@ -760,9 +765,13 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
                     date: todayDateString,
                     checkInTime: now.toISOString(),
                 };
-                await api.addEskulAttendanceRecord(newRecord);
-                setScanResult({ type: 'success', message: `Absen DATANG berhasil untuk ${getEskulName(eskulId)}.` });
-                fetchData();
+                const result = await api.addEskulAttendanceRecord(newRecord);
+                if (result.success) {
+                    setScanResult({ type: 'success', message: `Absen DATANG berhasil untuk ${getEskulName(eskulId)}.` });
+                    fetchData();
+                } else {
+                     setScanResult({ type: 'error', message: result.message });
+                }
             }
         } catch (error: any) {
              setScanResult({ type: 'error', message: `Gagal menyimpan absensi: ${error.message}` });
@@ -883,13 +892,20 @@ const EskulScheduleManager: React.FC<{user: User, schedules: EskulSchedule[], es
               startTime: editingSchedule.startTime,
               endTime: editingSchedule.endTime,
             };
+            
+            let result;
             if (editingSchedule.id) {
-                await api.updateEskulSchedule(editingSchedule.id, scheduleData);
+                result = await api.updateEskulSchedule(editingSchedule.id, scheduleData);
             } else {
-                await api.addEskulSchedule(scheduleData);
+                result = await api.addEskulSchedule(scheduleData);
             }
-            onScheduleUpdate();
-            handleCloseModal();
+
+            if (result.success) {
+                onScheduleUpdate();
+                handleCloseModal();
+            } else {
+                alert(result.message);
+            }
         } catch (error: any) {
             alert(`Gagal menyimpan: ${error.message}`);
         }
@@ -897,8 +913,12 @@ const EskulScheduleManager: React.FC<{user: User, schedules: EskulSchedule[], es
     
     const handleDelete = async (id: string) => {
         if(window.confirm("Yakin ingin menghapus jadwal ini?")){
-            await api.deleteEskulSchedule(id);
-            onScheduleUpdate();
+            const result = await api.deleteEskulSchedule(id);
+            if (result.success) {
+                onScheduleUpdate();
+            } else {
+                alert(result.message);
+            }
         }
     }
 
@@ -1468,11 +1488,18 @@ const EskulManagement: React.FC = () => {
     const [newEskulName, setNewEskulName] = useState('');
     const [qrEskul, setQrEskul] = useState<Eskul | null>(null);
 
-    const fetchEskuls = async () => setEskuls(await api.getEskuls());
+    const fetchEskuls = useCallback(async () => {
+        try {
+            setEskuls(await api.getEskuls());
+        } catch (error: any) {
+            console.error("Gagal memuat data eskul:", error);
+            alert(`Gagal memuat daftar eskul. Pastikan Anda memiliki izin untuk mengakses data ini. Error: ${error.message}`);
+        }
+    }, []);
 
     useEffect(() => {
         fetchEskuls();
-    }, []);
+    }, [fetchEskuls]);
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1482,17 +1509,25 @@ const EskulManagement: React.FC = () => {
                 alert(`Ekstrakurikuler "${trimmedName}" sudah ada.`);
                 return;
             }
-            await api.addEskul({ name: trimmedName });
-            setNewEskulName('');
-            setIsModalOpen(false);
-            fetchEskuls();
+            const result = await api.addEskul({ name: trimmedName });
+            if (result.success) {
+                setNewEskulName('');
+                setIsModalOpen(false);
+                fetchEskuls();
+            } else {
+                alert(result.message);
+            }
         }
     };
     
     const handleDelete = async (id: string) => {
         if (window.confirm("Yakin ingin menghapus eskul ini? Ini juga akan menghapus jadwal terkait.")) {
-            await api.deleteEskul(id);
-            fetchEskuls();
+            const result = await api.deleteEskul(id);
+            if(result.success) {
+                fetchEskuls();
+            } else {
+                alert(result.message);
+            }
         }
     };
 
