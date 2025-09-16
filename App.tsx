@@ -8,7 +8,6 @@ import { UserRole as UserRoleEnum } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CENTRAL_COORDINATES, MAX_RADIUS_METERS, DAYS_OF_WEEK, LESSON_HOURS, HARI_TRANSLATION } from './constants';
 import * as api from './services/firebaseService';
-import * as geminiApi from './services/geminiService';
 
 
 // FIX: Add declarations for globally available libraries
@@ -1129,7 +1128,6 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
         schedules: 'Jadwal Pelajaran',
         eskulSchedules: 'Jadwal Ekstrakurikuler',
         reports: 'Laporan Absensi',
-        'ai-assistant': 'Asisten AI'
     };
 
     return (
@@ -1159,7 +1157,6 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                     <a onClick={() => handleSetView('schedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Pelajaran</a>
                     <a onClick={() => handleSetView('eskulSchedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Ekstrakurikuler</a>
                     <a onClick={() => handleSetView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi</a>
-                    <a onClick={() => handleSetView('ai-assistant')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Asisten AI</a>
                 </nav>
                 <div className="p-4 border-t border-gray-700">
                     <p>{user.name}</p>
@@ -1188,7 +1185,6 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                 {view === 'schedules' && <ScheduleManagement />}
                 {view === 'eskulSchedules' && <AdminEskulScheduleManagement />}
                 {view === 'reports' && <AttendanceReport />}
-                {view === 'ai-assistant' && <AIAssistant />}
                 <footer className="text-center text-sm text-gray-500 pt-8 pb-2">
                     © {new Date().getFullYear()} Rullp. All rights reserved.
                 </footer>
@@ -1708,29 +1704,37 @@ const ScheduleManagement: React.FC = () => {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
+        let hadError = false;
+        // Fetch dropdown data separately to ensure UI is usable even if some requests fail.
         try {
-            // Fetch critical dropdown data first
-            const [teachersData, classesData] = await Promise.all([
-                api.getUsersByRole(UserRoleEnum.TEACHER),
-                api.getClasses()
-            ]);
+            const teachersData = await api.getUsersByRole(UserRoleEnum.TEACHER);
             setUsers(teachersData);
+        } catch (error) {
+            console.error("Gagal memuat data guru:", error);
+            hadError = true;
+        }
+        
+        try {
+            const classesData = await api.getClasses();
             setClasses(classesData);
-    
-            if (teachersData.length === 0 || classesData.length === 0) {
-                console.warn("Daftar guru atau kelas kosong. Periksa data di Firestore dan aturan keamanan.");
-            }
-    
-            // Fetch main table data
+        } catch (error) {
+            console.error("Gagal memuat data kelas:", error);
+            hadError = true;
+        }
+
+        // Fetch main table data
+        try {
             const schedulesData = await api.getSchedules();
             setSchedules(schedulesData);
-    
-        } catch (error: any) {
-            console.error("Gagal memuat data manajemen jadwal:", error);
-            alert(`Terjadi kesalahan saat memuat data: ${error.message}. Beberapa fitur mungkin tidak berfungsi.`);
-        } finally {
-            setLoading(false);
+        } catch (error) {
+            console.error("Gagal memuat data jadwal:", error);
+            hadError = true;
         }
+
+        if (hadError) {
+            alert("Terjadi kesalahan saat memuat sebagian data. Fungsionalitas mungkin terbatas, namun Anda masih dapat mencoba menambahkan data baru.");
+        }
+        setLoading(false);
     }, []);
 
     useEffect(() => {
@@ -1879,21 +1883,39 @@ const AdminEskulScheduleManagement: React.FC = () => {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
+        let hadError = false;
+
+        // Fetch dropdown data separately
         try {
-            const [schedulesData, pembinaData, eskulData] = await Promise.all([
-                api.getAllEskulSchedules(),
-                api.getUsersByRole(UserRoleEnum.PEMBINA_ESKUL),
-                api.getEskuls(),
-            ]);
-            setSchedules(schedulesData);
+            const pembinaData = await api.getUsersByRole(UserRoleEnum.PEMBINA_ESKUL);
             setUsers(pembinaData);
-            setEskuls(eskulData);
-        } catch (error: any) {
-            console.error("Gagal memuat data jadwal eskul:", error);
-            alert(`Gagal memuat data: ${error.message}`);
-        } finally {
-            setLoading(false);
+        } catch (error) {
+            console.error("Gagal memuat data pembina:", error);
+            hadError = true;
         }
+
+        try {
+            const eskulData = await api.getEskuls();
+            setEskuls(eskulData);
+        } catch (error) {
+            console.error("Gagal memuat data eskul:", error);
+            hadError = true;
+        }
+
+        // Fetch main data
+        try {
+            const schedulesData = await api.getAllEskulSchedules();
+            setSchedules(schedulesData);
+        } catch (error) {
+            console.error("Gagal memuat data jadwal eskul:", error);
+            hadError = true;
+        }
+
+        if (hadError) {
+            alert("Terjadi kesalahan saat memuat sebagian data. Fungsionalitas mungkin terbatas, namun Anda masih dapat mencoba menambahkan data baru.");
+        }
+        
+        setLoading(false);
     }, []);
 
     useEffect(() => {
@@ -2285,95 +2307,6 @@ const AttendanceReport: React.FC = () => {
         </div>
     );
 };
-
-const AIAssistant: React.FC = () => {
-    const [query, setQuery] = useState('');
-    const [response, setResponse] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [analysisData, setAnalysisData] = useState<any>(null);
-
-    useEffect(() => {
-        // Pre-load data so it's ready when the user asks a question
-        const fetchAllData = async () => {
-            try {
-                const [teachers, classes, schedules, attendance] = await Promise.all([
-                    api.getUsersByRole(UserRoleEnum.TEACHER),
-                    api.getClasses(),
-                    api.getSchedules(),
-                    api.getAttendanceRecords(),
-                ]);
-                setAnalysisData({ teachers, classes, schedules, attendance });
-            } catch (err) {
-                console.error("Failed to load data for AI Assistant:", err);
-                setError("Gagal memuat data yang diperlukan untuk analisis.");
-            }
-        };
-        fetchAllData();
-    }, []);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!query.trim() || !analysisData) return;
-
-        setIsLoading(true);
-        setResponse('');
-        setError('');
-        try {
-            const result = await geminiApi.getAIAnalysis(analysisData, query);
-            // Simple markdown-to-HTML
-            const formattedResult = result
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/^- (.*)/gm, '<li class="ml-4 list-disc">$1</li>');
-            setResponse(formattedResult);
-        } catch (err: any) {
-            setError(err.message || "Terjadi kesalahan yang tidak diketahui.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    return (
-        <div className="bg-white p-6 rounded-lg shadow max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold mb-2">Asisten AI Analisis Data</h1>
-            <p className="text-gray-600 mb-6">Ajukan pertanyaan tentang data absensi, jadwal, dan guru. AI akan menganalisis dan memberikan jawaban berdasarkan data yang tersedia.</p>
-            
-            <form onSubmit={handleSubmit}>
-                <div className="flex flex-col sm:flex-row gap-2">
-                    <input 
-                        type="text"
-                        value={query}
-                        onChange={e => setQuery(e.target.value)}
-                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                        placeholder="Contoh: Siapa guru yang paling sering hadir minggu ini?"
-                        disabled={isLoading || !analysisData}
-                    />
-                    <button 
-                        type="submit" 
-                        className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-blue-300"
-                        disabled={isLoading || !analysisData}
-                    >
-                        {isLoading ? 'Menganalisis...' : 'Tanya'}
-                    </button>
-                </div>
-                 {!analysisData && !error && <p className="text-sm text-gray-500 mt-2">Mempersiapkan data untuk analisis...</p>}
-            </form>
-
-            <div className="mt-8 min-h-[200px] bg-gray-50 p-4 rounded-lg border">
-                {isLoading && <Spinner />}
-                {error && <div className="text-red-500 font-semibold p-4">{error}</div>}
-                {response && <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: response }} />}
-                {!isLoading && !response && !error && (
-                    <div className="text-center text-gray-500 pt-10">
-                        <p>Jawaban dari AI akan muncul di sini.</p>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
 
 // --- App Component ---
 
