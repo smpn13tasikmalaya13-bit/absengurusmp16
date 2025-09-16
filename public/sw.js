@@ -1,5 +1,5 @@
 // A more robust service worker to ensure proper PWA lifecycle and caching.
-const CACHE_NAME = 'sabar-absensi-cache-v14'; // Version bump is crucial
+const CACHE_NAME = 'hadirku-cache-v15'; // Version bump is crucial for updates
 const urlsToCache = [
   '/',
   '/index.html',

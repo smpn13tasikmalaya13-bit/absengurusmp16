@@ -1,12 +1,19 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Centered container group -->
-  <g transform="translate(50, 200) scale(1.1)">
-    <!-- S Logo -->
-    <g>
-      <path d="M64.63 21.05 V0 h-41.5 C 10.34 0 0 10.34 0 23.1 v 25.1 C0 60.99 10.34 71.33 23.13 71.33 h 41.5 V50.28 H24.87 c-1.4 0 -2.54 -1.14 -2.54 -2.54 v-19.4 C22.33 22.19 23.47 21.05 24.87 21.05 h39.76 Z" fill="#2563EB"/>
-      <path d="M23.13 78.95 v 21.05 h 41.5 c 12.79 0 23.13 -10.34 23.13 -23.1 v -25.1 C 87.76 39.01 77.42 28.67 64.63 28.67 H23.13 v 21.05 h 39.76 c 1.4 0 2.54 1.14 2.54 2.54 v 19.4 c0 1.4 -1.14 2.54 -2.54 2.54 H23.13 Z" fill="#22D3EE"/>
+    <defs>
+        <linearGradient id="pinGradient" x1="256" y1="0" x2="256" y2="512" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#22D3EE"/>
+            <stop offset="1" stop-color="#2563EB"/>
+        </linearGradient>
+    </defs>
+    <g transform="translate(0, 50) scale(0.9)">
+        <!-- Icon Group -->
+        <g transform="translate(20, -50)">
+            <!-- Location Pin Shape -->
+            <path d="M256 0C167.6 0 96 71.6 96 160C96 248.4 256 512 256 512C256 512 416 248.4 416 160C416 71.6 344.4 0 256 0ZM256 224C220.7 224 192 195.3 192 160C192 124.7 220.7 96 256 96C291.3 96 320 124.7 320 160C320 195.3 291.3 224 256 224Z" fill="url(#pinGradient)"/>
+            <!-- Checkmark -->
+            <path d="M208 256L128 176L160 144L208 192L304 96L336 128L208 256Z" fill="white" transform="translate(20, -40) scale(1.2)" />
+        </g>
+        <!-- Text "HadirKu" -->
+        <text x="50%" y="480" text-anchor="middle" font-family="sans-serif" font-size="90" font-weight="bold" fill="#0F172A">HadirKu</text>
     </g>
-    <!-- Text "HadirKu" -->
-    <text x="98" y="70" font-family="sans-serif" font-size="50" font-weight="bold" fill="#0F172A" letter-spacing="1">HadirKu</text>
-  </g>
 </svg>
