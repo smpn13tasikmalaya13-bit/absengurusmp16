@@ -407,6 +407,17 @@ export const addMessage = async (messageData: Omit<Message, 'id'>): Promise<void
 
 // Gunakan onSnapshot untuk pembaruan real-time
 export const onMessagesReceived = (userId: string, callback: (messages: Message[]) => void): (() => void) => {
+    const currentUser = auth.currentUser;
+    // Add a guard to ensure the listener is for the currently authenticated user.
+    // This prevents race conditions where the listener is set up with a stale user ID.
+    if (!currentUser || currentUser.uid !== userId) {
+        console.warn("Message listener setup cancelled due to user ID mismatch.", {
+            authUid: currentUser?.uid,
+            passedUid: userId,
+        });
+        return () => {}; // Return an empty unsubscribe function
+    }
+
     return db.collection('messages')
         .where('recipientId', '==', userId)
         .orderBy('timestamp', 'desc')
