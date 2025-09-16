@@ -1,6 +1,4 @@
 
-
-
 import type { User, Class, Schedule, AttendanceRecord, UserRole, Message } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
@@ -119,10 +117,8 @@ export const signUp = async (email: string, password: string, name: string, role
             boundDeviceId: deviceId, 
         });
 
-        // Sign the user out to ensure they go through the proper login flow,
-        // which validates device binding and ensures the profile is loaded correctly.
-        await auth.signOut();
-
+        // The user is now authenticated. The app's auth listeners will handle
+        // redirecting to the dashboard.
         return { success: true };
 
     } catch (error) {

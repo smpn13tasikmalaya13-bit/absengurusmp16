@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
@@ -1574,8 +1571,8 @@ const App: React.FC = () => {
         try {
             const result = await api.signUp(email.value, password.value, name.value, role.value as UserRole);
             if (result.success) {
-                 setAuthMessage({ type: 'success', text: "Pendaftaran berhasil! Silakan login untuk melanjutkan." });
-                 setTimeout(() => setAuthView('login'), 2000);
+                 setAuthMessage({ type: 'success', text: "Pendaftaran berhasil! Anda akan dialihkan secara otomatis." });
+                 // The user is now logged in. Auth listeners will handle the UI transition.
             } else {
                  setAuthMessage({ type: 'error', text: result.message || "Pendaftaran gagal." });
             }
