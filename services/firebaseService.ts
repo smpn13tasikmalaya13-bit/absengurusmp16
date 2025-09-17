@@ -1,4 +1,4 @@
-import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord } from '../types';
+import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord, AbsenceRecord } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
 declare var firebase: any;
@@ -614,4 +614,41 @@ export const updateEskulAttendanceRecord = async (id: string, updateData: { chec
             : `Gagal mengubah absensi eskul: ${error.message}`;
         return { success: false, message };
     }
+};
+
+// --- Absence Record Functions (for Teachers) ---
+
+export const getAbsenceRecordForTeacherOnDate = async (teacherId: string, date: string): Promise<AbsenceRecord | null> => {
+    const snapshot = await db.collection('absenceRecords')
+        .where('teacherId', '==', teacherId)
+        .where('date', '==', date)
+        .limit(1)
+        .get();
+
+    if (snapshot.empty) {
+        return null;
+    }
+    return docToData<AbsenceRecord>(snapshot.docs[0]);
+};
+
+export const addOrUpdateAbsenceRecord = async (recordData: Omit<AbsenceRecord, 'id' | 'timestamp'>): Promise<void> => {
+    const existingRecord = await getAbsenceRecordForTeacherOnDate(recordData.teacherId, recordData.date);
+    
+    const dataToSave = {
+        ...recordData,
+        timestamp: new Date().toISOString(),
+    };
+
+    if (existingRecord) {
+        // Update existing record
+        await db.collection('absenceRecords').doc(existingRecord.id).update(dataToSave);
+    } else {
+        // Add new record
+        await db.collection('absenceRecords').add(dataToSave);
+    }
+};
+
+export const getAbsenceRecords = async (): Promise<AbsenceRecord[]> => {
+    const snapshot = await db.collection('absenceRecords').get();
+    return collectionToData<AbsenceRecord>(snapshot);
 };

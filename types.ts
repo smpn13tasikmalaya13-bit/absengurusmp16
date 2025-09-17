@@ -77,3 +77,18 @@ export interface EskulAttendanceRecord {
   checkInTime: string; // ISO string
   checkOutTime?: string; // ISO string
 }
+
+export enum AbsenceStatus {
+  SAKIT = 'Sakit',
+  IZIN = 'Izin',
+  TUGAS_LUAR = 'Tugas Luar',
+}
+
+export interface AbsenceRecord {
+  id: string;
+  teacherId: string;
+  date: string; // YYYY-MM-DD
+  status: AbsenceStatus;
+  reason?: string;
+  timestamp: string; // ISO string
+}

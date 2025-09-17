@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
-import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord } from './types';
-import { UserRole as UserRoleEnum } from './types';
+import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord, AbsenceRecord, AbsenceStatus } from './types';
+import { UserRole as UserRoleEnum, AbsenceStatus as AbsenceStatusEnum } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CENTRAL_COORDINATES, MAX_RADIUS_METERS, DAYS_OF_WEEK, LESSON_HOURS, HARI_TRANSLATION } from './constants';
 import * as api from './services/firebaseService';
@@ -25,6 +25,7 @@ const ClockIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 
 const UserIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>);
 const QrScanIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-green-900 bg-opacity-50 text-green-400"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg></div>);
 const ScheduleIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-900 bg-opacity-50 text-blue-400"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>);
+const ReportIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-yellow-900 bg-opacity-50 text-yellow-400"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></div>);
 const QrCodeEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg>);
 const CalendarEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>);
 const LogoutIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>);
@@ -106,12 +107,79 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 };
 
 // --- Teacher Dashboard Components ---
+const AbsenceReportModal: React.FC<{
+    user: User;
+    onClose: () => void;
+    onSuccess: () => void;
+}> = ({ user, onClose, onSuccess }) => {
+    const [status, setStatus] = useState<AbsenceStatus>(AbsenceStatusEnum.SAKIT);
+    const [reason, setReason] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            await api.addOrUpdateAbsenceRecord({
+                teacherId: user.id,
+                date: new Date().toISOString().slice(0, 10),
+                status,
+                reason: reason.trim(),
+            });
+            alert('Laporan ketidakhadiran berhasil disimpan.');
+            onSuccess();
+        } catch (error: any) {
+            console.error('Failed to save absence report:', error);
+            alert(`Gagal menyimpan laporan: ${error.message}`);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Modal isOpen={true} onClose={onClose} title="Lapor Ketidakhadiran Hari Ini">
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="block mb-1 text-gray-300">Status Kehadiran</label>
+                    <select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value as AbsenceStatus)}
+                        className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white"
+                    >
+                        <option value={AbsenceStatusEnum.SAKIT}>Sakit</option>
+                        <option value={AbsenceStatusEnum.IZIN}>Izin</option>
+                        <option value={AbsenceStatusEnum.TUGAS_LUAR}>Tugas Luar</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="block mb-1 text-gray-300">Keterangan (Opsional)</label>
+                    <textarea
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        rows={3}
+                        className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white"
+                        placeholder="Contoh: Mengikuti Rapat Dinas"
+                    />
+                </div>
+                <button
+                    type="submit"
+                    className="w-full bg-blue-600 text-white py-2 rounded-lg flex justify-center items-center transition duration-150 disabled:bg-blue-800 hover:bg-blue-700"
+                    disabled={isSaving}
+                >
+                    {isSaving ? 'Menyimpan...' : 'Kirim Laporan'}
+                </button>
+            </form>
+        </Modal>
+    );
+};
+
 const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, onLogout }) => {
     const [isScanning, setIsScanning] = useState(false);
     const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
     const [messages, setMessages] = useState<Message[]>([]);
+    const [todaysAbsence, setTodaysAbsence] = useState<AbsenceRecord | null>(null);
     const [loadingData, setLoadingData] = useState(true);
     const [scanResult, setScanResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -119,6 +187,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+    const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
 
     const unreadMessagesCount = useMemo(() => messages.filter(m => !m.isRead).length, [messages]);
 
@@ -126,36 +195,27 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
     const fetchData = useCallback(async () => {
         setLoadingData(true);
-
+        const todayString = new Date().toISOString().slice(0, 10);
         const results = await Promise.allSettled([
             api.getClasses(),
             api.getSchedules(),
-            api.getAttendanceRecordsForTeacher(user.id) // Use the specific function
+            api.getAttendanceRecordsForTeacher(user.id),
+            api.getAbsenceRecordForTeacherOnDate(user.id, todayString)
         ]);
 
-        const [classesResult, schedulesResult, attendanceResult] = results;
+        const [classesResult, schedulesResult, attendanceResult, absenceResult] = results;
 
-        if (classesResult.status === 'fulfilled') {
-            setClasses(classesResult.value);
-        } else {
-            console.error("Gagal memuat kelas:", classesResult.reason);
-            alert(`Gagal memuat daftar Kelas: ${classesResult.reason.message}. Fitur jadwal mungkin tidak berfungsi dengan benar.`);
-        }
+        if (classesResult.status === 'fulfilled') setClasses(classesResult.value);
+        else console.error("Gagal memuat kelas:", classesResult.reason);
 
-        if (schedulesResult.status === 'fulfilled') {
-            setSchedules(schedulesResult.value);
-        } else {
-            console.error("Gagal memuat jadwal:", schedulesResult.reason);
-            alert(`Gagal memuat jadwal mengajar: ${schedulesResult.reason.message}`);
-        }
+        if (schedulesResult.status === 'fulfilled') setSchedules(schedulesResult.value);
+        else console.error("Gagal memuat jadwal:", schedulesResult.reason);
 
-        if (attendanceResult.status === 'fulfilled') {
-            // Data is already filtered and sorted by the server
-            setAttendance(attendanceResult.value);
-        } else {
-            console.error("Gagal memuat absensi:", attendanceResult.reason);
-            alert(`Gagal memuat riwayat absensi: ${attendanceResult.reason.message}`);
-        }
+        if (attendanceResult.status === 'fulfilled') setAttendance(attendanceResult.value);
+        else console.error("Gagal memuat absensi:", attendanceResult.reason);
+
+        if (absenceResult.status === 'fulfilled') setTodaysAbsence(absenceResult.value);
+        else console.error("Gagal memuat laporan absen:", absenceResult.reason);
 
         setLoadingData(false);
     }, [user.id]);
@@ -187,24 +247,21 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
     const handleScheduleDelete = async (idToDelete: string) => {
         try {
             await api.deleteSchedule(idToDelete);
-            // After successful deletion, re-fetch data to ensure UI consistency.
             await fetchData();
         } catch (error: any) {
             console.error("Gagal menghapus jadwal:", error);
-            let errorMessage = "Terjadi kesalahan saat menghapus jadwal.";
-            // Check for Firebase permission error
-            if (error.code === 'permission-denied') {
-                errorMessage = "Akses ditolak. Anda mungkin tidak memiliki izin untuk menghapus jadwal ini. Masalah ini biasanya terkait dengan konfigurasi di server (Firebase Security Rules).";
-            } else if (error.message) {
-                errorMessage = `Terjadi kesalahan: ${error.message}`;
-            }
-            alert(errorMessage);
+            alert(`Terjadi kesalahan: ${error.message}`);
         }
     };
 
     const handleScanSuccess = async (qrData: string) => {
-        setIsScanning(false); // Immediately close scanner and release camera
+        setIsScanning(false); 
     
+        if (todaysAbsence) {
+            setScanResult({ type: 'error', message: `Anda tidak dapat absen karena telah melaporkan '${todaysAbsence.status}' hari ini.` });
+            return;
+        }
+
         let classId;
         try {
             const parsedData = JSON.parse(qrData);
@@ -221,12 +278,9 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
         const now = new Date();
         const todayName = now.toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
     
-        // Find ALL potentially active schedules for this class today
         const activeSchedules = userSchedules.filter(s => {
-            if (s.classId !== classId || s.day !== todayName || !s.startTime || !s.endTime) {
-                return false;
-            }
-    
+            if (s.classId !== classId || s.day !== todayName || !s.startTime || !s.endTime) return false;
+            
             const [startHour, startMinute] = s.startTime.split(':').map(Number);
             const startTime = new Date(now);
             startTime.setHours(startHour, startMinute, 0, 0);
@@ -235,7 +289,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             const endTime = new Date(now);
             endTime.setHours(endHour, endMinute, 0, 0);
             
-            const leewayMilliseconds = 15 * 60 * 1000; // 15 minutes before start
+            const leewayMilliseconds = 15 * 60 * 1000;
     
             return now.getTime() >= (startTime.getTime() - leewayMilliseconds) && now.getTime() <= endTime.getTime();
         });
@@ -245,16 +299,14 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             return;
         }
     
-        // Get lesson hours for today's attendance records to check which ones are done
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const todayScannedLessonHours = new Set(
             attendance
                 .filter(rec => new Date(rec.scanTime) >= today)
-                .map(rec => `${rec.classId}-${rec.lessonHour}`) // Use a composite key for accuracy
+                .map(rec => `${rec.classId}-${rec.lessonHour}`)
         );
     
-        // Find the first active schedule that has NOT been scanned yet
         const scheduleToScan = activeSchedules.find(s => 
             !todayScannedLessonHours.has(`${s.classId}-${s.lessonHour}`)
         );
@@ -272,10 +324,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                 scanTime: now.toISOString(),
             };
             await api.addAttendanceRecord(newRecordData);
-            
-            // Re-fetch data from the server to guarantee UI consistency.
             await fetchData();
-    
             setScanResult({ type: 'success', message: `Absensi berhasil: Kelas ${getClassName(classId)} (Jam ke-${scheduleToScan.lessonHour}).` });
         } catch (error: any) {
             setScanResult({ type: 'error', message: `Gagal menyimpan absensi: ${error.message}` });
@@ -285,13 +334,11 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
     const attendanceStats = useMemo(() => {
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        const dayOfWeek = now.getDay(); // Sunday - 0, Monday - 1
+        const dayOfWeek = now.getDay();
         const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)).getTime();
-
         const todayCount = attendance.filter(rec => new Date(rec.scanTime).getTime() >= startOfToday).length;
         const weekCount = attendance.filter(rec => new Date(rec.scanTime).getTime() >= startOfWeek).length;
         const totalCount = attendance.length;
-
         return { today: todayCount, week: weekCount, total: totalCount };
     }, [attendance]);
 
@@ -337,13 +384,14 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                 )}
                 
                 {/* Action Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <button onClick={() => setIsScanning(true)} disabled={!isWithinRadius} className="bg-gray-800 p-8 rounded-lg shadow-md text-center hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-gray-800 group flex flex-col items-center justify-center gap-4 border border-gray-700">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                     <button onClick={() => setIsScanning(true)} disabled={!isWithinRadius || !!todaysAbsence} className="bg-gray-800 p-8 rounded-lg shadow-md text-center hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-gray-800 group flex flex-col items-center justify-center gap-4 border border-gray-700">
                         <QrScanIcon />
                         <div>
                             <h3 className="text-lg font-bold text-white group-disabled:text-gray-500">Scan QR Code</h3>
                             <p className="text-gray-400 text-sm mt-1">Scan QR Code kelas untuk absensi</p>
                             {!isWithinRadius && <p className="text-xs text-red-500 mt-1">Anda berada di luar radius sekolah.</p>}
+                            {todaysAbsence && <p className="text-xs text-yellow-500 mt-1">Absensi nonaktif karena Anda melaporkan '{todaysAbsence.status}'.</p>}
                         </div>
                     </button>
                      <button onClick={() => setIsScheduleModalOpen(true)} className="bg-gray-800 p-8 rounded-lg shadow-md text-center hover:bg-gray-700 transition-colors flex flex-col items-center justify-center gap-4 border border-gray-700">
@@ -351,6 +399,13 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                         <div>
                             <h3 className="text-lg font-bold text-white">Jadwal Mengajar</h3>
                             <p className="text-gray-400 text-sm mt-1">Lihat dan kelola jadwal mengajar Anda</p>
+                        </div>
+                    </button>
+                     <button onClick={() => setIsAbsenceModalOpen(true)} disabled={!!todaysAbsence} className="bg-gray-800 p-8 rounded-lg shadow-md text-center hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-gray-800 group flex flex-col items-center justify-center gap-4 border border-gray-700">
+                        <ReportIcon />
+                        <div>
+                            <h3 className="text-lg font-bold text-white group-disabled:text-gray-500">{todaysAbsence ? `Status Hari Ini: ${todaysAbsence.status}` : 'Lapor Ketidakhadiran'}</h3>
+                            <p className="text-gray-400 text-sm mt-1">{todaysAbsence ? 'Laporan Anda sudah tersimpan' : 'Laporkan jika tidak dapat hadir hari ini'}</p>
                         </div>
                     </button>
                 </div>
@@ -451,6 +506,16 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                     )}
                 </div>
             </Modal>
+            {isAbsenceModalOpen && (
+                <AbsenceReportModal 
+                    user={user} 
+                    onClose={() => setIsAbsenceModalOpen(false)} 
+                    onSuccess={() => {
+                        setIsAbsenceModalOpen(false);
+                        fetchData();
+                    }}
+                />
+            )}
             <footer className="text-center text-sm text-gray-500 py-6">
                 © 2025 Rullp. All rights reserved.
             </footer>
@@ -466,17 +531,14 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
     useEffect(() => {
         const scannerId = "qr-reader-element";
         
-        // Ensure the scanner is only initialized once.
         if (!scannerRef.current) {
             scannerRef.current = new Html5Qrcode(scannerId);
         }
         const scannerInstance = scannerRef.current;
 
-        // Cleanup function to stop the scanner
         const cleanupScanner = () => {
             if (scannerInstance && scannerInstance.isScanning) {
                 scannerInstance.stop().catch((err: any) => {
-                    // This error can happen if the camera is already stopped, it's safe to ignore.
                     console.warn("Scanner stop error on cleanup, likely already stopped:", err);
                 });
             }
@@ -495,13 +557,10 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
                         aspectRatio: 1.0
                     },
                     (decodedText: string) => {
-                        // Success callback
                         cleanupScanner();
                         onScanSuccess(decodedText);
                     },
-                    (errorMessage: string) => {
-                        // Error callback (ignore 'QR code not found')
-                    }
+                    (errorMessage: string) => {}
                 );
                 setScannerState('running');
             } catch (err: any) {
@@ -518,7 +577,6 @@ const QRScanner: React.FC<{ onScanSuccess: (decodedText: string) => void; onCanc
 
         startScanner();
 
-        // This is the key cleanup function that runs when the component unmounts.
         return () => {
             cleanupScanner();
         };
@@ -2004,6 +2062,7 @@ const AttendanceReport: React.FC = () => {
     const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [teachers, setTeachers] = useState<User[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
+    const [absenceRecords, setAbsenceRecords] = useState<AbsenceRecord[]>([]);
     const [filter, setFilter] = useState({ teacherId: '', classId: '', startDate: '', endDate: '' });
 
     // State for eskul attendance
@@ -2019,13 +2078,14 @@ const AttendanceReport: React.FC = () => {
         setLoading(true);
         try {
             const [
-                att, sch, tch, cls, // Class data
+                att, sch, tch, cls, absRecs, // Class data
                 eskulAtt, pbn, es, eskSch // Eskul data
             ] = await Promise.all([
                 api.getAttendanceRecords(),
                 api.getSchedules(),
                 api.getUsersByRole(UserRoleEnum.TEACHER),
                 api.getClasses(),
+                api.getAbsenceRecords(),
                 api.getAllEskulAttendanceRecords(),
                 api.getUsersByRole(UserRoleEnum.PEMBINA_ESKUL),
                 api.getEskuls(),
@@ -2036,6 +2096,7 @@ const AttendanceReport: React.FC = () => {
             setSchedules(sch);
             setTeachers(tch);
             setClasses(cls);
+            setAbsenceRecords(absRecs);
             // Set eskul data
             setEskulAttendance(eskulAtt);
             setPembinas(pbn);
@@ -2055,7 +2116,7 @@ const AttendanceReport: React.FC = () => {
 
     const classReportData = useMemo(() => {
         if (!filter.startDate || !filter.endDate) {
-            return []; // Return empty array if no date range is selected
+            return [];
         }
 
         const report: any[] = [];
@@ -2068,6 +2129,7 @@ const AttendanceReport: React.FC = () => {
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
             const currentDate = new Date(d);
             const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
+            const dateString = currentDate.toISOString().slice(0, 10);
 
             const dailySchedules = schedules.filter(s => 
                 s.day === dayName &&
@@ -2090,9 +2152,8 @@ const AttendanceReport: React.FC = () => {
                         const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
                         const scheduledStartTime = new Date(scanTime);
                         scheduledStartTime.setHours(startHour, startMinute, 0, 0);
-
                         const diffMs = scanTime.getTime() - scheduledStartTime.getTime();
-                        if (diffMs > 60000) { // Consider late if more than 1 minute past scheduled time
+                        if (diffMs > 60000) {
                             lateness = `${Math.round(diffMs / 60000)} menit`;
                         }
                     }
@@ -2106,24 +2167,27 @@ const AttendanceReport: React.FC = () => {
                         status: 'Hadir',
                         scanTime: new Date(attendanceRecord.scanTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}),
                         lateness: lateness,
+                        keterangan: '-',
                     });
                 } else {
+                    const absenceRecord = absenceRecords.find(ar => ar.teacherId === schedule.teacherId && ar.date === dateString);
                     report.push({
-                        id: `${schedule.id}-${currentDate.toISOString()}`,
+                        id: `${schedule.id}-${dateString}`,
                         date: currentDate.toLocaleDateString('id-ID'),
                         teacherName: getTeacherName(schedule.teacherId),
                         className: getClassName(schedule.classId),
                         subject: schedule.subject,
                         lessonHour: schedule.lessonHour,
-                        status: 'Tidak Hadir',
+                        status: absenceRecord ? absenceRecord.status : 'Alpa',
                         scanTime: '-',
                         lateness: '-',
+                        keterangan: absenceRecord?.reason || '-',
                     });
                 }
             }
         }
         return report.sort((a, b) => new Date(a.date.split('/').reverse().join('-')).getTime() - new Date(b.date.split('/').reverse().join('-')).getTime() || a.teacherName.localeCompare(b.teacherName));
-    }, [attendance, schedules, teachers, classes, filter]);
+    }, [attendance, schedules, teachers, classes, filter, absenceRecords]);
     
     const eskulReportData = useMemo(() => {
         if (!eskulFilter.startDate || !eskulFilter.endDate) {
@@ -2174,7 +2238,7 @@ const AttendanceReport: React.FC = () => {
                         scheduledEndTime.setHours(endHour, endMinute, 0, 0);
 
                         const earlyMs = scheduledEndTime.getTime() - checkOutTime.getTime();
-                        if (earlyMs > 60000) { // Consider early if more than 1 minute before scheduled end
+                        if (earlyMs > 60000) { 
                             earlyDeparture = `${Math.round(earlyMs / 60000)} menit`;
                         }
                     }
@@ -2229,9 +2293,10 @@ const AttendanceReport: React.FC = () => {
                 rec.status,
                 rec.scanTime,
                 rec.lateness,
+                rec.keterangan,
             ]);
             doc.autoTable({
-                head: [['Tanggal', 'Guru', 'Kelas', 'Pelajaran', 'Jam Ke', 'Status', 'Waktu Scan', 'Keterlambatan']],
+                head: [['Tanggal', 'Guru', 'Kelas', 'Pelajaran', 'Jam Ke', 'Status', 'Waktu Scan', 'Telat', 'Keterangan']],
                 body: tableData,
                 startY: 20,
             });
@@ -2270,6 +2335,7 @@ const AttendanceReport: React.FC = () => {
                 "Status": rec.status,
                 "Waktu Scan": rec.scanTime,
                 "Keterlambatan": rec.lateness,
+                "Keterangan": rec.keterangan,
             }));
             fileName = "Laporan_Absensi_Kelas.xlsx";
         } else {
@@ -2294,6 +2360,22 @@ const AttendanceReport: React.FC = () => {
 
     const isClassReportReady = filter.startDate && filter.endDate;
     const isEskulReportReady = eskulFilter.startDate && eskulFilter.endDate;
+    
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'Hadir':
+                return 'bg-green-900 text-green-300';
+            case 'Sakit':
+            case 'Izin':
+            case 'Tugas Luar':
+                return 'bg-yellow-900 text-yellow-300';
+            case 'Alpa':
+            case 'Tidak Hadir':
+                return 'bg-red-900 text-red-300';
+            default:
+                return 'bg-gray-700 text-gray-300';
+        }
+    };
 
     return (
         <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
@@ -2386,7 +2468,7 @@ const AttendanceReport: React.FC = () => {
                     ) : (
                         <CrudTable
                             title=""
-                            columns={['Tanggal', 'Guru', 'Kelas', 'Pelajaran', 'Jam Ke', 'Status', 'Waktu Scan', 'Keterlambatan']}
+                            columns={['Tanggal', 'Guru', 'Kelas', 'Pelajaran', 'Jam Ke', 'Status', 'Waktu Scan', 'Keterlambatan', 'Keterangan']}
                             data={classReportData}
                             renderRow={(rec: any) => (
                                  <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700">
@@ -2396,12 +2478,13 @@ const AttendanceReport: React.FC = () => {
                                     <td className="p-3">{rec.subject}</td>
                                     <td className="p-3 text-center">{rec.lessonHour}</td>
                                     <td className="p-3">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${rec.status === 'Hadir' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(rec.status)}`}>
                                             {rec.status}
                                         </span>
                                     </td>
                                     <td className="p-3">{rec.scanTime}</td>
                                     <td className="p-3">{rec.lateness}</td>
+                                    <td className="p-3">{rec.keterangan}</td>
                                 </tr>
                             )}
                         />
@@ -2453,9 +2536,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const handleBeforeInstallPrompt = (e: Event) => {
-            // Mencegah mini-infobar muncul di mobile
             e.preventDefault();
-            // Menyimpan event agar bisa dipicu nanti.
             setInstallPromptEvent(e);
             console.log('beforeinstallprompt event has been fired and saved.');
         };
@@ -2469,16 +2550,13 @@ const App: React.FC = () => {
 
     const handleInstallClick = () => {
         if (installPromptEvent) {
-            // Menampilkan prompt instalasi
             installPromptEvent.prompt();
-            // Menunggu pilihan pengguna
             installPromptEvent.userChoice.then((choiceResult: any) => {
                 if (choiceResult.outcome === 'accepted') {
                     console.log('User accepted the A2HS prompt');
                 } else {
                     console.log('User dismissed the A2HS prompt');
                 }
-                // Prompt hanya bisa digunakan sekali, jadi kita hapus
                 setInstallPromptEvent(null);
             });
         }
@@ -2516,7 +2594,6 @@ const App: React.FC = () => {
         setAuthMessage(null);
         try {
             await api.signIn(email.value, password.value);
-            // State change will handle UI update
         } catch (error: any) {
             setAuthMessage({ type: 'error', text: error.message || "Email atau password salah." });
         }
@@ -2527,10 +2604,8 @@ const App: React.FC = () => {
         const { name, email, password, role } = e.currentTarget.elements as any;
         setAuthMessage(null);
         try {
-            // The new signUp function will throw an error on failure, simplifying this logic.
             await api.signUp(email.value, password.value, name.value, role.value as UserRole);
             setAuthMessage({ type: 'success', text: "Pendaftaran berhasil! Anda akan dialihkan secara otomatis." });
-            // The user is now logged in. Auth listeners will handle the UI transition.
         } catch (error: any) {
             setAuthMessage({ type: 'error', text: error.message || "Pendaftaran gagal." });
         }
