@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
-import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord } from './types';
-import { UserRole as UserRoleEnum } from './types';
+import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord, AbsenceRecord, AbsenceStatus } from './types';
+import { UserRole as UserRoleEnum, AbsenceStatus as AbsenceStatusEnum } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CENTRAL_COORDINATES, MAX_RADIUS_METERS, DAYS_OF_WEEK, LESSON_HOURS, HARI_TRANSLATION } from './constants';
 import * as api from './services/firebaseService';
@@ -1074,7 +1074,9 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
         eskul: 'Data Ekstrakurikuler',
         schedules: 'Jadwal Pelajaran',
         eskulSchedules: 'Jadwal Ekstrakurikuler',
-        reports: 'Laporan Absensi',
+        absenceRecords: 'Keterangan Absensi',
+        classReports: 'Laporan Absensi Kelas',
+        eskulReports: 'Laporan Absensi Ekstrakurikuler',
     };
 
     return (
@@ -1103,7 +1105,9 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                     <a onClick={() => handleSetView('eskul')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Ekstrakurikuler</a>
                     <a onClick={() => handleSetView('schedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Pelajaran</a>
                     <a onClick={() => handleSetView('eskulSchedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Ekstrakurikuler</a>
-                    <a onClick={() => handleSetView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi</a>
+                    <a onClick={() => handleSetView('absenceRecords')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Keterangan Absensi</a>
+                    <a onClick={() => handleSetView('classReports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi Kelas</a>
+                    <a onClick={() => handleSetView('eskulReports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi Ekstrakurikuler</a>
                 </nav>
                 <div className="p-4 border-t border-gray-700">
                     <p className="text-white">{user.name}</p>
@@ -1131,7 +1135,9 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                 {view === 'eskul' && <EskulManagement />}
                 {view === 'schedules' && <ScheduleManagement />}
                 {view === 'eskulSchedules' && <AdminEskulScheduleManagement />}
-                {view === 'reports' && <AttendanceReport />}
+                {view === 'absenceRecords' && <AbsenceManagement />}
+                {view === 'classReports' && <AttendanceReport reportType="kelas" />}
+                {view === 'eskulReports' && <AttendanceReport reportType="eskul" />}
                 <footer className="text-center text-sm text-gray-500 pt-8 pb-2">
                     © 2025 Rullp. All rights reserved.
                 </footer>
@@ -1995,15 +2001,143 @@ const AdminEskulScheduleManagement: React.FC = () => {
     );
 };
 
+const AbsenceManagement: React.FC = () => {
+    const [absenceRecords, setAbsenceRecords] = useState<AbsenceRecord[]>([]);
+    const [teachers, setTeachers] = useState<User[]>([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingRecord, setEditingRecord] = useState<Partial<AbsenceRecord> | null>(null);
+    const [loading, setLoading] = useState(true);
 
-const AttendanceReport: React.FC = () => {
-    const [reportType, setReportType] = useState<'kelas' | 'eskul'>('kelas');
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        const [records, teacherList] = await Promise.all([
+            api.getAbsenceRecords(),
+            api.getUsersByRole(UserRoleEnum.TEACHER)
+        ]);
+        setAbsenceRecords(records);
+        setTeachers(teacherList);
+        setLoading(false);
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingRecord || !editingRecord.teacherId || !editingRecord.date || !editingRecord.status) {
+            alert("Harap isi semua kolom wajib (Guru, Tanggal, Status).");
+            return;
+        }
+
+        const recordData: Omit<AbsenceRecord, 'id'> = {
+            teacherId: editingRecord.teacherId,
+            date: editingRecord.date,
+            status: editingRecord.status,
+            keterangan: editingRecord.keterangan || '',
+            berlakuSepanjangHari: editingRecord.berlakuSepanjangHari ?? true,
+        };
+        
+        let result;
+        if (editingRecord.id) {
+            result = await api.updateAbsenceRecord(editingRecord.id, recordData);
+        } else {
+            result = await api.addAbsenceRecord(recordData);
+        }
+        
+        if (result.success) {
+            setIsModalOpen(false);
+            setEditingRecord(null);
+            fetchData();
+        } else {
+            alert(result.message);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (window.confirm("Yakin ingin menghapus keterangan absensi ini?")) {
+            const result = await api.deleteAbsenceRecord(id);
+            if (result.success) {
+                fetchData();
+            } else {
+                alert(result.message);
+            }
+        }
+    };
     
+    const handleOpenModal = (record: Partial<AbsenceRecord> | null = null) => {
+        const today = new Date().toISOString().slice(0, 10);
+        setEditingRecord(record || { date: today, status: AbsenceStatusEnum.SAKIT, berlakuSepanjangHari: true });
+        setIsModalOpen(true);
+    };
+
+    const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
+
+    if (loading) return <Spinner />;
+
+    return (
+        <>
+            <CrudTable
+                title="Manajemen Keterangan Absensi"
+                columns={['Tanggal', 'Guru', 'Status', 'Keterangan', 'Aksi']}
+                data={absenceRecords}
+                onAdd={() => handleOpenModal()}
+                renderRow={(rec: AbsenceRecord) => (
+                    <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700">
+                        <td className="p-3">{new Date(rec.date).toLocaleDateString('id-ID', { timeZone: 'UTC' })}</td>
+                        <td className="p-3">{getTeacherName(rec.teacherId)}</td>
+                        <td className="p-3">{rec.status}</td>
+                        <td className="p-3">{rec.keterangan || '-'}</td>
+                        <td className="p-3 space-x-2">
+                            <button onClick={() => handleOpenModal(rec)} className="text-blue-400 hover:underline">Ubah</button>
+                            <button onClick={() => handleDelete(rec.id)} className="text-red-400 hover:underline">Hapus</button>
+                        </td>
+                    </tr>
+                )}
+            />
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingRecord?.id ? 'Ubah Keterangan' : 'Tambah Keterangan'}>
+                <form onSubmit={handleSave} className="space-y-4">
+                    <div>
+                        <label className="block mb-1 text-gray-300">Guru</label>
+                        <select value={editingRecord?.teacherId || ''} onChange={e => setEditingRecord({...editingRecord, teacherId: e.target.value})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white">
+                            <option value="">Pilih Guru</option>
+                            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block mb-1 text-gray-300">Tanggal</label>
+                        <input type="date" value={editingRecord?.date || ''} onChange={e => setEditingRecord({...editingRecord, date: e.target.value})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white" />
+                    </div>
+                     <div>
+                        <label className="block mb-1 text-gray-300">Status</label>
+                        <select value={editingRecord?.status || ''} onChange={e => setEditingRecord({...editingRecord, status: e.target.value as AbsenceStatus})} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white">
+                            <option value={AbsenceStatusEnum.SAKIT}>Sakit</option>
+                            <option value={AbsenceStatusEnum.IZIN}>Izin</option>
+                            <option value={AbsenceStatusEnum.TUGAS_LUAR}>Tugas Luar</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block mb-1 text-gray-300">Keterangan (Opsional)</label>
+                        <textarea value={editingRecord?.keterangan || ''} onChange={e => setEditingRecord({...editingRecord, keterangan: e.target.value})} rows={3} className="w-full p-2 border rounded bg-gray-700 border-gray-600 text-white" placeholder="Contoh: Mengikuti pelatihan dinas"/>
+                    </div>
+                     <div className="flex items-center">
+                        <input type="checkbox" id="allDay" checked={editingRecord?.berlakuSepanjangHari ?? true} onChange={e => setEditingRecord({...editingRecord, berlakuSepanjangHari: e.target.checked})} className="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"/>
+                        <label htmlFor="allDay" className="ml-2 block text-sm text-gray-300">Berlaku untuk semua jam pelajaran hari itu</label>
+                    </div>
+                    <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Simpan</button>
+                </form>
+            </Modal>
+        </>
+    );
+};
+
+const AttendanceReport: React.FC<{ reportType: 'kelas' | 'eskul' }> = ({ reportType }) => {
     // State for class attendance
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
     const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [teachers, setTeachers] = useState<User[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
+    const [absenceRecords, setAbsenceRecords] = useState<AbsenceRecord[]>([]);
     const [filter, setFilter] = useState({ teacherId: '', classId: '', startDate: '', endDate: '' });
 
     // State for eskul attendance
@@ -2019,13 +2153,14 @@ const AttendanceReport: React.FC = () => {
         setLoading(true);
         try {
             const [
-                att, sch, tch, cls, // Class data
+                att, sch, tch, cls, absRecs, // Class data
                 eskulAtt, pbn, es, eskSch // Eskul data
             ] = await Promise.all([
                 api.getAttendanceRecords(),
                 api.getSchedules(),
                 api.getUsersByRole(UserRoleEnum.TEACHER),
                 api.getClasses(),
+                api.getAbsenceRecords(), // Fetch new absence records
                 api.getAllEskulAttendanceRecords(),
                 api.getUsersByRole(UserRoleEnum.PEMBINA_ESKUL),
                 api.getEskuls(),
@@ -2036,6 +2171,7 @@ const AttendanceReport: React.FC = () => {
             setSchedules(sch);
             setTeachers(tch);
             setClasses(cls);
+            setAbsenceRecords(absRecs);
             // Set eskul data
             setEskulAttendance(eskulAtt);
             setPembinas(pbn);
@@ -2054,9 +2190,7 @@ const AttendanceReport: React.FC = () => {
     }, [fetchData]);
 
     const classReportData = useMemo(() => {
-        if (!filter.startDate || !filter.endDate) {
-            return []; // Return empty array if no date range is selected
-        }
+        if (!filter.startDate || !filter.endDate) return [];
 
         const report: any[] = [];
         const startDate = new Date(filter.startDate);
@@ -2067,6 +2201,7 @@ const AttendanceReport: React.FC = () => {
 
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
             const currentDate = new Date(d);
+            const currentDateString = currentDate.toISOString().slice(0, 10);
             const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
 
             const dailySchedules = schedules.filter(s => 
@@ -2083,47 +2218,45 @@ const AttendanceReport: React.FC = () => {
                     new Date(rec.scanTime).toDateString() === currentDate.toDateString()
                 );
 
+                const absenceInfo = absenceRecords.find(rec =>
+                    rec.teacherId === schedule.teacherId &&
+                    rec.date === currentDateString
+                );
+                
+                let status = 'Alpa';
+                let scanTime = '-';
+                let lateness = '-';
+                
                 if (attendanceRecord) {
-                    let lateness = 'Tepat Waktu';
+                    status = 'Hadir';
+                    scanTime = new Date(attendanceRecord.scanTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'});
                     if (schedule.startTime) {
-                        const scanTime = new Date(attendanceRecord.scanTime);
+                        const scanDateTime = new Date(attendanceRecord.scanTime);
                         const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
-                        const scheduledStartTime = new Date(scanTime);
+                        const scheduledStartTime = new Date(scanDateTime);
                         scheduledStartTime.setHours(startHour, startMinute, 0, 0);
-
-                        const diffMs = scanTime.getTime() - scheduledStartTime.getTime();
-                        if (diffMs > 60000) { // Consider late if more than 1 minute past scheduled time
-                            lateness = `${Math.round(diffMs / 60000)} menit`;
-                        }
+                        const diffMs = scanDateTime.getTime() - scheduledStartTime.getTime();
+                        lateness = diffMs > 60000 ? `${Math.round(diffMs / 60000)} menit` : 'Tepat Waktu';
                     }
-                    report.push({
-                        id: attendanceRecord.id,
-                        date: currentDate.toLocaleDateString('id-ID'),
-                        teacherName: getTeacherName(schedule.teacherId),
-                        className: getClassName(schedule.classId),
-                        subject: schedule.subject,
-                        lessonHour: schedule.lessonHour,
-                        status: 'Hadir',
-                        scanTime: new Date(attendanceRecord.scanTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}),
-                        lateness: lateness,
-                    });
-                } else {
-                    report.push({
-                        id: `${schedule.id}-${currentDate.toISOString()}`,
-                        date: currentDate.toLocaleDateString('id-ID'),
-                        teacherName: getTeacherName(schedule.teacherId),
-                        className: getClassName(schedule.classId),
-                        subject: schedule.subject,
-                        lessonHour: schedule.lessonHour,
-                        status: 'Tidak Hadir',
-                        scanTime: '-',
-                        lateness: '-',
-                    });
+                } else if (absenceInfo) {
+                    status = absenceInfo.status; // Sakit, Izin, Tugas Luar
                 }
+
+                report.push({
+                    id: `${schedule.id}-${currentDate.toISOString()}`,
+                    date: currentDate.toLocaleDateString('id-ID'),
+                    teacherName: getTeacherName(schedule.teacherId),
+                    className: getClassName(schedule.classId),
+                    subject: schedule.subject,
+                    lessonHour: schedule.lessonHour,
+                    status: status,
+                    scanTime: scanTime,
+                    lateness: lateness,
+                });
             }
         }
         return report.sort((a, b) => new Date(a.date.split('/').reverse().join('-')).getTime() - new Date(b.date.split('/').reverse().join('-')).getTime() || a.teacherName.localeCompare(b.teacherName));
-    }, [attendance, schedules, teachers, classes, filter]);
+    }, [attendance, schedules, teachers, classes, absenceRecords, filter]);
     
     const eskulReportData = useMemo(() => {
         if (!eskulFilter.startDate || !eskulFilter.endDate) {
@@ -2231,7 +2364,7 @@ const AttendanceReport: React.FC = () => {
                 rec.lateness,
             ]);
             doc.autoTable({
-                head: [['Tanggal', 'Guru', 'Kelas', 'Pelajaran', 'Jam Ke', 'Status', 'Waktu Scan', 'Keterlambatan']],
+                head: [['Tanggal', 'Guru', 'Kelas', 'Pelajaran', 'Jam Ke', 'Keterangan', 'Waktu Scan', 'Keterlambatan']],
                 body: tableData,
                 startY: 20,
             });
@@ -2267,7 +2400,7 @@ const AttendanceReport: React.FC = () => {
                 "Kelas": rec.className,
                 "Mata Pelajaran": rec.subject,
                 "Jam Pelajaran": `Jam ke-${rec.lessonHour}`,
-                "Status": rec.status,
+                "Keterangan": rec.status,
                 "Waktu Scan": rec.scanTime,
                 "Keterlambatan": rec.lateness,
             }));
@@ -2297,24 +2430,7 @@ const AttendanceReport: React.FC = () => {
 
     return (
         <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
-            <h2 className="text-2xl font-bold mb-4 text-white">Laporan Absensi</h2>
-            
-            <div className="mb-4 border-b border-gray-700">
-                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                    <button
-                        onClick={() => setReportType('kelas')}
-                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${reportType === 'kelas' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}
-                    >
-                        Absensi Kelas
-                    </button>
-                    <button
-                        onClick={() => setReportType('eskul')}
-                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${reportType === 'eskul' ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'}`}
-                    >
-                        Absensi Ekstrakurikuler
-                    </button>
-                </nav>
-            </div>
+            <h2 className="text-2xl font-bold mb-4 text-white">{reportType === 'kelas' ? 'Laporan Absensi Kelas' : 'Laporan Absensi Ekstrakurikuler'}</h2>
 
             {/* Filters */}
             {reportType === 'kelas' ? (
@@ -2335,16 +2451,16 @@ const AttendanceReport: React.FC = () => {
                     </div>
                      <div>
                         <label className="block text-sm font-medium text-gray-300">Tanggal Mulai</label>
-                        <input type="date" value={filter.startDate} onChange={e => setFilter({...filter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
+                        <input type="date" value={filter.startDate} onChange={e => setFilter({...filter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium text-gray-300">Tanggal Selesai</label>
-                        <input type="date" value={filter.endDate} onChange={e => setFilter({...filter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
+                        <input type="date" value={filter.endDate} onChange={e => setFilter({...filter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
                     </div>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 border border-gray-700 rounded-lg bg-gray-900">
-                    <div>
+                     <div>
                         <label className="block text-sm font-medium text-gray-300">Pembina</label>
                         <select value={eskulFilter.pembinaId} onChange={e => setEskulFilter({...eskulFilter, pembinaId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white">
                             <option value="">Semua Pembina</option>
@@ -2352,335 +2468,270 @@ const AttendanceReport: React.FC = () => {
                         </select>
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-gray-300">Eskul</label>
+                        <label className="block text-sm font-medium text-gray-300">Ekstrakurikuler</label>
                         <select value={eskulFilter.eskulId} onChange={e => setEskulFilter({...eskulFilter, eskulId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white">
                             <option value="">Semua Eskul</option>
                             {eskuls.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                         </select>
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium text-gray-300">Tanggal Mulai</label>
-                        <input type="date" value={eskulFilter.startDate} onChange={e => setEskulFilter({...eskulFilter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
+                        <input type="date" value={eskulFilter.startDate} onChange={e => setEskulFilter({...eskulFilter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium text-gray-300">Tanggal Selesai</label>
-                        <input type="date" value={eskulFilter.endDate} onChange={e => setEskulFilter({...eskulFilter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
+                        <input type="date" value={eskulFilter.endDate} onChange={e => setEskulFilter({...eskulFilter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
                     </div>
                 </div>
             )}
             
             {/* Export Buttons */}
-            <div className="flex justify-end gap-2 mb-4">
-                <button onClick={exportToPDF} disabled={(reportType === 'kelas' && !isClassReportReady) || (reportType === 'eskul' && !isEskulReportReady)} className="bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-800 disabled:bg-gray-600 disabled:cursor-not-allowed">Ekspor PDF</button>
-                <button onClick={exportToExcel} disabled={(reportType === 'kelas' && !isClassReportReady) || (reportType === 'eskul' && !isEskulReportReady)} className="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800 disabled:bg-gray-600 disabled:cursor-not-allowed">Ekspor Excel</button>
+             <div className="flex justify-end gap-4 mb-4">
+                <button onClick={exportToExcel} disabled={reportType === 'kelas' ? !isClassReportReady : !isEskulReportReady} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-600 disabled:cursor-not-allowed">
+                    <DownloadIcon /> Excel
+                </button>
+                <button onClick={exportToPDF} disabled={reportType === 'kelas' ? !isClassReportReady : !isEskulReportReady} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-600 disabled:cursor-not-allowed">
+                    <DownloadIcon /> PDF
+                </button>
             </div>
-
-            {/* Table */}
-            {loading ? <Spinner/> : (
-                reportType === 'kelas' ? (
-                    !isClassReportReady ? (
-                        <div className="text-center py-10 text-gray-400 bg-gray-800 rounded-lg">
-                            <p className="font-semibold">Pilih rentang tanggal untuk menampilkan laporan.</p>
-                            <p className="text-sm">Laporan lengkap termasuk data guru yang tidak hadir akan ditampilkan di sini.</p>
-                        </div>
-                    ) : (
-                        <CrudTable
-                            title=""
-                            columns={['Tanggal', 'Guru', 'Kelas', 'Pelajaran', 'Jam Ke', 'Status', 'Waktu Scan', 'Keterlambatan']}
-                            data={classReportData}
-                            renderRow={(rec: any) => (
-                                 <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700">
-                                    <td className="p-3">{rec.date}</td>
-                                    <td className="p-3">{rec.teacherName}</td>
-                                    <td className="p-3">{rec.className}</td>
-                                    <td className="p-3">{rec.subject}</td>
-                                    <td className="p-3 text-center">{rec.lessonHour}</td>
-                                    <td className="p-3">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${rec.status === 'Hadir' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
-                                            {rec.status}
-                                        </span>
-                                    </td>
-                                    <td className="p-3">{rec.scanTime}</td>
-                                    <td className="p-3">{rec.lateness}</td>
+            
+            {/* Report Table */}
+            <div className="overflow-x-auto">
+                <table className="w-full text-left text-gray-300">
+                    {loading ? (
+                        <tbody><tr><td className="text-center p-4"><Spinner /></td></tr></tbody>
+                    ) : (reportType === 'kelas' ? (
+                        <>
+                            <thead>
+                                <tr className="bg-gray-700">
+                                    <th className="p-3">Tanggal</th><th className="p-3">Guru</th><th className="p-3">Kelas</th><th className="p-3">Pelajaran</th><th className="p-3">Jam Ke</th><th className="p-3">Status</th><th className="p-3">Waktu Scan</th><th className="p-3">Telat</th>
                                 </tr>
-                            )}
-                        />
-                    )
-                ) : ( // eskul report
-                    !isEskulReportReady ? (
-                         <div className="text-center py-10 text-gray-400 bg-gray-800 rounded-lg">
-                            <p className="font-semibold">Pilih rentang tanggal untuk menampilkan laporan.</p>
-                            <p className="text-sm">Laporan lengkap termasuk data pembina yang tidak hadir akan ditampilkan di sini.</p>
-                        </div>
+                            </thead>
+                            <tbody>
+                                {classReportData.length === 0 ? (
+                                    <tr><td colSpan={8} className="text-center p-4 text-gray-500">Pilih rentang tanggal untuk menampilkan laporan.</td></tr>
+                                ) : (classReportData.map(rec => (
+                                    <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700"><td className="p-3">{rec.date}</td><td className="p-3">{rec.teacherName}</td><td className="p-3">{rec.className}</td><td className="p-3">{rec.subject}</td><td className="p-3">{rec.lessonHour}</td><td className="p-3">{rec.status}</td><td className="p-3">{rec.scanTime}</td><td className="p-3">{rec.lateness}</td></tr>
+                                )))}
+                            </tbody>
+                        </>
                     ) : (
-                        <CrudTable
-                            title=""
-                            columns={['Tanggal', 'Pembina', 'Eskul', 'Status', 'Datang', 'Pulang', 'Keterlambatan', 'Pulang Awal']}
-                            data={eskulReportData}
-                            renderRow={(rec: any) => (
-                                 <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700">
-                                    <td className="p-3">{rec.date}</td>
-                                    <td className="p-3">{rec.pembinaName}</td>
-                                    <td className="p-3">{rec.eskulName}</td>
-                                    <td className="p-3">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${rec.status === 'Hadir' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
-                                            {rec.status}
-                                        </span>
-                                    </td>
-                                    <td className="p-3">{rec.checkInTime}</td>
-                                    <td className="p-3">{rec.checkOutTime}</td>
-                                    <td className="p-3">{rec.lateness}</td>
-                                    <td className="p-3">{rec.earlyDeparture}</td>
+                        <>
+                           <thead>
+                                <tr className="bg-gray-700">
+                                    <th className="p-3">Tanggal</th><th className="p-3">Pembina</th><th className="p-3">Eskul</th><th className="p-3">Status</th><th className="p-3">Datang</th><th className="p-3">Pulang</th><th className="p-3">Telat</th><th className="p-3">Pulang Awal</th>
                                 </tr>
-                            )}
-                        />
-                    )
-                )
-            )}
+                            </thead>
+                            <tbody>
+                                 {eskulReportData.length === 0 ? (
+                                    <tr><td colSpan={8} className="text-center p-4 text-gray-500">Pilih rentang tanggal untuk menampilkan laporan.</td></tr>
+                                ) : (eskulReportData.map(rec => (
+                                    <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700"><td className="p-3">{rec.date}</td><td className="p-3">{rec.pembinaName}</td><td className="p-3">{rec.eskulName}</td><td className="p-3">{rec.status}</td><td className="p-3">{rec.checkInTime}</td><td className="p-3">{rec.checkOutTime}</td><td className="p-3">{rec.lateness}</td><td className="p-3">{rec.earlyDeparture}</td></tr>
+                                )))}
+                            </tbody>
+                        </>
+                    ))}
+                </table>
+            </div>
         </div>
     );
 };
 
-// --- Main App Component ---
+// --- Authentication and Main App Components ---
 
-const App: React.FC = () => {
-    const [user, setUser] = useState<any | null>(null);
-    const [userProfile, setUserProfile] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [authView, setAuthView] = useState<'login' | 'register' | 'forgotPassword'>('login');
-    const [authMessage, setAuthMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-    const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
+const Login: React.FC<{ onLogin: (user: User) => void; onGoToRegister: () => void; }> = ({ onLogin, onGoToRegister }) => {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        const handleBeforeInstallPrompt = (e: Event) => {
-            // Mencegah mini-infobar muncul di mobile
-            e.preventDefault();
-            // Menyimpan event agar bisa dipicu nanti.
-            setInstallPromptEvent(e);
-            console.log('beforeinstallprompt event has been fired and saved.');
-        };
-
-        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-        return () => {
-            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-        };
-    }, []);
-
-    const handleInstallClick = () => {
-        if (installPromptEvent) {
-            // Menampilkan prompt instalasi
-            installPromptEvent.prompt();
-            // Menunggu pilihan pengguna
-            installPromptEvent.userChoice.then((choiceResult: any) => {
-                if (choiceResult.outcome === 'accepted') {
-                    console.log('User accepted the A2HS prompt');
-                } else {
-                    console.log('User dismissed the A2HS prompt');
-                }
-                // Prompt hanya bisa digunakan sekali, jadi kita hapus
-                setInstallPromptEvent(null);
-            });
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setLoading(true);
+        try {
+            await api.signIn(email, password);
+            // onAuthStateChanged will handle the rest
+        } catch (err: any) {
+            setError(err.message || 'Gagal masuk. Periksa kembali email dan password Anda.');
+            setLoading(false);
         }
     };
 
+    return (
+        <div className="min-h-screen bg-gray-900 flex flex-col justify-center items-center p-4">
+            <div className="w-full max-w-sm">
+                <div className="text-center mb-8">
+                    <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-24 h-24 mx-auto mb-4">
+                        <defs>
+                            <linearGradient id="bg_gradient_login" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse"><stop stopColor="#1e3a8a"/><stop offset="1" stopColor="#2563eb"/></linearGradient>
+                            <linearGradient id="icon_gradient_login" x1="128" y1="128" x2="384" y2="384" gradientUnits="userSpaceOnUse"><stop stopColor="#22d3ee"/><stop offset="1" stopColor="#a3e635"/></linearGradient>
+                        </defs>
+                        <rect width="512" height="512" rx="90" fill="url(#bg_gradient_login)"/>
+                        <path d="M144 144 C144 126.34 158.34 112 176 112 H 192 C209.66 112 224 126.34 224 144 V 368 C224 385.66 209.66 400 192 400 H 176 C158.34 400 144 385.66 144 368 V 144 Z" fill="url(#icon_gradient_login)"/>
+                        <path d="M288 144 C288 126.34 302.34 112 320 112 H 336 C353.66 112 368 126.34 368 144 V 240 L 400 208 C 412.4 195.6 432.4 195.6 444.8 208 L 458.8 222 C 471.2 234.4 471.2 254.4 458.8 266.8 L 352 374 C 339.6 386.4 319.6 386.4 307.2 374 L 288 354.8 V 144 Z" fill="url(#icon_gradient_login)"/>
+                        <rect x="224" y="240" width="64" height="32" rx="16" fill="url(#icon_gradient_login)"/>
+                    </svg>
+                    <h1 className="text-3xl font-bold text-white">HadirKu Guru</h1>
+                    <p className="text-gray-400">SMP Negeri 13 Tasikmalaya</p>
+                </div>
+                <form onSubmit={handleSubmit} className="bg-gray-800 p-8 rounded-lg shadow-lg border border-gray-700">
+                    <h2 className="text-2xl font-semibold text-center text-white mb-6">Masuk Akun</h2>
+                    {error && <p className="bg-red-900 bg-opacity-50 text-red-300 p-3 rounded-md mb-4 text-sm border border-red-700">{error}</p>}
+                    <div className="mb-4">
+                        <label className="block text-gray-300 mb-2" htmlFor="email">Email</label>
+                        <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-3 rounded bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:outline-none" required />
+                    </div>
+                    <div className="mb-6">
+                        <label className="block text-gray-300 mb-2" htmlFor="password">Password</label>
+                        <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 rounded bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:outline-none" required />
+                    </div>
+                    <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-800 flex items-center justify-center" disabled={loading}>
+                        {loading ? <Spinner /> : 'Masuk'}
+                    </button>
+                    <p className="text-center text-gray-400 text-sm mt-6">
+                        Belum punya akun? <button type="button" onClick={onGoToRegister} className="text-blue-400 hover:underline font-semibold">Daftar di sini</button>
+                    </p>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const Register: React.FC<{ onRegisterSuccess: () => void, onGoToLogin: () => void }> = ({ onRegisterSuccess, onGoToLogin }) => {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [name, setName] = useState('');
+    const [role, setRole] = useState<UserRole>(UserRoleEnum.TEACHER);
+    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setLoading(true);
+        try {
+            await api.signUp(email, password, name, role);
+            onRegisterSuccess();
+        } catch (err: any) {
+            setError(err.message || 'Gagal mendaftar. Silakan coba lagi.');
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    return (
+        <div className="min-h-screen bg-gray-900 flex flex-col justify-center items-center p-4">
+            <div className="w-full max-w-sm">
+                <form onSubmit={handleSubmit} className="bg-gray-800 p-8 rounded-lg shadow-lg border border-gray-700">
+                    <h2 className="text-2xl font-semibold text-center text-white mb-6">Daftar Akun Baru</h2>
+                    {error && <p className="bg-red-900 bg-opacity-50 text-red-300 p-3 rounded-md mb-4 text-sm border border-red-700">{error}</p>}
+                    <div className="mb-4">
+                        <label className="block text-gray-300 mb-2" htmlFor="name">Nama Lengkap</label>
+                        <input id="name" type="text" value={name} onChange={e => setName(e.target.value)} className="w-full p-3 rounded bg-gray-700 text-white border border-gray-600" required />
+                    </div>
+                    <div className="mb-4">
+                        <label className="block text-gray-300 mb-2" htmlFor="email-reg">Email</label>
+                        <input id="email-reg" type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-3 rounded bg-gray-700 text-white border border-gray-600" required />
+                    </div>
+                    <div className="mb-4">
+                        <label className="block text-gray-300 mb-2" htmlFor="password-reg">Password</label>
+                        <input id="password-reg" type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 rounded bg-gray-700 text-white border border-gray-600" required />
+                    </div>
+                    <div className="mb-6">
+                         <label className="block text-gray-300 mb-2" htmlFor="role">Peran</label>
+                         <select id="role" value={role} onChange={e => setRole(e.target.value as UserRole)} className="w-full p-3 rounded bg-gray-700 text-white border border-gray-600">
+                            <option value={UserRoleEnum.TEACHER}>Guru Mata Pelajaran</option>
+                            <option value={UserRoleEnum.PEMBINA_ESKUL}>Pembina Ekstrakurikuler</option>
+                        </select>
+                    </div>
+                    <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-800 flex items-center justify-center" disabled={loading}>
+                        {loading ? <Spinner /> : 'Daftar'}
+                    </button>
+                    <p className="text-center text-gray-400 text-sm mt-6">
+                        Sudah punya akun? <button type="button" onClick={onGoToLogin} className="text-blue-400 hover:underline font-semibold">Masuk di sini</button>
+                    </p>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const App: React.FC = () => {
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [view, setView] = useState<'login' | 'register'>('login');
+
     useEffect(() => {
-        const unsubscribeAuth = api.onAuthStateChanged(newUser => {
-            setUser(newUser);
-            if (!newUser) {
-                setUserProfile(null);
+        const unsubscribe = api.onAuthStateChanged(async (firebaseUser) => {
+            if (firebaseUser) {
+                const unsubscribeProfile = api.onUserProfileChange(firebaseUser.uid, (userProfile) => {
+                    if (userProfile) {
+                        setUser(userProfile);
+                    } else {
+                        api.signOut();
+                        setUser(null);
+                    }
+                    setLoading(false);
+                    if (typeof unsubscribeProfile === 'function') {
+                        unsubscribeProfile();
+                    }
+                });
+            } else {
+                setUser(null);
                 setLoading(false);
             }
         });
-        return () => unsubscribeAuth();
+
+        return () => unsubscribe();
     }, []);
 
-    useEffect(() => {
-        let unsubscribeProfile: (() => void) | null = null;
-        if (user) {
-            unsubscribeProfile = api.onUserProfileChange(user.uid, profile => {
-                setUserProfile(profile);
-                setLoading(false);
-            });
-        }
-        return () => {
-            if (unsubscribeProfile) {
-                unsubscribeProfile();
-            }
-        };
-    }, [user]);
-
-    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const { email, password } = e.currentTarget.elements as any;
-        setAuthMessage(null);
-        try {
-            await api.signIn(email.value, password.value);
-            // State change will handle UI update
-        } catch (error: any) {
-            setAuthMessage({ type: 'error', text: error.message || "Email atau password salah." });
-        }
-    };
-    
-    const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const { name, email, password, role } = e.currentTarget.elements as any;
-        setAuthMessage(null);
-        try {
-            // The new signUp function will throw an error on failure, simplifying this logic.
-            await api.signUp(email.value, password.value, name.value, role.value as UserRole);
-            setAuthMessage({ type: 'success', text: "Pendaftaran berhasil! Anda akan dialihkan secara otomatis." });
-            // The user is now logged in. Auth listeners will handle the UI transition.
-        } catch (error: any) {
-            setAuthMessage({ type: 'error', text: error.message || "Pendaftaran gagal." });
-        }
-    };
-    
-    const handleForgotPassword = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const { email } = e.currentTarget.elements as any;
-        setAuthMessage(null);
-        try {
-            await api.sendPasswordResetEmail(email.value);
-            setAuthMessage({ type: 'success', text: "Email pemulihan password telah dikirim." });
-        } catch (error: any) {
-            setAuthMessage({ type: 'error', text: error.message || "Gagal mengirim email." });
-        }
+    const handleLogin = (loggedInUser: User) => {
+        // This is handled by onAuthStateChanged now
     };
 
     const handleLogout = async () => {
         await api.signOut();
+        setUser(null);
+        setView('login');
     };
 
+    const handleRegisterSuccess = () => {
+        alert("Pendaftaran berhasil! Silakan masuk dengan akun baru Anda.");
+        setView('login');
+    };
+    
     if (loading) {
         return <FullPageSpinner />;
     }
 
-    if (!user || !userProfile) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
-                <div className="w-full max-w-md bg-gray-800 rounded-xl shadow-lg p-8 space-y-6 border border-gray-700">
-                    <div className="text-center">
-                        <h1 className="text-5xl font-extrabold text-blue-500 mb-2">HadirKu</h1>
-                        <p className="text-gray-400">Sistem Absensi Guru Digital</p>
-                    </div>
+    if (!user) {
+        if (view === 'register') {
+            return <Register onRegisterSuccess={handleRegisterSuccess} onGoToLogin={() => setView('login')} />;
+        }
+        return <Login onLogin={handleLogin} onGoToRegister={() => setView('register')} />;
+    }
 
-                    {authView === 'login' && (
-                        <div>
-                             <h2 className="text-2xl font-bold text-center text-white mb-6">Login</h2>
-                            <form onSubmit={handleLogin} className="space-y-4">
-                                <div>
-                                    <label className="text-sm font-medium text-gray-300 block mb-1">Email</label>
-                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"/>
-                                </div>
-                                <div>
-                                    <div className="flex justify-between items-baseline">
-                                        <label className="text-sm font-medium text-gray-300 block mb-1">Password</label>
-                                        <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('forgotPassword'); setAuthMessage(null); }} className="text-sm text-blue-400 hover:underline">Lupa Password?</a>
-                                    </div>
-                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"/>
-                                </div>
-                                <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Login</button>
-                            </form>
-                             
-                            {installPromptEvent && (
-                                <div className="mt-6 text-center bg-gray-700 p-4 rounded-lg border border-gray-600 space-y-3">
-                                    <p className="text-sm font-medium text-gray-200">
-                                        Instal Aplikasi untuk Pengalaman Terbaik
-                                    </p>
-                                    <p className="text-xs text-gray-400">
-                                        Akses lebih cepat dan fitur offline dengan menambahkan aplikasi ini ke layar utama (home screen) Anda.
-                                    </p>
-                                    <button
-                                        onClick={handleInstallClick}
-                                        className="w-full bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700 transition duration-300 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-                                    >
-                                        <DownloadIcon />
-                                        <span>Instal Aplikasi</span>
-                                    </button>
-                                </div>
-                            )}
-
-                            <p className="text-center text-sm text-gray-400 mt-6">
-                                Belum punya akun? <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('register'); setAuthMessage(null); }} className="font-medium text-blue-400 hover:underline">Daftar</a>
-                            </p>
-                        </div>
-                    )}
-                    
-                    {authView === 'register' && (
-                         <div>
-                            <h2 className="text-2xl font-bold text-center text-white mb-6">Daftar Akun Baru</h2>
-                            <form onSubmit={handleRegister} className="space-y-4">
-                                 <div>
-                                    <label className="text-sm font-medium text-gray-300 block mb-1">Nama Lengkap</label>
-                                    <input name="name" type="text" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"/>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-gray-300 block mb-1">Email</label>
-                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"/>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-gray-300 block mb-1">Password</label>
-                                    <input name="password" type="password" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"/>
-                                </div>
-                                 <div>
-                                    <label className="text-sm font-medium text-gray-300 block mb-1">Daftar sebagai</label>
-                                    <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white">
-                                        <option value={UserRoleEnum.TEACHER}>Guru</option>
-                                        <option value={UserRoleEnum.PEMBINA_ESKUL}>Pembina Ekstrakurikuler</option>
-                                        <option value={UserRoleEnum.ADMIN}>Admin</option>
-                                    </select>
-                                </div>
-                                <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Daftar</button>
-                            </form>
-                             <p className="text-center text-sm text-gray-400 mt-6">
-                                Sudah punya akun? <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('login'); setAuthMessage(null); }} className="font-medium text-blue-400 hover:underline">Login</a>
-                            </p>
-                        </div>
-                    )}
-                    
-                    {authView === 'forgotPassword' && (
-                        <div>
-                            <h2 className="text-2xl font-bold text-center text-white mb-6">Reset Password</h2>
-                             <form onSubmit={handleForgotPassword} className="space-y-4">
-                                <div>
-                                    <label className="text-sm font-medium text-gray-300 block mb-1">Email</label>
-                                    <input name="email" type="email" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"/>
-                                </div>
-                                <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Kirim Link Reset</button>
-                            </form>
-                            <p className="text-center text-sm text-gray-400 mt-6">
-                                Kembali ke <a href="#" onClick={(e) => { e.preventDefault(); setAuthView('login'); setAuthMessage(null); }} className="font-medium text-blue-400 hover:underline">Login</a>
-                            </p>
-                        </div>
-                    )}
-
-                    {authMessage && (
-                        <div className={`mt-4 text-center p-3 rounded-lg ${authMessage.type === 'success' ? 'bg-green-900 bg-opacity-50 text-green-300' : 'bg-red-900 bg-opacity-50 text-red-300'}`}>
-                            {authMessage.text}
-                        </div>
-                    )}
-
-                    <div className="text-center text-xs text-gray-500 mt-8">
-                        © 2025 Rullp. All rights reserved.
-                    </div>
+    switch (user.role) {
+        case UserRoleEnum.ADMIN:
+            return <AdminDashboard user={user} onLogout={handleLogout} />;
+        case UserRoleEnum.TEACHER:
+            return <TeacherDashboard user={user} onLogout={handleLogout} />;
+        case UserRoleEnum.PEMBINA_ESKUL:
+            return <PembinaEskulDashboard user={user} onLogout={handleLogout} />;
+        default:
+            return (
+                <div className="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center p-4">
+                    <h1 className="text-2xl font-bold text-red-500 mb-2">Error: Peran Tidak Dikenali</h1>
+                    <p className="text-gray-300 text-center mb-4">
+                        Peran pengguna '{user.role}' tidak valid atau tidak didukung oleh aplikasi ini.
+                    </p>
+                    <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors">
+                        Keluar
+                    </button>
                 </div>
-            </div>
-        );
+            );
     }
-
-    if (userProfile.role === UserRoleEnum.ADMIN) {
-        return <AdminDashboard user={userProfile} onLogout={handleLogout} />;
-    }
-    if (userProfile.role === UserRoleEnum.TEACHER) {
-        return <TeacherDashboard user={userProfile} onLogout={handleLogout} />;
-    }
-    if (userProfile.role === UserRoleEnum.PEMBINA_ESKUL) {
-        return <PembinaEskulDashboard user={userProfile} onLogout={handleLogout} />;
-    }
-
-    // Fallback for unknown roles
-    return <div>Peran pengguna tidak dikenali.</div>;
 };
 
 export default App;
