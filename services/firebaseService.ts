@@ -1,4 +1,4 @@
-import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord, AbsenceRecord } from '../types';
+import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
 declare var firebase: any;
@@ -412,40 +412,6 @@ export const checkIfAlreadyScanned = async (teacherId: string, classId: string, 
         
     return !snapshot.empty;
 };
-
-// --- Absence Record Functions ---
-export const getAbsenceRecords = async (): Promise<AbsenceRecord[]> => {
-    const snapshot = await db.collection('absenceRecords').orderBy('date', 'desc').get();
-    return collectionToData<AbsenceRecord>(snapshot);
-};
-
-export const addAbsenceRecord = async (recordData: Omit<AbsenceRecord, 'id'>): Promise<{success: boolean, message: string}> => {
-    try {
-        await db.collection('absenceRecords').add(recordData);
-        return { success: true, message: "Keterangan absensi berhasil ditambahkan." };
-    } catch (error: any) {
-        return { success: false, message: `Gagal menambahkan: ${error.message}` };
-    }
-};
-
-export const updateAbsenceRecord = async (id: string, recordData: Partial<AbsenceRecord>): Promise<{success: boolean, message: string}> => {
-    try {
-        await db.collection('absenceRecords').doc(id).update(recordData);
-        return { success: true, message: "Keterangan absensi berhasil diperbarui." };
-    } catch (error: any) {
-        return { success: false, message: `Gagal memperbarui: ${error.message}` };
-    }
-};
-
-export const deleteAbsenceRecord = async (id: string): Promise<{success: boolean, message: string}> => {
-    try {
-        await db.collection('absenceRecords').doc(id).delete();
-        return { success: true, message: "Keterangan absensi berhasil dihapus." };
-    } catch (error: any) {
-        return { success: false, message: `Gagal menghapus: ${error.message}` };
-    }
-};
-
 
 // --- Message Functions ---
 

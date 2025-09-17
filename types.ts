@@ -39,23 +39,6 @@ export interface AttendanceRecord {
   scanTime: string; // ISO string
 }
 
-// --- New Absence Management Types ---
-export enum AbsenceStatus {
-  SAKIT = 'Sakit',
-  IZIN = 'Izin',
-  TUGAS_LUAR = 'Tugas Luar',
-}
-
-export interface AbsenceRecord {
-    id: string;
-    teacherId: string;
-    date: string; // YYYY-MM-DD
-    status: AbsenceStatus;
-    keterangan?: string; // Optional description
-    berlakuSepanjangHari: boolean;
-}
-
-
 export type Coords = {
   latitude: number;
   longitude: number;
