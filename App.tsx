@@ -1969,6 +1969,7 @@ const AttendanceReport: React.FC = () => {
     
     // State for class attendance
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+    const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [teachers, setTeachers] = useState<User[]>([]);
     const [classes, setClasses] = useState<Class[]>([]);
     const [filter, setFilter] = useState({ teacherId: '', classId: '', startDate: '', endDate: '' });
@@ -1986,10 +1987,11 @@ const AttendanceReport: React.FC = () => {
         setLoading(true);
         try {
             const [
-                att, tch, cls, // Class data
+                att, sch, tch, cls, // Class data
                 eskulAtt, pbn, es, eskSch // Eskul data
             ] = await Promise.all([
                 api.getAttendanceRecords(),
+                api.getSchedules(),
                 api.getUsersByRole(UserRoleEnum.TEACHER),
                 api.getClasses(),
                 api.getAllEskulAttendanceRecords(),
@@ -1999,6 +2001,7 @@ const AttendanceReport: React.FC = () => {
             ]);
             // Set class data
             setAttendance(att);
+            setSchedules(sch);
             setTeachers(tch);
             setClasses(cls);
             // Set eskul data
@@ -2008,6 +2011,7 @@ const AttendanceReport: React.FC = () => {
             setEskulSchedules(eskSch);
         } catch (error) {
             console.error("Failed to fetch report data:", error);
+            alert(`Gagal memuat data laporan: ${error}`);
         } finally {
             setLoading(false);
         }
@@ -2017,75 +2021,160 @@ const AttendanceReport: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
-    const filteredAttendance = useMemo(() => {
-        return attendance.filter(rec => {
-            const scanDate = new Date(rec.scanTime);
-            const startDate = filter.startDate ? new Date(filter.startDate) : null;
-            const endDate = filter.endDate ? new Date(filter.endDate) : null;
-            if (startDate) startDate.setHours(0,0,0,0);
-            if (endDate) endDate.setHours(23,59,59,999);
-            
-            return (
-                (filter.teacherId ? rec.teacherId === filter.teacherId : true) &&
-                (filter.classId ? rec.classId === filter.classId : true) &&
-                (startDate ? scanDate >= startDate : true) &&
-                (endDate ? scanDate <= endDate : true)
+    const classReportData = useMemo(() => {
+        if (!filter.startDate || !filter.endDate) {
+            return []; // Return empty array if no date range is selected
+        }
+
+        const report: any[] = [];
+        const startDate = new Date(filter.startDate);
+        const endDate = new Date(filter.endDate);
+
+        const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
+        const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
+
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            const currentDate = new Date(d);
+            const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' }) as Schedule['day'];
+
+            const dailySchedules = schedules.filter(s => 
+                s.day === dayName &&
+                (filter.teacherId ? s.teacherId === filter.teacherId : true) &&
+                (filter.classId ? s.classId === filter.classId : true)
             );
-        });
-    }, [attendance, filter]);
-    
-    const processedAndFilteredEskulAttendance = useMemo(() => {
-        const scheduleMap = new Map(eskulSchedules.map(s => [s.id, s]));
-        const eskulMap = new Map(eskuls.map(e => [e.id, e]));
-        const pembinaMap = new Map(pembinas.map(p => [p.id, p]));
 
-        const processed = eskulAttendance.map(rec => {
-            const schedule = scheduleMap.get(rec.eskulScheduleId);
-            const eskul = schedule ? eskulMap.get(schedule.eskulId) : undefined;
-            const pembina = pembinaMap.get(rec.pembinaId);
+            for (const schedule of dailySchedules) {
+                const attendanceRecord = attendance.find(rec => 
+                    rec.teacherId === schedule.teacherId &&
+                    rec.classId === schedule.classId &&
+                    rec.lessonHour === schedule.lessonHour &&
+                    new Date(rec.scanTime).toDateString() === currentDate.toDateString()
+                );
 
-            let duration = 'N/A';
-            if (rec.checkInTime && rec.checkOutTime) {
-                const start = new Date(rec.checkInTime);
-                const end = new Date(rec.checkOutTime);
-                const diffMs = end.getTime() - start.getTime();
-                if (diffMs > 0) {
-                    const diffMins = Math.round(diffMs / 60000);
-                    const hours = Math.floor(diffMins / 60);
-                    const minutes = diffMins % 60;
-                    duration = `${hours} jam ${minutes} menit`;
+                if (attendanceRecord) {
+                    let lateness = 'Tepat Waktu';
+                    if (schedule.startTime) {
+                        const scanTime = new Date(attendanceRecord.scanTime);
+                        const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
+                        const scheduledStartTime = new Date(scanTime);
+                        scheduledStartTime.setHours(startHour, startMinute, 0, 0);
+
+                        const diffMs = scanTime.getTime() - scheduledStartTime.getTime();
+                        if (diffMs > 60000) { // Consider late if more than 1 minute past scheduled time
+                            lateness = `${Math.round(diffMs / 60000)} menit`;
+                        }
+                    }
+                    report.push({
+                        id: attendanceRecord.id,
+                        date: currentDate.toLocaleDateString('id-ID'),
+                        teacherName: getTeacherName(schedule.teacherId),
+                        className: getClassName(schedule.classId),
+                        subject: schedule.subject,
+                        lessonHour: schedule.lessonHour,
+                        status: 'Hadir',
+                        scanTime: new Date(attendanceRecord.scanTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}),
+                        lateness: lateness,
+                    });
+                } else {
+                    report.push({
+                        id: `${schedule.id}-${currentDate.toISOString()}`,
+                        date: currentDate.toLocaleDateString('id-ID'),
+                        teacherName: getTeacherName(schedule.teacherId),
+                        className: getClassName(schedule.classId),
+                        subject: schedule.subject,
+                        lessonHour: schedule.lessonHour,
+                        status: 'Tidak Hadir',
+                        scanTime: '-',
+                        lateness: '-',
+                    });
                 }
             }
+        }
+        return report.sort((a, b) => new Date(a.date.split('/').reverse().join('-')).getTime() - new Date(b.date.split('/').reverse().join('-')).getTime() || a.teacherName.localeCompare(b.teacherName));
+    }, [attendance, schedules, teachers, classes, filter]);
+    
+    const eskulReportData = useMemo(() => {
+        if (!eskulFilter.startDate || !eskulFilter.endDate) {
+            return [];
+        }
 
-            return {
-                ...rec,
-                pembinaName: pembina?.name || 'N/A',
-                eskulName: eskul?.name || 'Kegiatan Dihapus',
-                pembinaId: rec.pembinaId,
-                eskulId: schedule?.eskulId || '',
-                duration,
-            };
-        });
+        const report: any[] = [];
+        const startDate = new Date(eskulFilter.startDate);
+        const endDate = new Date(eskulFilter.endDate);
         
-        return processed.filter(rec => {
-            const checkInDate = new Date(rec.checkInTime);
-            const startDate = eskulFilter.startDate ? new Date(eskulFilter.startDate) : null;
-            const endDate = eskulFilter.endDate ? new Date(eskulFilter.endDate) : null;
-            if (startDate) startDate.setHours(0,0,0,0);
-            if (endDate) endDate.setHours(23,59,59,999);
-            
-            return (
-                (eskulFilter.pembinaId ? rec.pembinaId === eskulFilter.pembinaId : true) &&
-                (eskulFilter.eskulId ? rec.eskulId === eskulFilter.eskulId : true) &&
-                (startDate ? checkInDate >= startDate : true) &&
-                (endDate ? checkInDate <= endDate : true)
+        const getPembinaName = (id: string) => pembinas.find(p => p.id === id)?.name || 'N/A';
+        const getEskulName = (id: string) => eskuls.find(e => e.id === id)?.name || 'N/A';
+
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            const currentDate = new Date(d);
+            const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' }) as EskulSchedule['day'];
+
+            const dailySchedules = eskulSchedules.filter(s => 
+                s.day === dayName &&
+                (eskulFilter.pembinaId ? s.pembinaId === eskulFilter.pembinaId : true) &&
+                (eskulFilter.eskulId ? s.eskulId === eskulFilter.eskulId : true)
             );
-        });
-    }, [eskulAttendance, eskulSchedules, eskuls, pembinas, eskulFilter]);
 
+            for (const schedule of dailySchedules) {
+                const attendanceRecord = eskulAttendance.find(rec =>
+                    rec.pembinaId === schedule.pembinaId &&
+                    rec.eskulScheduleId === schedule.id &&
+                    new Date(rec.checkInTime).toDateString() === currentDate.toDateString()
+                );
 
-    const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'N/A';
-    const getClassName = (id: string) => classes.find(c => c.id === id)?.name || 'N/A';
+                if (attendanceRecord) {
+                    let lateness = 'Tepat Waktu';
+                    const checkInTime = new Date(attendanceRecord.checkInTime);
+                    const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
+                    const scheduledStartTime = new Date(checkInTime);
+                    scheduledStartTime.setHours(startHour, startMinute, 0, 0);
+
+                    const latenessMs = checkInTime.getTime() - scheduledStartTime.getTime();
+                    if (latenessMs > 60000) {
+                        lateness = `${Math.round(latenessMs / 60000)} menit`;
+                    }
+
+                    let earlyDeparture = '-';
+                    if (attendanceRecord.checkOutTime && schedule.endTime) {
+                        const checkOutTime = new Date(attendanceRecord.checkOutTime);
+                        const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
+                        const scheduledEndTime = new Date(checkOutTime);
+                        scheduledEndTime.setHours(endHour, endMinute, 0, 0);
+
+                        const earlyMs = scheduledEndTime.getTime() - checkOutTime.getTime();
+                        if (earlyMs > 60000) { // Consider early if more than 1 minute before scheduled end
+                            earlyDeparture = `${Math.round(earlyMs / 60000)} menit`;
+                        }
+                    }
+                    
+                    report.push({
+                        id: attendanceRecord.id,
+                        date: currentDate.toLocaleDateString('id-ID'),
+                        pembinaName: getPembinaName(schedule.pembinaId),
+                        eskulName: getEskulName(schedule.eskulId),
+                        status: 'Hadir',
+                        checkInTime: checkInTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}),
+                        checkOutTime: attendanceRecord.checkOutTime ? new Date(attendanceRecord.checkOutTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}) : '-',
+                        lateness,
+                        earlyDeparture,
+                    });
+                } else {
+                    report.push({
+                        id: `${schedule.id}-${currentDate.toISOString()}`,
+                        date: currentDate.toLocaleDateString('id-ID'),
+                        pembinaName: getPembinaName(schedule.pembinaId),
+                        eskulName: getEskulName(schedule.eskulId),
+                        status: 'Tidak Hadir',
+                        checkInTime: '-',
+                        checkOutTime: '-',
+                        lateness: '-',
+                        earlyDeparture: '-',
+                    });
+                }
+            }
+        }
+        return report.sort((a, b) => new Date(a.date.split('/').reverse().join('-')).getTime() - new Date(b.date.split('/').reverse().join('-')).getTime() || a.pembinaName.localeCompare(b.pembinaName));
+    }, [eskulAttendance, eskulSchedules, pembinas, eskuls, eskulFilter]);
 
     const exportToPDF = () => {
         const { jsPDF } = window.jspdf;
@@ -2099,30 +2188,36 @@ const AttendanceReport: React.FC = () => {
 
         if (reportType === 'kelas') {
             doc.text("Laporan Absensi Guru", 14, 16);
-            const tableData = filteredAttendance.map(rec => [
-                getTeacherName(rec.teacherId),
-                getClassName(rec.classId),
+            const tableData = classReportData.map(rec => [
+                rec.date,
+                rec.teacherName,
+                rec.className,
+                rec.subject,
                 `Jam ke-${rec.lessonHour}`,
-                new Date(rec.scanTime).toLocaleString('id-ID'),
+                rec.status,
+                rec.scanTime,
+                rec.lateness,
             ]);
             doc.autoTable({
-                head: [['Nama Guru', 'Kelas', 'Jam Pelajaran', 'Waktu']],
+                head: [['Tanggal', 'Guru', 'Kelas', 'Pelajaran', 'Jam Ke', 'Status', 'Waktu Scan', 'Keterlambatan']],
                 body: tableData,
                 startY: 20,
             });
             doc.save('laporan_absensi_kelas.pdf');
         } else { // eskul
             doc.text("Laporan Absensi Ekstrakurikuler", 14, 16);
-            const tableData = processedAndFilteredEskulAttendance.map(rec => [
+            const tableData = eskulReportData.map(rec => [
+                rec.date,
                 rec.pembinaName,
                 rec.eskulName,
-                new Date(rec.checkInTime).toLocaleDateString('id-ID'),
-                new Date(rec.checkInTime).toLocaleTimeString('id-ID'),
-                rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString('id-ID') : '-',
-                rec.duration
+                rec.status,
+                rec.checkInTime,
+                rec.checkOutTime,
+                rec.lateness,
+                rec.earlyDeparture,
             ]);
             doc.autoTable({
-                head: [['Pembina', 'Eskul', 'Tanggal', 'Datang', 'Pulang', 'Durasi']],
+                head: [['Tanggal', 'Pembina', 'Eskul', 'Status', 'Datang', 'Pulang', 'Keterlambatan', 'Pulang Awal']],
                 body: tableData,
                 startY: 20,
             });
@@ -2130,35 +2225,43 @@ const AttendanceReport: React.FC = () => {
         }
     };
 
-
     const exportToExcel = () => {
         let worksheetData, fileName;
 
         if (reportType === 'kelas') {
-            worksheetData = filteredAttendance.map(rec => ({
-                "Nama Guru": getTeacherName(rec.teacherId),
-                "Kelas": getClassName(rec.classId),
+            worksheetData = classReportData.map(rec => ({
+                "Tanggal": rec.date,
+                "Nama Guru": rec.teacherName,
+                "Kelas": rec.className,
+                "Mata Pelajaran": rec.subject,
                 "Jam Pelajaran": `Jam ke-${rec.lessonHour}`,
-                "Waktu": new Date(rec.scanTime).toLocaleString('id-ID'),
+                "Status": rec.status,
+                "Waktu Scan": rec.scanTime,
+                "Keterlambatan": rec.lateness,
             }));
             fileName = "Laporan_Absensi_Kelas.xlsx";
         } else {
-             worksheetData = processedAndFilteredEskulAttendance.map(rec => ({
+             worksheetData = eskulReportData.map(rec => ({
+                "Tanggal": rec.date,
                 "Nama Pembina": rec.pembinaName,
                 "Kegiatan Eskul": rec.eskulName,
-                "Tanggal": new Date(rec.checkInTime).toLocaleDateString('id-ID'),
-                "Waktu Datang": new Date(rec.checkInTime).toLocaleTimeString('id-ID'),
-                "Waktu Pulang": rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString('id-ID') : '-',
-                "Durasi": rec.duration,
+                "Status": rec.status,
+                "Waktu Datang": rec.checkInTime,
+                "Waktu Pulang": rec.checkOutTime,
+                "Keterlambatan": rec.lateness,
+                "Pulang Lebih Awal": rec.earlyDeparture,
             }));
             fileName = "Laporan_Absensi_Eskul.xlsx";
         }
 
         const worksheet = XLSX.utils.json_to_sheet(worksheetData);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Absensi");
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan");
         XLSX.writeFile(workbook, fileName);
     };
+
+    const isClassReportReady = filter.startDate && filter.endDate;
+    const isEskulReportReady = eskulFilter.startDate && eskulFilter.endDate;
 
     return (
         <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
@@ -2236,42 +2339,70 @@ const AttendanceReport: React.FC = () => {
             
             {/* Export Buttons */}
             <div className="flex justify-end gap-2 mb-4">
-                <button onClick={exportToPDF} className="bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-800">Ekspor PDF</button>
-                <button onClick={exportToExcel} className="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">Ekspor Excel</button>
+                <button onClick={exportToPDF} disabled={(reportType === 'kelas' && !isClassReportReady) || (reportType === 'eskul' && !isEskulReportReady)} className="bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-800 disabled:bg-gray-600 disabled:cursor-not-allowed">Ekspor PDF</button>
+                <button onClick={exportToExcel} disabled={(reportType === 'kelas' && !isClassReportReady) || (reportType === 'eskul' && !isEskulReportReady)} className="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800 disabled:bg-gray-600 disabled:cursor-not-allowed">Ekspor Excel</button>
             </div>
 
             {/* Table */}
             {loading ? <Spinner/> : (
                 reportType === 'kelas' ? (
-                    <CrudTable
-                        title=""
-                        columns={['Guru', 'Kelas', 'Jam Ke', 'Waktu']}
-                        data={filteredAttendance}
-                        renderRow={(rec: AttendanceRecord) => (
-                             <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700">
-                                <td className="p-3">{getTeacherName(rec.teacherId)}</td>
-                                <td className="p-3">{getClassName(rec.classId)}</td>
-                                <td className="p-3">{rec.lessonHour}</td>
-                                <td className="p-3">{new Date(rec.scanTime).toLocaleString('id-ID')}</td>
-                            </tr>
-                        )}
-                    />
-                ) : (
-                    <CrudTable
-                        title=""
-                        columns={['Pembina', 'Eskul', 'Tanggal', 'Datang', 'Pulang', 'Durasi']}
-                        data={processedAndFilteredEskulAttendance}
-                        renderRow={(rec: any) => (
-                             <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700">
-                                <td className="p-3">{rec.pembinaName}</td>
-                                <td className="p-3">{rec.eskulName}</td>
-                                <td className="p-3">{new Date(rec.checkInTime).toLocaleDateString('id-ID')}</td>
-                                <td className="p-3">{new Date(rec.checkInTime).toLocaleTimeString('id-ID')}</td>
-                                <td className="p-3">{rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString('id-ID') : '-'}</td>
-                                <td className="p-3">{rec.duration}</td>
-                            </tr>
-                        )}
-                    />
+                    !isClassReportReady ? (
+                        <div className="text-center py-10 text-gray-400 bg-gray-800 rounded-lg">
+                            <p className="font-semibold">Pilih rentang tanggal untuk menampilkan laporan.</p>
+                            <p className="text-sm">Laporan lengkap termasuk data guru yang tidak hadir akan ditampilkan di sini.</p>
+                        </div>
+                    ) : (
+                        <CrudTable
+                            title=""
+                            columns={['Tanggal', 'Guru', 'Kelas', 'Pelajaran', 'Jam Ke', 'Status', 'Waktu Scan', 'Keterlambatan']}
+                            data={classReportData}
+                            renderRow={(rec: any) => (
+                                 <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700">
+                                    <td className="p-3">{rec.date}</td>
+                                    <td className="p-3">{rec.teacherName}</td>
+                                    <td className="p-3">{rec.className}</td>
+                                    <td className="p-3">{rec.subject}</td>
+                                    <td className="p-3 text-center">{rec.lessonHour}</td>
+                                    <td className="p-3">
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${rec.status === 'Hadir' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                                            {rec.status}
+                                        </span>
+                                    </td>
+                                    <td className="p-3">{rec.scanTime}</td>
+                                    <td className="p-3">{rec.lateness}</td>
+                                </tr>
+                            )}
+                        />
+                    )
+                ) : ( // eskul report
+                    !isEskulReportReady ? (
+                         <div className="text-center py-10 text-gray-400 bg-gray-800 rounded-lg">
+                            <p className="font-semibold">Pilih rentang tanggal untuk menampilkan laporan.</p>
+                            <p className="text-sm">Laporan lengkap termasuk data pembina yang tidak hadir akan ditampilkan di sini.</p>
+                        </div>
+                    ) : (
+                        <CrudTable
+                            title=""
+                            columns={['Tanggal', 'Pembina', 'Eskul', 'Status', 'Datang', 'Pulang', 'Keterlambatan', 'Pulang Awal']}
+                            data={eskulReportData}
+                            renderRow={(rec: any) => (
+                                 <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700">
+                                    <td className="p-3">{rec.date}</td>
+                                    <td className="p-3">{rec.pembinaName}</td>
+                                    <td className="p-3">{rec.eskulName}</td>
+                                    <td className="p-3">
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${rec.status === 'Hadir' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                                            {rec.status}
+                                        </span>
+                                    </td>
+                                    <td className="p-3">{rec.checkInTime}</td>
+                                    <td className="p-3">{rec.checkOutTime}</td>
+                                    <td className="p-3">{rec.lateness}</td>
+                                    <td className="p-3">{rec.earlyDeparture}</td>
+                                </tr>
+                            )}
+                        />
+                    )
                 )
             )}
         </div>
