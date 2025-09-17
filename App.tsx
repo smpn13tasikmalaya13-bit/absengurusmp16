@@ -46,8 +46,40 @@ const Spinner = () => (
 );
 
 const FullPageSpinner = () => (
-    <div className="fixed inset-0 bg-gray-900 flex justify-center items-center z-50">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
+    <div className="fixed inset-0 bg-gray-900 flex flex-col justify-center items-center z-50 p-4">
+        {/* App Icon with pulse animation */}
+        <div className="w-48 h-48 mb-8">
+            <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" className="animate-pulse">
+                <defs>
+                    <linearGradient id="bg_gradient_loader" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#1e3a8a"/>
+                        <stop offset="1" stopColor="#2563eb"/>
+                    </linearGradient>
+                    <linearGradient id="icon_gradient_loader" x1="128" y1="128" x2="384" y2="384" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#22d3ee"/>
+                        <stop offset="1" stopColor="#a3e635"/>
+                    </linearGradient>
+                </defs>
+                <rect width="512" height="512" rx="90" fill="url(#bg_gradient_loader)"/>
+                <g>
+                    {/* Left vertical bar of 'H' */}
+                    <path d="M144 144 C144 126.34 158.34 112 176 112 H 192 C209.66 112 224 126.34 224 144 V 368 C224 385.66 209.66 400 192 400 H 176 C158.34 400 144 385.66 144 368 V 144 Z" fill="url(#icon_gradient_loader)"/>
+                    {/* Right vertical bar of 'H', creatively shaped as a checkmark */}
+                    <path d="M288 144 C288 126.34 302.34 112 320 112 H 336 C353.66 112 368 126.34 368 144 V 240 L 400 208 C 412.4 195.6 432.4 195.6 444.8 208 L 458.8 222 C 471.2 234.4 471.2 254.4 458.8 266.8 L 352 374 C 339.6 386.4 319.6 386.4 307.2 374 L 288 354.8 V 144 Z" fill="url(#icon_gradient_loader)"/>
+                    {/* Center connecting bar, stylized */}
+                    <rect x="224" y="240" width="64" height="32" rx="16" fill="url(#icon_gradient_loader)"/>
+                </g>
+            </svg>
+        </div>
+
+        {/* Loading Text */}
+        <p className="text-xl text-gray-300">Memuat data...</p>
+
+        {/* Copyright notice at the bottom */}
+        <div className="absolute bottom-8 text-center w-full">
+            <p className="text-gray-400 text-sm">© 2025 Rullp. All rights reserved.</p>
+            <p className="text-gray-300 font-semibold mt-1">SMP Negeri 13 Tasikmalaya</p>
+        </div>
     </div>
 );
 
@@ -420,7 +452,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                 </div>
             </Modal>
             <footer className="text-center text-sm text-gray-500 py-6">
-                © {new Date().getFullYear()} Rullp. All rights reserved.
+                © 2025 Rullp. All rights reserved.
             </footer>
         </div>
     );
@@ -901,7 +933,7 @@ const PembinaEskulDashboard: React.FC<{ user: User; onLogout: () => void }> = ({
                 <EskulScheduleManager user={user} schedules={schedules} eskuls={eskuls} onScheduleUpdate={fetchData} />
             </Modal>
              <footer className="text-center text-sm text-gray-500 py-6">
-                © {new Date().getFullYear()} Rullp. All rights reserved.
+                © 2025 Rullp. All rights reserved.
             </footer>
         </div>
     );
@@ -1101,7 +1133,7 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                 {view === 'eskulSchedules' && <AdminEskulScheduleManagement />}
                 {view === 'reports' && <AttendanceReport />}
                 <footer className="text-center text-sm text-gray-500 pt-8 pb-2">
-                    © {new Date().getFullYear()} Rullp. All rights reserved.
+                    © 2025 Rullp. All rights reserved.
                 </footer>
             </main>
         </div>
@@ -2630,7 +2662,7 @@ const App: React.FC = () => {
                     )}
 
                     <div className="text-center text-xs text-gray-500 mt-8">
-                        © {new Date().getFullYear()} Rullp. All rights reserved.
+                        © 2025 Rullp. All rights reserved.
                     </div>
                 </div>
             </div>
