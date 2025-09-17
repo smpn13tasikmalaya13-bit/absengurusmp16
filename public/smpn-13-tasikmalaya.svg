@@ -1,22 +1,29 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <!-- Gradient Background -->
-    <rect width="512" height="512" rx="90" fill="url(#backgroundGradient)"/>
+    <!-- Background: A modern rounded square with a deep blue gradient -->
+    <rect width="512" height="512" rx="90" fill="url(#bg_gradient)"/>
     <defs>
-        <linearGradient id="backgroundGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#3B82F6"/>
-            <stop offset="1" stop-color="#1D4ED8"/>
+        <linearGradient id="bg_gradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#1e3a8a"/>
+            <stop offset="1" stop-color="#2563eb"/>
         </linearGradient>
-        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="4" dy="8" stdDeviation="8" flood-color="#000000" flood-opacity="0.3"/>
+        <linearGradient id="icon_gradient" x1="128" y1="128" x2="384" y2="384" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#22d3ee"/> <!-- Cyan -->
+            <stop offset="1" stop-color="#a3e635"/> <!-- Lime Green -->
+        </linearGradient>
+        <filter id="icon_shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="4" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.25"/>
         </filter>
     </defs>
 
-    <!-- Main Icon Group: Location Pin with a Checkmark -->
-    <g transform="translate(0, -20)" filter="url(#shadow)">
-        <!-- The location pin shape -->
-        <path d="M256 96C186.4 96 128 154.4 128 224C128 310.4 240.2 411.3 249.6 421.1C252.9 424.5 259.1 424.5 262.4 421.1C271.8 411.3 384 310.4 384 224C384 154.4 325.6 96 256 96Z" fill="white"/>
+    <!-- Abstract "H" Icon with integrated checkmark -->
+    <g filter="url(#icon_shadow)">
+        <!-- Left vertical bar of 'H' -->
+        <path d="M144 144 C144 126.34 158.34 112 176 112 H 192 C209.66 112 224 126.34 224 144 V 368 C224 385.66 209.66 400 192 400 H 176 C158.34 400 144 385.66 144 368 V 144 Z" fill="url(#icon_gradient)"/>
+
+        <!-- Right vertical bar of 'H', creatively shaped as a checkmark -->
+        <path d="M288 144 C288 126.34 302.34 112 320 112 H 336 C353.66 112 368 126.34 368 144 V 240 L 400 208 C 412.4 195.6 432.4 195.6 444.8 208 L 458.8 222 C 471.2 234.4 471.2 254.4 458.8 266.8 L 352 374 C 339.6 386.4 319.6 386.4 307.2 374 L 288 354.8 V 144 Z" fill="url(#icon_gradient)"/>
         
-        <!-- The checkmark inside the pin -->
-        <path d="M208 232L248 272L320 200" stroke="#2563EB" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- Center connecting bar, stylized -->
+        <rect x="224" y="240" width="64" height="32" rx="16" fill="url(#icon_gradient)"/>
     </g>
 </svg>
