@@ -114,18 +114,11 @@ const getFirebaseAuthErrorMessage = (error: any): string => {
 };
 
 export const signUp = async (email: string, password: string, name: string, role: UserRole): Promise<void> => {
-    // Check for admin limit
-    if (role === 'ADMIN') {
-        const adminQuery = await db.collection('users').where('role', '==', 'ADMIN').get();
-        if (adminQuery.size >= 4) {
-            throw new Error("Status admin anda di tolak, dan anda tidak berhak menjadi seorang Admin.");
-        }
-    }
-    
     const authInstance = firebase.auth();
     let userCredential;
 
     // Tahap 1: Buat pengguna di Firebase Authentication.
+    // Ini penting dilakukan pertama agar kita memiliki UID dan status terotentikasi untuk transaksi Firestore.
     try {
         userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
     } catch (authError: any) {
@@ -135,33 +128,60 @@ export const signUp = async (email: string, password: string, name: string, role
     
     const user = userCredential.user;
     if (!user) {
+        // Seharusnya tidak terjadi, tetapi untuk keamanan
         throw new Error("Gagal memverifikasi pengguna setelah pendaftaran.");
     }
-    
-    // Tahap 2: Buat dokumen profil pengguna di Firestore.
-    // Dengan aturan keamanan yang benar, ini seharusnya berhasil tanpa coba-ulang yang rumit.
+
+    // Tahap 2: Buat profil pengguna di Firestore, dengan validasi kuota admin di dalam transaksi.
     try {
         const deviceId = getDeviceId();
         const profileData = {
             name,
             role,
             userId: email,
-            boundDeviceId: deviceId, 
+            boundDeviceId: deviceId,
         };
-        
-        await db.collection('users').doc(user.uid).set(profileData);
 
-    } catch (firestoreError: any) {
-        console.error("Firestore profile creation failed, cleaning up auth user...", firestoreError);
-        // Jika Firestore gagal, kita HARUS menghapus pengguna Auth untuk mencegah akun yatim.
-        try {
-            await user.delete();
-        } catch (deleteError) {
-            console.error("KRITIS: Gagal membersihkan pengguna auth setelah pembuatan profil gagal:", deleteError);
-            throw new Error("Pendaftaran gagal kritis. Akun Anda mungkin dalam keadaan tidak konsisten. Harap hubungi admin.");
+        if (role === 'ADMIN') {
+            // Gunakan transaksi untuk memastikan pengecekan dan penulisan kuota bersifat atomik.
+            await db.runTransaction(async (transaction: any) => {
+                const usersRef = db.collection('users');
+                const adminQuery = usersRef.where('role', '==', 'ADMIN');
+                const adminSnapshot = await transaction.get(adminQuery);
+                
+                if (adminSnapshot.size >= 4) {
+                    // Melemparkan error di dalam transaksi akan membatalkannya secara otomatis.
+                    throw new Error("ADMIN_QUOTA_EXCEEDED");
+                }
+
+                // Kuota belum penuh, lanjutkan membuat profil admin.
+                const newUserDocRef = usersRef.doc(user.uid);
+                transaction.set(newUserDocRef, profileData);
+            });
+        } else {
+            // Untuk peran selain Admin, langsung buat profil tanpa transaksi kuota.
+            await db.collection('users').doc(user.uid).set(profileData);
         }
-        // Lempar pesan yang mudah dipahami untuk kegagalan Firestore.
-        throw new Error(`Gagal menyimpan profil pengguna. Silakan coba lagi. (Pesan: ${firestoreError.message})`);
+
+    } catch (error: any) {
+        console.error("Firestore operation failed, cleaning up auth user...", error);
+        
+        // Jika terjadi error (kuota penuh atau masalah lain), hapus pengguna Auth yang sudah dibuat.
+        await user.delete().catch((deleteError: any) => {
+            console.error("KRITIS: Gagal membersihkan pengguna auth setelah pembuatan profil gagal:", deleteError);
+            // Memberi tahu pengguna tentang situasi yang lebih parah.
+            throw new Error("Pendaftaran gagal dan akun tidak dapat dibersihkan secara otomatis. Harap hubungi admin.");
+        });
+
+        // Tampilkan pesan error yang sesuai ke pengguna.
+        if (error.message === "ADMIN_QUOTA_EXCEEDED") {
+            throw new Error("Status admin anda di tolak, dan anda tidak berhak menjadi seorang Admin.");
+        }
+        if (error.code === 'permission-denied') {
+             throw new Error("Pendaftaran admin gagal karena masalah izin. Hubungi admin untuk memeriksa konfigurasi keamanan.");
+        }
+        
+        throw new Error(`Gagal menyimpan profil pengguna. Silakan coba lagi.`);
     }
 };
 
