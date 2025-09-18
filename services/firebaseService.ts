@@ -165,18 +165,20 @@ export const signUp = async (email: string, password: string, name: string, role
         
         await user.delete().catch((deleteError: any) => {
             console.error("CRITICAL: Failed to clean up auth user after failed profile creation:", deleteError);
-            throw new Error("Pendaftaran gagal dan akun tidak dapat dibersihkan secara otomatis. Harap hubungi admin.");
+            throw new Error("Pendaftaran gagal dan akun tidak dapat dibersihkan secara otomatis. Harap hubungi admin untuk menghapus akun Anda secara manual.");
         });
 
-        // Handle specific, known errors first with clearer messages.
         if ((error as any).isQuotaError) {
             throw new Error("Status admin anda di tolak, dan anda tidak berhak menjadi seorang Admin.");
         }
-        if (error.code === 'permission-denied' || (error.toString && error.toString().toLowerCase().includes('permission-denied'))) {
-             throw new Error("Pendaftaran admin gagal: Izin ditolak oleh server. Hubungi administrator untuk memeriksa konfigurasi keamanan (security rules) di Firebase.");
+        
+        const errorMessage = (error.message || '').toLowerCase();
+        const errorCode = error.code;
+
+        if (errorCode === 'permission-denied' || errorMessage.includes('permission-denied') || errorMessage.includes('403')) {
+             throw new Error("Pendaftaran admin gagal: Izin ditolak (Error 403). Ini adalah masalah konfigurasi server. SOLUSI: Perbarui Firebase Security Rules Anda untuk mengizinkan pengguna yang terautentikasi membaca dan menulis ke koleksi 'counters'.");
         }
         
-        // Provide a more informative generic error.
         throw new Error(`Gagal menyimpan profil pengguna: ${error.message || 'Terjadi kesalahan yang tidak terduga.'}`);
     }
 };
