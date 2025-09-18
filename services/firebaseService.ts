@@ -114,6 +114,14 @@ const getFirebaseAuthErrorMessage = (error: any): string => {
 };
 
 export const signUp = async (email: string, password: string, name: string, role: UserRole): Promise<void> => {
+    // Check for admin limit
+    if (role === 'ADMIN') {
+        const adminQuery = await db.collection('users').where('role', '==', 'ADMIN').get();
+        if (adminQuery.size >= 4) {
+            throw new Error("Status admin anda di tolak, dan anda tidak berhak menjadi seorang Admin.");
+        }
+    }
+    
     const authInstance = firebase.auth();
     let userCredential;
 
