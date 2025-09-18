@@ -113,15 +113,31 @@ const getFirebaseAuthErrorMessage = (error: any): string => {
     }
 };
 
-export const signUp = async (email: string, password: string, name: string, role: UserRole): Promise<void> => {
+export const signUp = async (email: string, password: string, name: string, role: UserRole, adminCode?: string): Promise<void> => {
     const authInstance = firebase.auth();
     let userCredential;
 
     try {
+        if (role === 'ADMIN') {
+            // Ini adalah gerbang sederhana namun efektif untuk mencegah pendaftaran admin yang tidak disengaja.
+            // Dalam aplikasi produksi nyata, kode ini harus dikelola dengan aman (misalnya, variabel lingkungan)
+            // dan validasi harus terjadi di server backend (misalnya, Cloud Function) agar benar-benar aman.
+            const SUPER_SECRET_ADMIN_CODE = "HadirKuAdmin2025";
+            
+            if (!adminCode || adminCode !== SUPER_SECRET_ADMIN_CODE) {
+                throw new Error("Kode pendaftaran admin salah atau tidak valid.");
+            }
+        }
+
         userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
-    } catch (authError: any) {
-        console.error("Firebase Auth creation failed:", authError);
-        throw new Error(getFirebaseAuthErrorMessage(authError));
+    } catch (error: any) {
+        // Jika kesalahan berasal dari logika kode admin, teruskan pesan itu.
+        if (error.message.includes("Kode pendaftaran admin")) {
+            throw error;
+        }
+        // Jika tidak, itu adalah kesalahan otentikasi Firebase.
+        console.error("Firebase Auth creation failed:", error);
+        throw new Error(getFirebaseAuthErrorMessage(error));
     }
     
     const user = userCredential.user;
@@ -138,46 +154,16 @@ export const signUp = async (email: string, password: string, name: string, role
             boundDeviceId: deviceId,
         };
 
-        if (role === 'ADMIN') {
-            await db.runTransaction(async (transaction: any) => {
-                const counterRef = db.collection('counters').doc('adminCount');
-                const counterDoc = await transaction.get(counterRef);
-
-                const currentCount = counterDoc.exists && counterDoc.data().count ? counterDoc.data().count : 0;
-
-                if (currentCount >= 4) {
-                    const quotaError = new Error("Admin quota exceeded.");
-                    (quotaError as any).isQuotaError = true;
-                    throw quotaError;
-                }
-
-                // Increment count and set the new user document atomically.
-                transaction.set(counterRef, { count: currentCount + 1 });
-                const newUserDocRef = db.collection('users').doc(user.uid);
-                transaction.set(newUserDocRef, profileData);
-            });
-        } else {
-            await db.collection('users').doc(user.uid).set(profileData);
-        }
+        // Simpan profil pengguna tanpa logika penghitung yang rumit.
+        await db.collection('users').doc(user.uid).set(profileData);
 
     } catch (error: any) {
         console.error("Firestore operation failed, cleaning up auth user...", error);
         
         await user.delete().catch((deleteError: any) => {
-            console.error("CRITICAL: Failed to clean up auth user after failed profile creation:", deleteError);
+            console.error("KRITIS: Gagal membersihkan pengguna auth setelah pembuatan profil gagal:", deleteError);
             throw new Error("Pendaftaran gagal dan akun tidak dapat dibersihkan secara otomatis. Harap hubungi admin untuk menghapus akun Anda secara manual.");
         });
-
-        if ((error as any).isQuotaError) {
-            throw new Error("Status admin anda di tolak, dan anda tidak berhak menjadi seorang Admin.");
-        }
-        
-        const errorMessage = (error.message || '').toLowerCase();
-        const errorCode = error.code;
-
-        if (errorCode === 'permission-denied' || errorMessage.includes('permission-denied') || errorMessage.includes('403')) {
-             throw new Error("Pendaftaran admin gagal: Izin ditolak (Error 403). Ini adalah masalah konfigurasi server. SOLUSI: Perbarui Firebase Security Rules Anda untuk mengizinkan pengguna yang terautentikasi membaca dan menulis ke koleksi 'counters'.");
-        }
         
         throw new Error(`Gagal menyimpan profil pengguna: ${error.message || 'Terjadi kesalahan yang tidak terduga.'}`);
     }
@@ -228,29 +214,7 @@ export const deleteUser = async (id: string): Promise<void> => {
     const userDocRef = db.collection('users').doc(id);
 
     try {
-        // First, get the user's data to check their role.
-        const userDoc = await userDocRef.get();
-        if (!userDoc.exists) {
-            console.warn(`User with ID ${id} not found, skipping deletion.`);
-            return;
-        }
-        const userData = userDoc.data();
-
-        // If the user is an admin, we must decrement the counter in a transaction.
-        if (userData.role === 'ADMIN') {
-            await db.runTransaction(async (transaction: any) => {
-                const counterRef = db.collection('counters').doc('adminCount');
-                const counterDoc = await transaction.get(counterRef);
-                
-                // Only decrement if the counter exists and is positive.
-                if (counterDoc.exists && counterDoc.data().count > 0) {
-                    const newCount = counterDoc.data().count - 1;
-                    transaction.update(counterRef, { count: newCount });
-                }
-            });
-        }
-
-        // Delete related schedules using a batch write for efficiency.
+        // Hapus jadwal terkait menggunakan batch write untuk efisiensi.
         const batch = db.batch();
         const schedulesSnapshot = await db.collection('schedules').where('teacherId', '==', id).get();
         schedulesSnapshot.docs.forEach((doc: any) => batch.delete(doc.ref));
@@ -259,9 +223,10 @@ export const deleteUser = async (id: string): Promise<void> => {
         eskulSchedulesSnapshot.docs.forEach((doc: any) => batch.delete(doc.ref));
         await batch.commit();
 
-        // Finally, delete the user document itself.
+        // Terakhir, hapus dokumen pengguna itu sendiri.
         await userDocRef.delete();
         
+    // FIX: Corrected the catch block to ensure 'error' and 'id' variables are properly scoped and handled.
     } catch (error: any) {
         console.error(`Failed to delete user ${id} and their related data:`, error);
         alert(`Gagal menghapus pengguna: ${error.message}`);

@@ -2533,6 +2533,7 @@ const App: React.FC = () => {
     const [authView, setAuthView] = useState<'login' | 'register' | 'forgotPassword'>('login');
     const [authMessage, setAuthMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
+    const [showAdminCode, setShowAdminCode] = useState(false);
 
     useEffect(() => {
         const handleBeforeInstallPrompt = (e: Event) => {
@@ -2601,10 +2602,16 @@ const App: React.FC = () => {
     
     const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const { name, email, password, role } = e.currentTarget.elements as any;
+        const { name, email, password, role, adminCode } = e.currentTarget.elements as any;
         setAuthMessage(null);
         try {
-            await api.signUp(email.value, password.value, name.value, role.value as UserRole);
+            await api.signUp(
+                email.value, 
+                password.value, 
+                name.value, 
+                role.value as UserRole,
+                adminCode ? adminCode.value : undefined
+            );
             setAuthMessage({ type: 'success', text: "Pendaftaran berhasil! Anda akan dialihkan secara otomatis." });
         } catch (error: any) {
             setAuthMessage({ type: 'error', text: error.message || "Pendaftaran gagal." });
@@ -2700,12 +2707,23 @@ const App: React.FC = () => {
                                 </div>
                                  <div>
                                     <label className="text-sm font-medium text-gray-300 block mb-1">Daftar sebagai</label>
-                                    <select name="role" defaultValue={UserRoleEnum.TEACHER} className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white">
+                                    <select 
+                                        name="role" 
+                                        defaultValue={UserRoleEnum.TEACHER} 
+                                        className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
+                                        onChange={(e) => setShowAdminCode(e.target.value === UserRoleEnum.ADMIN)}
+                                    >
                                         <option value={UserRoleEnum.TEACHER}>Guru</option>
                                         <option value={UserRoleEnum.PEMBINA_ESKUL}>Pembina Ekstrakurikuler</option>
                                         <option value={UserRoleEnum.ADMIN}>Admin</option>
                                     </select>
                                 </div>
+                                {showAdminCode && (
+                                     <div>
+                                        <label className="text-sm font-medium text-gray-300 block mb-1">Kode Pendaftaran Admin</label>
+                                        <input name="adminCode" type="text" required className="w-full px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white" placeholder="Masukkan kode khusus"/>
+                                    </div>
+                                )}
                                 <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Daftar</button>
                             </form>
                              <p className="text-center text-sm text-gray-400 mt-6">
