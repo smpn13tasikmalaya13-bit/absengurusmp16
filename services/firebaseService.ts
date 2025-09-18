@@ -141,10 +141,19 @@ export const signUp = async (email: string, password: string, name: string, role
         if (role === 'ADMIN') {
             await db.runTransaction(async (transaction: any) => {
                 const usersRef = db.collection('users');
-                const adminQuery = usersRef.where('role', '==', 'ADMIN');
-                const adminSnapshot = await transaction.get(adminQuery);
+                // WORKAROUND: Get the entire collection instead of using a .where() query
+                // inside the transaction, as it seems to cause an internal SDK error.
+                const allUsersSnapshot = await transaction.get(usersRef);
+
+                let adminCount = 0;
+                // Manually count the admins on the client side.
+                allUsersSnapshot.forEach((doc: any) => {
+                    if (doc.data().role === 'ADMIN') {
+                        adminCount++;
+                    }
+                });
                 
-                if (adminSnapshot.size >= 4) {
+                if (adminCount >= 4) {
                     const quotaError = new Error("Admin quota exceeded.");
                     (quotaError as any).isQuotaError = true; // Use a custom flag for reliable error identification
                     throw quotaError;
