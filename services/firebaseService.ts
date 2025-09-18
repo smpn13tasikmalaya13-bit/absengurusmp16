@@ -117,8 +117,6 @@ export const signUp = async (email: string, password: string, name: string, role
     const authInstance = firebase.auth();
     let userCredential;
 
-    // Tahap 1: Buat pengguna di Firebase Authentication.
-    // Ini penting dilakukan pertama agar kita memiliki UID dan status terotentikasi untuk transaksi Firestore.
     try {
         userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
     } catch (authError: any) {
@@ -128,11 +126,9 @@ export const signUp = async (email: string, password: string, name: string, role
     
     const user = userCredential.user;
     if (!user) {
-        // Seharusnya tidak terjadi, tetapi untuk keamanan
         throw new Error("Gagal memverifikasi pengguna setelah pendaftaran.");
     }
 
-    // Tahap 2: Buat profil pengguna di Firestore, dengan validasi kuota admin di dalam transaksi.
     try {
         const deviceId = getDeviceId();
         const profileData = {
@@ -143,45 +139,41 @@ export const signUp = async (email: string, password: string, name: string, role
         };
 
         if (role === 'ADMIN') {
-            // Gunakan transaksi untuk memastikan pengecekan dan penulisan kuota bersifat atomik.
             await db.runTransaction(async (transaction: any) => {
                 const usersRef = db.collection('users');
                 const adminQuery = usersRef.where('role', '==', 'ADMIN');
                 const adminSnapshot = await transaction.get(adminQuery);
                 
                 if (adminSnapshot.size >= 4) {
-                    // Melemparkan error di dalam transaksi akan membatalkannya secara otomatis.
-                    throw new Error("ADMIN_QUOTA_EXCEEDED");
+                    const quotaError = new Error("Admin quota exceeded.");
+                    (quotaError as any).isQuotaError = true; // Use a custom flag for reliable error identification
+                    throw quotaError;
                 }
-
-                // Kuota belum penuh, lanjutkan membuat profil admin.
                 const newUserDocRef = usersRef.doc(user.uid);
                 transaction.set(newUserDocRef, profileData);
             });
         } else {
-            // Untuk peran selain Admin, langsung buat profil tanpa transaksi kuota.
             await db.collection('users').doc(user.uid).set(profileData);
         }
 
     } catch (error: any) {
         console.error("Firestore operation failed, cleaning up auth user...", error);
         
-        // Jika terjadi error (kuota penuh atau masalah lain), hapus pengguna Auth yang sudah dibuat.
         await user.delete().catch((deleteError: any) => {
-            console.error("KRITIS: Gagal membersihkan pengguna auth setelah pembuatan profil gagal:", deleteError);
-            // Memberi tahu pengguna tentang situasi yang lebih parah.
+            console.error("CRITICAL: Failed to clean up auth user after failed profile creation:", deleteError);
             throw new Error("Pendaftaran gagal dan akun tidak dapat dibersihkan secara otomatis. Harap hubungi admin.");
         });
 
-        // Tampilkan pesan error yang sesuai ke pengguna.
-        if (error.message === "ADMIN_QUOTA_EXCEEDED") {
+        // Handle specific, known errors first with clearer messages.
+        if ((error as any).isQuotaError) {
             throw new Error("Status admin anda di tolak, dan anda tidak berhak menjadi seorang Admin.");
         }
-        if (error.code === 'permission-denied') {
-             throw new Error("Pendaftaran admin gagal karena masalah izin. Hubungi admin untuk memeriksa konfigurasi keamanan.");
+        if (error.code === 'permission-denied' || (error.toString && error.toString().toLowerCase().includes('permission-denied'))) {
+             throw new Error("Pendaftaran admin gagal: Izin ditolak oleh server. Hubungi administrator untuk memeriksa konfigurasi keamanan (security rules) di Firebase.");
         }
         
-        throw new Error(`Gagal menyimpan profil pengguna. Silakan coba lagi.`);
+        // Provide a more informative generic error.
+        throw new Error(`Gagal menyimpan profil pengguna: ${error.message || 'Terjadi kesalahan yang tidak terduga.'}`);
     }
 };
 
