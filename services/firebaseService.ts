@@ -140,25 +140,20 @@ export const signUp = async (email: string, password: string, name: string, role
 
         if (role === 'ADMIN') {
             await db.runTransaction(async (transaction: any) => {
-                const usersRef = db.collection('users');
-                // WORKAROUND: Get the entire collection instead of using a .where() query
-                // inside the transaction, as it seems to cause an internal SDK error.
-                const allUsersSnapshot = await transaction.get(usersRef);
+                const counterRef = db.collection('counters').doc('adminCount');
+                const counterDoc = await transaction.get(counterRef);
 
-                let adminCount = 0;
-                // Manually count the admins on the client side.
-                allUsersSnapshot.forEach((doc: any) => {
-                    if (doc.data().role === 'ADMIN') {
-                        adminCount++;
-                    }
-                });
-                
-                if (adminCount >= 4) {
+                const currentCount = counterDoc.exists && counterDoc.data().count ? counterDoc.data().count : 0;
+
+                if (currentCount >= 4) {
                     const quotaError = new Error("Admin quota exceeded.");
-                    (quotaError as any).isQuotaError = true; // Use a custom flag for reliable error identification
+                    (quotaError as any).isQuotaError = true;
                     throw quotaError;
                 }
-                const newUserDocRef = usersRef.doc(user.uid);
+
+                // Increment count and set the new user document atomically.
+                transaction.set(counterRef, { count: currentCount + 1 });
+                const newUserDocRef = db.collection('users').doc(user.uid);
                 transaction.set(newUserDocRef, profileData);
             });
         } else {
@@ -228,26 +223,47 @@ export const getUsersByRole = async (role: UserRole): Promise<User[]> => {
 };
 
 export const deleteUser = async (id: string): Promise<void> => {
-    // Fungsi ini sekarang hanya menghapus data pengguna Firestore.
-    // Menghapus pengguna dari Firebase Authentication adalah operasi istimewa
-    // dan harus ditangani di lingkungan backend yang aman (misalnya, Cloud Functions)
-    // atau secara manual di Firebase Console untuk mencegah penyalahgunaan.
-    
-    // Hapus jadwal terkait
-    const schedulesSnapshot = await db.collection('schedules').where('teacherId', '==', id).get();
-    const batch = db.batch();
-    schedulesSnapshot.docs.forEach((doc: any) => {
-        batch.delete(doc.ref);
-    });
-    // Hapus juga jadwal eskul
-    const eskulSchedulesSnapshot = await db.collection('eskulSchedules').where('pembinaId', '==', id).get();
-    eskulSchedulesSnapshot.docs.forEach((doc: any) => {
-        batch.delete(doc.ref);
-    });
-    await batch.commit();
+    const userDocRef = db.collection('users').doc(id);
 
-    // Hapus dokumen pengguna dari Firestore
-    await db.collection('users').doc(id).delete();
+    try {
+        // First, get the user's data to check their role.
+        const userDoc = await userDocRef.get();
+        if (!userDoc.exists) {
+            console.warn(`User with ID ${id} not found, skipping deletion.`);
+            return;
+        }
+        const userData = userDoc.data();
+
+        // If the user is an admin, we must decrement the counter in a transaction.
+        if (userData.role === 'ADMIN') {
+            await db.runTransaction(async (transaction: any) => {
+                const counterRef = db.collection('counters').doc('adminCount');
+                const counterDoc = await transaction.get(counterRef);
+                
+                // Only decrement if the counter exists and is positive.
+                if (counterDoc.exists && counterDoc.data().count > 0) {
+                    const newCount = counterDoc.data().count - 1;
+                    transaction.update(counterRef, { count: newCount });
+                }
+            });
+        }
+
+        // Delete related schedules using a batch write for efficiency.
+        const batch = db.batch();
+        const schedulesSnapshot = await db.collection('schedules').where('teacherId', '==', id).get();
+        schedulesSnapshot.docs.forEach((doc: any) => batch.delete(doc.ref));
+        
+        const eskulSchedulesSnapshot = await db.collection('eskulSchedules').where('pembinaId', '==', id).get();
+        eskulSchedulesSnapshot.docs.forEach((doc: any) => batch.delete(doc.ref));
+        await batch.commit();
+
+        // Finally, delete the user document itself.
+        await userDocRef.delete();
+        
+    } catch (error: any) {
+        console.error(`Failed to delete user ${id} and their related data:`, error);
+        alert(`Gagal menghapus pengguna: ${error.message}`);
+    }
 };
 
 export const resetDeviceBinding = async (id: string): Promise<void> => {
