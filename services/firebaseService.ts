@@ -1,4 +1,4 @@
-import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord, AbsenceRecord } from '../types';
+import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord, AbsenceRecord, StudentAbsenceRecord } from '../types';
 import { HARI_TRANSLATION, DAYS_OF_WEEK } from '../constants';
 
 declare var firebase: any;
@@ -663,4 +663,20 @@ export const addOrUpdateAbsenceRecord = async (recordData: Omit<AbsenceRecord, '
 export const getAbsenceRecords = async (): Promise<AbsenceRecord[]> => {
     const snapshot = await db.collection('absenceRecords').get();
     return collectionToData<AbsenceRecord>(snapshot);
+};
+
+// --- Student Absence Functions ---
+export const addStudentAbsenceRecord = async (recordData: Omit<StudentAbsenceRecord, 'id'>): Promise<void> => {
+    await db.collection('studentAbsenceRecords').add(recordData);
+};
+
+export const getStudentAbsenceRecordsForTeacherOnDate = async (teacherId: string, date: string): Promise<StudentAbsenceRecord[]> => {
+    const snapshot = await db.collection('studentAbsenceRecords')
+        .where('teacherId', '==', teacherId)
+        .where('date', '==', date)
+        .get();
+    const records = collectionToData<StudentAbsenceRecord>(snapshot);
+    // Sort client-side to avoid composite index requirement
+    records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return records;
 };

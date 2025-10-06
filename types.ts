@@ -92,3 +92,15 @@ export interface AbsenceRecord {
   reason?: string;
   timestamp: string; // ISO string
 }
+
+export interface StudentAbsenceRecord {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  classId: string;
+  studentName: string;
+  lessonHour: number;
+  reason: string;
+  date: string; // YYYY-MM-DD
+  timestamp: string; // ISO string
+}

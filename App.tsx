@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
-import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord, AbsenceRecord, AbsenceStatus } from './types';
+import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord, AbsenceRecord, AbsenceStatus, StudentAbsenceRecord } from './types';
 import { UserRole as UserRoleEnum, AbsenceStatus as AbsenceStatusEnum } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { CENTRAL_COORDINATES, MAX_RADIUS_METERS, DAYS_OF_WEEK, LESSON_HOURS, HARI_TRANSLATION } from './constants';
@@ -26,6 +26,8 @@ const UserIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w
 const QrScanIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-green-900 bg-opacity-50 text-green-400"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg></div>);
 const ScheduleIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-900 bg-opacity-50 text-blue-400"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>);
 const ReportIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-yellow-900 bg-opacity-50 text-yellow-400"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></div>);
+const UserRemoveIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-orange-900 bg-opacity-50 text-orange-400"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a7 7 0 00-7 7h14a7 7 0 00-7-7zm8-4h-6" /></svg></div>);
+const UsersEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.125-1.274-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.125-1.274.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>);
 const QrCodeEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg>);
 const CalendarEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>);
 const LogoutIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>);
@@ -173,6 +175,108 @@ const AbsenceReportModal: React.FC<{
     );
 };
 
+const StudentAbsenceModal: React.FC<{
+    user: User;
+    onClose: () => void;
+    onSuccess: () => void;
+    classes: Class[];
+    todaySchedules: Schedule[];
+}> = ({ user, onClose, onSuccess, classes, todaySchedules }) => {
+    const [scheduleId, setScheduleId] = useState('');
+    const [studentName, setStudentName] = useState('');
+    const [reason, setReason] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const getClassName = (classId: string) => classes.find(c => c.id === classId)?.name || 'N/A';
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!scheduleId || !studentName.trim() || !reason.trim()) {
+            alert('Harap isi semua kolom.');
+            return;
+        }
+
+        const selectedSchedule = todaySchedules.find(s => s.id === scheduleId);
+        if (!selectedSchedule) {
+            alert('Jadwal yang dipilih tidak valid.');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await api.addStudentAbsenceRecord({
+                teacherId: user.id,
+                teacherName: user.name,
+                classId: selectedSchedule.classId,
+                lessonHour: selectedSchedule.lessonHour,
+                studentName: studentName.trim(),
+                reason: reason.trim(),
+                date: new Date().toISOString().slice(0, 10),
+                timestamp: new Date().toISOString(),
+            });
+            alert('Laporan siswa absen berhasil disimpan.');
+            onSuccess();
+        } catch (error: any) {
+            console.error('Failed to save student absence report:', error);
+            alert(`Gagal menyimpan laporan: ${error.message}`);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Modal isOpen={true} onClose={onClose} title="Lapor Siswa Tidak Hadir">
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="block mb-1 text-gray-300">Jadwal Pelajaran</label>
+                    <select
+                        value={scheduleId}
+                        onChange={(e) => setScheduleId(e.target.value)}
+                        className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white"
+                        required
+                    >
+                        <option value="">Pilih Jadwal</option>
+                        {todaySchedules.map(s => (
+                            <option key={s.id} value={s.id}>
+                                {s.subject} - {getClassName(s.classId)} (Jam ke-{s.lessonHour})
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                <div>
+                    <label className="block mb-1 text-gray-300">Nama Siswa</label>
+                    <input
+                        type="text"
+                        value={studentName}
+                        onChange={(e) => setStudentName(e.target.value)}
+                        className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white"
+                        placeholder="Masukkan nama lengkap siswa"
+                        required
+                    />
+                </div>
+                <div>
+                    <label className="block mb-1 text-gray-300">Keterangan</label>
+                    <textarea
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        rows={3}
+                        className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white"
+                        placeholder="Contoh: Sakit, Izin, Alpa"
+                        required
+                    />
+                </div>
+                <button
+                    type="submit"
+                    className="w-full bg-blue-600 text-white py-2 rounded-lg flex justify-center items-center transition duration-150 disabled:bg-blue-800 hover:bg-blue-700"
+                    disabled={isSaving}
+                >
+                    {isSaving ? 'Menyimpan...' : 'Simpan Laporan'}
+                </button>
+            </form>
+        </Modal>
+    );
+};
+
 const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, onLogout }) => {
     const [isScanning, setIsScanning] = useState(false);
     const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -180,6 +284,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
     const [messages, setMessages] = useState<Message[]>([]);
     const [todaysAbsence, setTodaysAbsence] = useState<AbsenceRecord | null>(null);
+    const [studentAbsences, setStudentAbsences] = useState<StudentAbsenceRecord[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [scanResult, setScanResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -188,6 +293,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
     const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
+    const [isStudentAbsenceModalOpen, setIsStudentAbsenceModalOpen] = useState(false);
 
     const unreadMessagesCount = useMemo(() => messages.filter(m => !m.isRead).length, [messages]);
 
@@ -200,10 +306,11 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
             api.getClasses(),
             api.getSchedules(),
             api.getAttendanceRecordsForTeacher(user.id),
-            api.getAbsenceRecordForTeacherOnDate(user.id, todayString)
+            api.getAbsenceRecordForTeacherOnDate(user.id, todayString),
+            api.getStudentAbsenceRecordsForTeacherOnDate(user.id, todayString)
         ]);
 
-        const [classesResult, schedulesResult, attendanceResult, absenceResult] = results;
+        const [classesResult, schedulesResult, attendanceResult, absenceResult, studentAbsenceResult] = results;
 
         if (classesResult.status === 'fulfilled') setClasses(classesResult.value);
         else console.error("Gagal memuat kelas:", classesResult.reason);
@@ -216,6 +323,9 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
 
         if (absenceResult.status === 'fulfilled') setTodaysAbsence(absenceResult.value);
         else console.error("Gagal memuat laporan absen:", absenceResult.reason);
+        
+        if (studentAbsenceResult.status === 'fulfilled') setStudentAbsences(studentAbsenceResult.value);
+        else console.error("Gagal memuat laporan siswa absen:", studentAbsenceResult.reason);
 
         setLoadingData(false);
     }, [user.id]);
@@ -384,7 +494,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                 )}
                 
                 {/* Action Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                      <button onClick={() => setIsScanning(true)} disabled={!isWithinRadius || !!todaysAbsence} className="bg-gray-800 p-8 rounded-lg shadow-md text-center hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-gray-800 group flex flex-col items-center justify-center gap-4 border border-gray-700">
                         <QrScanIcon />
                         <div>
@@ -406,6 +516,18 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                         <div>
                             <h3 className="text-lg font-bold text-white group-disabled:text-gray-500">{todaysAbsence ? `Status Hari Ini: ${todaysAbsence.status}` : 'Lapor Ketidakhadiran'}</h3>
                             <p className="text-gray-400 text-sm mt-1">{todaysAbsence ? 'Laporan Anda sudah tersimpan' : 'Laporkan jika tidak dapat hadir hari ini'}</p>
+                        </div>
+                    </button>
+                    <button 
+                        onClick={() => setIsStudentAbsenceModalOpen(true)} 
+                        disabled={todaySchedules.length === 0}
+                        className="bg-gray-800 p-8 rounded-lg shadow-md text-center hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-gray-800 group flex flex-col items-center justify-center gap-4 border border-gray-700"
+                    >
+                        <UserRemoveIcon />
+                        <div>
+                            <h3 className="text-lg font-bold text-white group-disabled:text-gray-500">Lapor Siswa Absen</h3>
+                            <p className="text-gray-400 text-sm mt-1">Input siswa yang tidak hadir hari ini</p>
+                            {todaySchedules.length === 0 && <p className="text-xs text-yellow-500 mt-1">Tidak ada jadwal hari ini.</p>}
                         </div>
                     </button>
                 </div>
@@ -439,7 +561,7 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                 </div>
 
                 {/* Data Display Cards */}
-                <div className="grid grid-cols-1 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
                         <h3 className="font-bold text-lg">Riwayat Absensi Terbaru</h3>
                         <p className="text-sm text-gray-400 mb-4">10 absensi terakhir Anda</p>
@@ -483,6 +605,26 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                             )}
                         </div>
                     </div>
+                    <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700 lg:col-span-2">
+                        <h3 className="font-bold text-lg">Laporan Siswa Tidak Hadir Hari Ini</h3>
+                        <p className="text-sm text-gray-400 mb-4">Daftar siswa yang Anda laporkan tidak hadir</p>
+                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                            {studentAbsences.length === 0 ? (
+                                <div className="text-center py-10 text-gray-500">
+                                    <UsersEmptyIcon />
+                                    <p className="font-semibold mt-2 text-gray-300">Belum ada laporan</p>
+                                    <p className="text-sm">Klik tombol 'Lapor Siswa Absen' untuk menambahkan.</p>
+                                </div>
+                            ) : (
+                                studentAbsences.map(rec => (
+                                    <div key={rec.id} className="border-b border-gray-700 last:border-b-0 pb-3 pt-2">
+                                        <p className="font-semibold">{rec.studentName} - Kelas {getClassName(rec.classId)} (Jam ke-{rec.lessonHour})</p>
+                                        <p className="text-sm text-gray-400">Keterangan: {rec.reason}</p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
                 </div>
             </main>
             
@@ -514,6 +656,18 @@ const TeacherDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user
                         setIsAbsenceModalOpen(false);
                         fetchData();
                     }}
+                />
+            )}
+            {isStudentAbsenceModalOpen && (
+                <StudentAbsenceModal
+                    user={user}
+                    onClose={() => setIsStudentAbsenceModalOpen(false)}
+                    onSuccess={() => {
+                        setIsStudentAbsenceModalOpen(false);
+                        fetchData();
+                    }}
+                    classes={classes}
+                    todaySchedules={todaySchedules}
                 />
             )}
             <footer className="text-center text-sm text-gray-500 py-6">
