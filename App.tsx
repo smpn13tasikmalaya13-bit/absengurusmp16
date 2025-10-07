@@ -1971,7 +1971,6 @@ const ScheduleManagement: React.FC = () => {
                 title="Manajemen Jadwal Pelajaran"
                 columns={['Hari', 'Waktu', 'Guru', 'Mata Pelajaran', 'Kelas', 'Jam Ke', 'Aksi']}
                 data={schedules}
-                onAdd={() => handleOpenModal()}
                 renderRow={(s: Schedule) => (
                     <tr key={s.id} className="border-b border-gray-700 hover:bg-gray-700">
                         <td className="p-3">{HARI_TRANSLATION[s.day]}</td>
@@ -2153,7 +2152,6 @@ const AdminEskulScheduleManagement: React.FC = () => {
                 title="Manajemen Jadwal Ekstrakurikuler"
                 columns={['Hari', 'Waktu', 'Pembina', 'Kegiatan', 'Aksi']}
                 data={schedules}
-                onAdd={() => handleOpenModal()}
                 renderRow={(s: EskulSchedule) => (
                     <tr key={s.id} className="border-b border-gray-700 hover:bg-gray-700">
                         <td className="p-3">{HARI_TRANSLATION[s.day]}</td>
