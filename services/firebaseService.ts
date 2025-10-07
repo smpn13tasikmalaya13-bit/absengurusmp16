@@ -685,6 +685,30 @@ export const addStudentAbsenceRecord = async (recordData: Omit<StudentAbsenceRec
     }
 };
 
+export const addMultipleStudentAbsenceRecords = async (records: Omit<StudentAbsenceRecord, 'id'>[]): Promise<{success: boolean, message: string}> => {
+    if (!records || records.length === 0) {
+        return { success: false, message: "Tidak ada data untuk disimpan." };
+    }
+
+    const batch = db.batch();
+    
+    records.forEach(recordData => {
+        const docRef = db.collection('studentAbsenceRecords').doc(); // Auto-generate ID
+        batch.set(docRef, recordData);
+    });
+
+    try {
+        await batch.commit();
+        return { success: true, message: "Laporan berhasil ditambahkan." };
+    } catch (error: any) {
+        console.error("Error adding multiple student absence records:", error);
+        const message = error.code === 'permission-denied'
+            ? "Akses ditolak. Anda tidak memiliki izin untuk menyimpan laporan ini. Periksa aturan keamanan Firestore."
+            : `Gagal menyimpan laporan: ${error.message}`;
+        return { success: false, message };
+    }
+};
+
 export const getStudentAbsenceRecordsForTeacherOnDate = async (teacherId: string, date: string): Promise<StudentAbsenceRecord[]> => {
     const snapshot = await db.collection('studentAbsenceRecords')
         .where('teacherId', '==', teacherId)

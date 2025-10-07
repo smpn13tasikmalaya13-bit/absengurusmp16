@@ -1,6 +1,3 @@
-
-
-
 // FIX: Corrected the import statement to include React hooks and fix syntax errors.
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -30,7 +27,7 @@ const ScheduleIcon = () => (<div className="w-12 h-12 flex items-center justify-
 const ReportIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-yellow-900 bg-opacity-50 text-yellow-400"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></div>);
 const UserRemoveIcon = () => (<div className="w-12 h-12 flex items-center justify-center rounded-full bg-orange-900 bg-opacity-50 text-orange-400"><svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a7 7 0 00-7 7h14a7 7 0 00-7-7zm8-4h-6" /></svg></div>);
 const UsersEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.125-1.274-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.125-1.274.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>);
-const QrCodeEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg>);
+const QrCodeEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h-1m-1 6v-1M4 12H3m17 0h-1m-1-6V4M7 7V4m6 16v-1M7 17H4m16 0h-3m-1-6h-1m-4 0H8m12-1V7M4 7v3m0 4v3m3-13h1m4 0h1m-1 16h1m-4 0h1" /></svg></div>);
 const CalendarEmptyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>);
 const LogoutIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>);
 const MessageIcon = ({ hasUnread }: { hasUnread?: boolean }) => (
@@ -185,37 +182,53 @@ const StudentAbsenceModal: React.FC<{
     todaySchedules: Schedule[];
 }> = ({ user, onClose, onSuccess, classes, todaySchedules }) => {
     const [scheduleId, setScheduleId] = useState('');
-    const [studentName, setStudentName] = useState('');
-    const [reason, setReason] = useState('');
+    const [students, setStudents] = useState([{ id: Date.now(), name: '', reason: '' }]);
     const [isSaving, setIsSaving] = useState(false);
 
     const getClassName = (classId: string) => classes.find(c => c.id === classId)?.name || 'N/A';
 
+    const handleAddStudent = () => {
+        setStudents([...students, { id: Date.now(), name: '', reason: '' }]);
+    };
+
+    const handleStudentChange = (id: number, field: 'name' | 'reason', value: string) => {
+        setStudents(students.map(student => student.id === id ? { ...student, [field]: value } : student));
+    };
+
+    const handleRemoveStudent = (id: number) => {
+        setStudents(students.filter(student => student.id !== id));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!scheduleId || !studentName.trim() || !reason.trim()) {
-            alert('Harap isi semua kolom.');
-            return;
-        }
 
         const selectedSchedule = todaySchedules.find(s => s.id === scheduleId);
         if (!selectedSchedule) {
-            alert('Jadwal yang dipilih tidak valid.');
+            alert('Harap pilih jadwal pelajaran terlebih dahulu.');
+            return;
+        }
+
+        const validStudents = students.filter(s => s.name.trim() !== '' && s.reason.trim() !== '');
+
+        if (validStudents.length === 0) {
+            alert('Harap isi data siswa yang tidak hadir.');
             return;
         }
 
         setIsSaving(true);
         try {
-            const result = await api.addStudentAbsenceRecord({
+            const recordsToSave: Omit<StudentAbsenceRecord, 'id'>[] = validStudents.map(student => ({
                 teacherId: user.id,
                 teacherName: user.name,
                 classId: selectedSchedule.classId,
                 lessonHour: selectedSchedule.lessonHour,
-                studentName: studentName.trim(),
-                reason: reason.trim(),
+                studentName: student.name.trim(),
+                reason: student.reason.trim(),
                 date: new Date().toISOString().slice(0, 10),
                 timestamp: new Date().toISOString(),
-            });
+            }));
+
+            const result = await api.addMultipleStudentAbsenceRecords(recordsToSave);
 
             if (result.success) {
                 alert('Laporan siswa absen berhasil disimpan.');
@@ -250,28 +263,40 @@ const StudentAbsenceModal: React.FC<{
                         ))}
                     </select>
                 </div>
-                <div>
-                    <label className="block mb-1 text-gray-300">Nama Siswa</label>
-                    <input
-                        type="text"
-                        value={studentName}
-                        onChange={(e) => setStudentName(e.target.value)}
-                        className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white"
-                        placeholder="Masukkan nama lengkap siswa"
-                        required
-                    />
+
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                    {students.map((student, index) => (
+                        <div key={student.id} className="p-3 bg-gray-700 rounded-lg border border-gray-600 space-y-2">
+                            <div className="flex justify-between items-center">
+                                <label className="block text-sm font-medium text-gray-300">Siswa #{index + 1}</label>
+                                {students.length > 1 && (
+                                    <button type="button" onClick={() => handleRemoveStudent(student.id)} className="text-red-400 hover:text-red-300 text-xs font-semibold">Hapus</button>
+                                )}
+                            </div>
+                            <input
+                                type="text"
+                                value={student.name}
+                                onChange={(e) => handleStudentChange(student.id, 'name', e.target.value)}
+                                className="w-full p-2 border border-gray-600 rounded bg-gray-800 text-white"
+                                placeholder="Nama Siswa"
+                                required
+                            />
+                            <textarea
+                                value={student.reason}
+                                onChange={(e) => handleStudentChange(student.id, 'reason', e.target.value)}
+                                rows={2}
+                                className="w-full p-2 border border-gray-600 rounded bg-gray-800 text-white"
+                                placeholder="Keterangan (Sakit, Izin, Alpa)"
+                                required
+                            />
+                        </div>
+                    ))}
                 </div>
-                <div>
-                    <label className="block mb-1 text-gray-300">Keterangan</label>
-                    <textarea
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                        rows={3}
-                        className="w-full p-2 border border-gray-600 rounded bg-gray-700 text-white"
-                        placeholder="Contoh: Sakit, Izin, Alpa"
-                        required
-                    />
-                </div>
+                
+                <button type="button" onClick={handleAddStudent} className="w-full border-2 border-dashed border-gray-600 text-gray-400 py-2 rounded-lg hover:bg-gray-700 hover:text-white transition">
+                    + Tambah Siswa
+                </button>
+
                 <button
                     type="submit"
                     className="w-full bg-blue-600 text-white py-2 rounded-lg flex justify-center items-center transition duration-150 disabled:bg-blue-800 hover:bg-blue-700"
