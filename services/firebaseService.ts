@@ -719,3 +719,8 @@ export const getStudentAbsenceRecordsForTeacherOnDate = async (teacherId: string
     records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     return records;
 };
+
+export const getAllStudentAbsenceRecords = async (): Promise<StudentAbsenceRecord[]> => {
+    const snapshot = await db.collection('studentAbsenceRecords').orderBy('timestamp', 'desc').get();
+    return collectionToData<StudentAbsenceRecord>(snapshot);
+};

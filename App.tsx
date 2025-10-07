@@ -1323,6 +1323,7 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
         schedules: 'Jadwal Pelajaran',
         eskulSchedules: 'Jadwal Ekstrakurikuler',
         reports: 'Laporan Absensi',
+        studentAbsences: 'Laporan Siswa Absen',
     };
 
     return (
@@ -1351,7 +1352,8 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                     <a onClick={() => handleSetView('eskul')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Data Ekstrakurikuler</a>
                     <a onClick={() => handleSetView('schedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Pelajaran</a>
                     <a onClick={() => handleSetView('eskulSchedules')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Jadwal Ekstrakurikuler</a>
-                    <a onClick={() => handleSetView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi</a>
+                    <a onClick={() => handleSetView('reports')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Absensi Guru</a>
+                    <a onClick={() => handleSetView('studentAbsences')} className="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 cursor-pointer">Laporan Siswa Absen</a>
                 </nav>
                 <div className="p-4 border-t border-gray-700">
                     <p className="text-white">{user.name}</p>
@@ -1380,6 +1382,7 @@ const AdminDashboard: React.FC<{ user: User; onLogout: () => void }> = ({ user, 
                 {view === 'schedules' && <ScheduleManagement />}
                 {view === 'eskulSchedules' && <AdminEskulScheduleManagement />}
                 {view === 'reports' && <AttendanceReport />}
+                {view === 'studentAbsences' && <StudentAbsenceReport />}
                 <footer className="text-center text-sm text-gray-500 pt-8 pb-2">
                     © 2025 Rullp. All rights reserved.
                 </footer>
@@ -2567,7 +2570,7 @@ const AttendanceReport: React.FC = () => {
 
     return (
         <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
-            <h2 className="text-2xl font-bold mb-4 text-white">Laporan Absensi</h2>
+            <h2 className="text-2xl font-bold mb-4 text-white">Laporan Absensi Guru</h2>
             
             <div className="mb-4 border-b border-gray-700">
                 <nav className="-mb-px flex space-x-8" aria-label="Tabs">
@@ -2711,6 +2714,161 @@ const AttendanceReport: React.FC = () => {
         </div>
     );
 };
+
+const StudentAbsenceReport: React.FC = () => {
+    const [studentAbsences, setStudentAbsences] = useState<StudentAbsenceRecord[]>([]);
+    const [teachers, setTeachers] = useState<User[]>([]);
+    const [classes, setClasses] = useState<Class[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState({ teacherId: '', classId: '', startDate: '', endDate: '' });
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [absences, teacherList, classList] = await Promise.all([
+                api.getAllStudentAbsenceRecords(),
+                api.getUsersByRole(UserRoleEnum.TEACHER),
+                api.getClasses(),
+            ]);
+            setStudentAbsences(absences);
+            setTeachers(teacherList);
+            setClasses(classList);
+        } catch (error) {
+            console.error("Failed to fetch student absence data:", error);
+            alert(`Gagal memuat data laporan siswa: ${error}`);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    const getClassName = useCallback((classId: string) => classes.find(c => c.id === classId)?.name || 'N/A', [classes]);
+
+    const filteredReportData = useMemo(() => {
+        return studentAbsences
+            .filter(rec => {
+                const recDate = new Date(rec.date);
+                const startDate = filter.startDate ? new Date(filter.startDate) : null;
+                const endDate = filter.endDate ? new Date(filter.endDate) : null;
+
+                if (startDate && recDate < startDate) return false;
+                if (endDate && recDate > endDate) return false;
+                if (filter.teacherId && rec.teacherId !== filter.teacherId) return false;
+                if (filter.classId && rec.classId !== filter.classId) return false;
+
+                return true;
+            })
+            .map(rec => ({
+                ...rec,
+                className: getClassName(rec.classId),
+            }));
+    }, [studentAbsences, filter, classes, getClassName]);
+
+    const exportToPDF = () => {
+        const { jsPDF } = window.jspdf;
+        // @ts-ignore
+        const doc = new jsPDF.default();
+        if (!doc.autoTable) {
+            console.error("jsPDF autoTable plugin is not loaded!");
+            return;
+        }
+
+        doc.text("Laporan Siswa Tidak Hadir", 14, 16);
+        const tableData = filteredReportData.map(rec => [
+            new Date(rec.date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+            rec.teacherName,
+            rec.className,
+            rec.studentName,
+            `Jam ke-${rec.lessonHour}`,
+            rec.reason,
+        ]);
+        doc.autoTable({
+            head: [['Hari / Tanggal', 'Guru Pelapor', 'Kelas', 'Nama Siswa', 'Tidak Hadir Jam Ke', 'Keterangan']],
+            body: tableData,
+            startY: 20,
+        });
+        doc.save('laporan_siswa_absen.pdf');
+    };
+
+    const exportToExcel = () => {
+        const worksheetData = filteredReportData.map(rec => ({
+            "Hari / Tanggal": new Date(rec.date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+            "Guru Pelapor": rec.teacherName,
+            "Kelas": rec.className,
+            "Nama Siswa": rec.studentName,
+            "Tidak Hadir Jam Ke": `Jam ke-${rec.lessonHour}`,
+            "Keterangan": rec.reason,
+        }));
+        const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Siswa Absen");
+        XLSX.writeFile(workbook, "Laporan_Siswa_Absen.xlsx");
+    };
+    
+    const isReportReady = filter.startDate && filter.endDate;
+
+    return (
+        <div className="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+            <h2 className="text-2xl font-bold mb-4 text-white">Laporan Siswa Tidak Hadir</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 border border-gray-700 rounded-lg bg-gray-900">
+                <div>
+                    <label className="block text-sm font-medium text-gray-300">Guru Pelapor</label>
+                    <select value={filter.teacherId} onChange={e => setFilter({...filter, teacherId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white">
+                        <option value="">Semua Guru</option>
+                        {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-300">Kelas</label>
+                    <select value={filter.classId} onChange={e => setFilter({...filter, classId: e.target.value})} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white">
+                        <option value="">Semua Kelas</option>
+                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-300">Tanggal Mulai</label>
+                    <input type="date" value={filter.startDate} onChange={e => setFilter({...filter, startDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-300">Tanggal Selesai</label>
+                    <input type="date" value={filter.endDate} onChange={e => setFilter({...filter, endDate: e.target.value})} className="mt-1 block w-full pl-3 pr-2 py-2 text-base border-gray-600 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md bg-gray-700 text-white" />
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mb-4">
+                <button onClick={exportToPDF} disabled={!isReportReady} className="bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-800 disabled:bg-gray-600 disabled:cursor-not-allowed">Ekspor PDF</button>
+                <button onClick={exportToExcel} disabled={!isReportReady} className="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800 disabled:bg-gray-600 disabled:cursor-not-allowed">Ekspor Excel</button>
+            </div>
+            
+            {loading ? <Spinner/> : !isReportReady ? (
+                <div className="text-center py-10 text-gray-400 bg-gray-900 rounded-lg">
+                    <p className="font-semibold">Pilih rentang tanggal untuk menampilkan laporan.</p>
+                </div>
+            ) : (
+                <CrudTable
+                    title=""
+                    columns={['Hari / Tanggal', 'Guru Pelapor', 'Kelas', 'Nama Siswa', 'Jam Ke', 'Keterangan']}
+                    data={filteredReportData}
+                    renderRow={(rec: StudentAbsenceRecord & { className: string }) => (
+                         <tr key={rec.id} className="border-b border-gray-700 hover:bg-gray-700">
+                            <td className="p-3">{new Date(rec.date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</td>
+                            <td className="p-3">{rec.teacherName}</td>
+                            <td className="p-3">{rec.className}</td>
+                            <td className="p-3">{rec.studentName}</td>
+                            <td className="p-3 text-center">{rec.lessonHour}</td>
+                            <td className="p-3">{rec.reason}</td>
+                        </tr>
+                    )}
+                />
+            )}
+        </div>
+    );
+};
+
 
 // --- Main App Component ---
 
