@@ -672,8 +672,17 @@ export const getAbsenceRecords = async (): Promise<AbsenceRecord[]> => {
 };
 
 // --- Student Absence Functions ---
-export const addStudentAbsenceRecord = async (recordData: Omit<StudentAbsenceRecord, 'id'>): Promise<void> => {
-    await db.collection('studentAbsenceRecords').add(recordData);
+export const addStudentAbsenceRecord = async (recordData: Omit<StudentAbsenceRecord, 'id'>): Promise<{success: boolean, message: string}> => {
+    try {
+        await db.collection('studentAbsenceRecords').add(recordData);
+        return { success: true, message: "Laporan berhasil ditambahkan." };
+    } catch (error: any) {
+        console.error("Error adding student absence record:", error);
+        const message = error.code === 'permission-denied'
+            ? "Akses ditolak. Anda tidak memiliki izin untuk menyimpan laporan ini. Periksa aturan keamanan Firestore."
+            : `Gagal menyimpan laporan: ${error.message}`;
+        return { success: false, message };
+    }
 };
 
 export const getStudentAbsenceRecordsForTeacherOnDate = async (teacherId: string, date: string): Promise<StudentAbsenceRecord[]> => {

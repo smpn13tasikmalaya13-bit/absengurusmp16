@@ -1,6 +1,8 @@
 
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+
+// FIX: Corrected the import statement to include React hooks and fix syntax errors.
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
 import type { User, Class, Schedule, AttendanceRecord, UserRole, Message, Eskul, EskulSchedule, EskulAttendanceRecord, AbsenceRecord, AbsenceStatus, StudentAbsenceRecord } from './types';
@@ -204,7 +206,7 @@ const StudentAbsenceModal: React.FC<{
 
         setIsSaving(true);
         try {
-            await api.addStudentAbsenceRecord({
+            const result = await api.addStudentAbsenceRecord({
                 teacherId: user.id,
                 teacherName: user.name,
                 classId: selectedSchedule.classId,
@@ -214,11 +216,16 @@ const StudentAbsenceModal: React.FC<{
                 date: new Date().toISOString().slice(0, 10),
                 timestamp: new Date().toISOString(),
             });
-            alert('Laporan siswa absen berhasil disimpan.');
-            onSuccess();
+
+            if (result.success) {
+                alert('Laporan siswa absen berhasil disimpan.');
+                onSuccess();
+            } else {
+                alert(result.message);
+            }
         } catch (error: any) {
             console.error('Failed to save student absence report:', error);
-            alert(`Gagal menyimpan laporan: ${error.message}`);
+            alert(`Terjadi kesalahan tak terduga: ${error.message}`);
         } finally {
             setIsSaving(false);
         }
