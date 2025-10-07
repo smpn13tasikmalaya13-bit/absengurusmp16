@@ -289,7 +289,11 @@ export const getSchedules = async (): Promise<Schedule[]> => {
     return schedules;
 };
 
-const checkForTimeConflict = async (scheduleData: Omit<Schedule, 'id'>, existingId?: string): Promise<{ conflict: boolean; message: string }> => {
+const checkForTimeConflict = async (
+    scheduleData: Omit<Schedule, 'id'>, 
+    existingId?: string,
+    options?: { skipClassConflictCheck?: boolean }
+): Promise<{ conflict: boolean; message: string }> => {
     // 1. Periksa konflik guru
     const teacherConflictQuery = db.collection('schedules')
         .where('teacherId', '==', scheduleData.teacherId)
@@ -310,37 +314,44 @@ const checkForTimeConflict = async (scheduleData: Omit<Schedule, 'id'>, existing
         }
     }
 
-    // 2. Periksa konflik kelas
-    const classConflictQuery = db.collection('schedules')
-        .where('classId', '==', scheduleData.classId)
-        .where('day', '==', scheduleData.day);
+    // 2. Periksa konflik kelas, but only if not skipped
+    if (!options?.skipClassConflictCheck) {
+        const classConflictQuery = db.collection('schedules')
+            .where('classId', '==', scheduleData.classId)
+            .where('day', '==', scheduleData.day);
 
-    const classSchedulesSnapshot = await classConflictQuery.get();
-    for (const doc of classSchedulesSnapshot.docs) {
-        if (existingId && doc.id === existingId) continue; // Lewati diri sendiri saat memperbarui
+        const classSchedulesSnapshot = await classConflictQuery.get();
+        for (const doc of classSchedulesSnapshot.docs) {
+            if (existingId && doc.id === existingId) continue; // Lewati diri sendiri saat memperbarui
 
-        const existingSchedule = doc.data();
-        if (existingSchedule.startTime && existingSchedule.endTime) {
-            if (scheduleData.startTime < existingSchedule.endTime && scheduleData.endTime > existingSchedule.startTime) {
-                return {
-                    conflict: true,
-                    message: `Jadwal bentrok: Kelas ini sudah memiliki jadwal pelajaran (${existingSchedule.subject}) pada jam ${existingSchedule.startTime}-${existingSchedule.endTime}.`
-                };
+            const existingSchedule = doc.data();
+            if (existingSchedule.startTime && existingSchedule.endTime) {
+                if (scheduleData.startTime < existingSchedule.endTime && scheduleData.endTime > existingSchedule.startTime) {
+                    return {
+                        conflict: true,
+                        message: `Jadwal bentrok: Kelas ini sudah memiliki jadwal pelajaran (${existingSchedule.subject}) pada jam ${existingSchedule.startTime}-${existingSchedule.endTime}.`
+                    };
+                }
             }
         }
     }
 
+
     return { conflict: false, message: '' };
 };
 
-export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
+interface ScheduleWriteOptions {
+    skipClassConflictCheck?: boolean;
+}
+
+export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>, options?: ScheduleWriteOptions): Promise<{success: boolean, message: string}> => {
     try {
         // Validasi waktu dasar
         if (scheduleData.startTime >= scheduleData.endTime) {
             return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
         }
 
-        const timeConflict = await checkForTimeConflict(scheduleData);
+        const timeConflict = await checkForTimeConflict(scheduleData, undefined, options);
         if (timeConflict.conflict) {
             return { success: false, message: timeConflict.message };
         }
@@ -356,14 +367,14 @@ export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>): Promise<{
     }
 };
 
-export const updateSchedule = async (id: string, scheduleData: Omit<Schedule, 'id'>): Promise<{success: boolean, message: string}> => {
+export const updateSchedule = async (id: string, scheduleData: Omit<Schedule, 'id'>, options?: ScheduleWriteOptions): Promise<{success: boolean, message: string}> => {
     try {
         // Validasi waktu dasar
         if (scheduleData.startTime >= scheduleData.endTime) {
             return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
         }
         
-        const timeConflict = await checkForTimeConflict(scheduleData, id);
+        const timeConflict = await checkForTimeConflict(scheduleData, id, options);
         if (timeConflict.conflict) {
             return { success: false, message: timeConflict.message };
         }

@@ -797,9 +797,13 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
               endTime: editingSchedule.endTime,
             };
 
+            // Teachers might not have permission to read all schedules for class conflict check.
+            // We will skip it for them and rely on admins to resolve any potential conflicts.
+            const options = { skipClassConflictCheck: true };
+
             const result = editingSchedule.id
-                ? await api.updateSchedule(editingSchedule.id, scheduleData)
-                : await api.addSchedule(scheduleData);
+                ? await api.updateSchedule(editingSchedule.id, scheduleData, options)
+                : await api.addSchedule(scheduleData, options);
             
             if(result.success) {
                 await onScheduleUpdate();
