@@ -263,6 +263,9 @@ export const deleteClass = async (id: string): Promise<void> => {
 };
 
 // --- Schedule Functions ---
+interface ScheduleWriteOptions {
+    skipClassConflictCheck?: boolean;
+}
 
 export const getSchedules = async (): Promise<Schedule[]> => {
     // Query dengan beberapa klausa orderBy memerlukan indeks komposit,
@@ -292,7 +295,7 @@ export const getSchedules = async (): Promise<Schedule[]> => {
 const checkForTimeConflict = async (
     scheduleData: Omit<Schedule, 'id'>, 
     existingId?: string,
-    options?: { skipClassConflictCheck?: boolean }
+    options?: ScheduleWriteOptions
 ): Promise<{ conflict: boolean; message: string }> => {
     // 1. Periksa konflik guru
     const teacherConflictQuery = db.collection('schedules')
@@ -314,7 +317,7 @@ const checkForTimeConflict = async (
         }
     }
 
-    // 2. Periksa konflik kelas, but only if not skipped
+    // 2. Periksa konflik kelas, tapi hanya jika tidak dilewati
     if (!options?.skipClassConflictCheck) {
         const classConflictQuery = db.collection('schedules')
             .where('classId', '==', scheduleData.classId)
@@ -329,24 +332,18 @@ const checkForTimeConflict = async (
                 if (scheduleData.startTime < existingSchedule.endTime && scheduleData.endTime > existingSchedule.startTime) {
                     return {
                         conflict: true,
-                        message: `Jadwal bentrok: Kelas ini sudah memiliki jadwal pelajaran (${existingSchedule.subject}) pada jam ${existingSchedule.startTime}-${existingSchedule.endTime}.`
+                        message: `Jadwal bentrok: Kelas ini sudah memiliki jadwal pelajaran (${existingSchedule.subject}) dari guru lain pada jam ${existingSchedule.startTime}-${existingSchedule.endTime}.`
                     };
                 }
             }
         }
     }
 
-
     return { conflict: false, message: '' };
 };
 
-interface ScheduleWriteOptions {
-    skipClassConflictCheck?: boolean;
-}
-
 export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>, options?: ScheduleWriteOptions): Promise<{success: boolean, message: string}> => {
     try {
-        // Validasi waktu dasar
         if (scheduleData.startTime >= scheduleData.endTime) {
             return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
         }
@@ -369,7 +366,6 @@ export const addSchedule = async (scheduleData: Omit<Schedule, 'id'>, options?: 
 
 export const updateSchedule = async (id: string, scheduleData: Omit<Schedule, 'id'>, options?: ScheduleWriteOptions): Promise<{success: boolean, message: string}> => {
     try {
-        // Validasi waktu dasar
         if (scheduleData.startTime >= scheduleData.endTime) {
             return { success: false, message: "Waktu selesai harus setelah waktu mulai." };
         }
@@ -389,7 +385,6 @@ export const updateSchedule = async (id: string, scheduleData: Omit<Schedule, 'i
         return { success: false, message };
     }
 };
-
 
 export const deleteSchedule = async (id: string): Promise<void> => {
     await db.collection('schedules').doc(id).delete();

@@ -797,8 +797,8 @@ const TeacherScheduleManager: React.FC<{user: User, schedules: Schedule[], onSch
               endTime: editingSchedule.endTime,
             };
 
-            // Teachers might not have permission to read all schedules for class conflict check.
-            // We will skip it for them and rely on admins to resolve any potential conflicts.
+            // Untuk guru, kita lewati pengecekan konflik kelas untuk efisiensi dan
+            // untuk menghindari potensi error izin jika aturan diperketat.
             const options = { skipClassConflictCheck: true };
 
             const result = editingSchedule.id
